@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Договор оказания услуг — Gold</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=PT+Serif:ital,wght@0,400;0,700;1,400&family=PT+Sans:wght@400;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'PT Serif',serif;font-size:12pt;line-height:1.6;color:#1a1a1a;background:#fff;max-width:210mm;margin:0 auto;padding:20mm 25mm}
+h1{font-family:'PT Sans',sans-serif;font-size:15pt;font-weight:700;text-align:center;margin-bottom:6pt;text-transform:uppercase;letter-spacing:.05em}
+h2{font-family:'PT Sans',sans-serif;font-size:12pt;font-weight:700;margin:16pt 0 6pt;text-transform:uppercase;letter-spacing:.03em}
+h3{font-family:'PT Sans',sans-serif;font-size:11pt;font-weight:700;margin:10pt 0 4pt}
+.subtitle{text-align:center;font-size:10pt;color:#555;margin-bottom:16pt}
+.parties-block{background:#f8f8f8;border:1px solid #ddd;border-radius:4pt;padding:12pt;margin:16pt 0}
+.parties-block p{margin-bottom:6pt;font-size:11pt}
+p{margin-bottom:8pt;text-align:justify}
+.clause{margin-bottom:6pt;padding-left:20pt;text-indent:-20pt}
+.clause-num{font-weight:700;font-size:10pt}
+table{width:100%;border-collapse:collapse;margin:8pt 0;font-size:10.5pt}
+th{background:#7c3aed;color:#fff;padding:6pt 8pt;text-align:left;font-family:'PT Sans',sans-serif;font-size:10pt}
+td{padding:6pt 8pt;border:1px solid #ccc;vertical-align:top}
+tr:nth-child(even) td{background:#f9f9f9}
+.highlight{background:#f5f3ff;border-left:3pt solid #7c3aed;padding:8pt;margin:8pt 0;font-size:11pt}
+.warning{background:#fff0f0;border-left:3pt solid #ef4444;padding:8pt;margin:8pt 0;font-size:11pt}
+.sla-box{background:#fefce8;border:1px solid #fbbf24;border-radius:4pt;padding:10pt;margin:10pt 0}
+.sign-block{display:grid;grid-template-columns:1fr 1fr;gap:30pt;margin-top:24pt;page-break-inside:avoid}
+.sign-col h3{font-size:11pt;margin-bottom:12pt}
+.sign-line{border-bottom:1px solid #333;margin:20pt 0 4pt;height:20pt}
+.sign-label{font-size:9pt;color:#666}
+.annex{page-break-before:always}
+@media print{body{padding:10mm 15mm}@page{margin:15mm}}
+</style>
+</head>
+<body>
+
+<h1>Договор оказания услуг<br>Тариф «Gold — Контроль, безопасность, SLA и стратегия»</h1>
+<div class="subtitle">г. _____________ &nbsp;&nbsp;&nbsp;&nbsp; «___» ____________ 202__ г.</div>
+
+<div class="parties-block">
+<p><strong>Исполнитель:</strong> Индивидуальный предприниматель ________________________________,
+ИНН ________________________, ОГРНИП _________________________, именуемый в дальнейшем «<strong>Исполнитель</strong>»,</p>
+<p><strong>Заказчик:</strong> ________________________________, ИНН ________________________, ОГРН _________________________,
+в лице ________________________________, действующего на основании ________________________________,
+именуемый в дальнейшем «<strong>Заказчик</strong>»,</p>
+<p>совместно именуемые «<strong>Стороны</strong>», заключили настоящий Договор о нижеследующем:</p>
+</div>
+
+<h2>1. Предмет договора</h2>
+
+<p class="clause"><span class="clause-num">1.1.</span> Исполнитель обязуется оказывать Заказчику услуги по управлению IT-инфраструктурой в рамках тарифного плана «Gold — Контроль, безопасность, SLA и стратегия», включающего полный набор услуг мониторинга, автоматизации, информационной безопасности и стратегического IT-консультирования.</p>
+
+<p class="clause"><span class="clause-num">1.2.</span> Перечень, объём, параметры Услуг и условия SLA определены в Приложении № 1. Периметр обслуживания — в Приложении № 2. Положение об обработке персональных данных — в Приложении № 3.</p>
+
+<p class="clause"><span class="clause-num">1.3.</span> Настоящий Договор не является договором об аутстаффинге, договором предоставления персонала, трудовым договором или договором об обеспечении непрерывности бизнеса Заказчика. Исполнитель является независимым подрядчиком.</p>
+
+<p class="clause"><span class="clause-num">1.4.</span> Исполнитель не является оператором персональных данных Заказчика в понимании Федерального закона № 152-ФЗ применительно к данным клиентов Заказчика. Исполнитель обрабатывает исключительно технические данные инфраструктуры.</p>
+
+<div class="sla-box">
+<strong>⚡ Ключевое обязательство Gold-тарифа:</strong> Реакция на критические инциденты P1 — в течение <strong>1 (одного) часа</strong> с момента автоматического детектирования, в любое время суток, включая выходные и праздничные дни.
+</div>
+
+<h2>2. Права и обязанности сторон</h2>
+
+<h3>2.1. Исполнитель обязуется:</h3>
+<p class="clause"><span class="clause-num">2.1.1.</span> Оказывать все услуги, предусмотренные тарифами Bronze и Silver, с применимыми улучшенными параметрами SLA.</p>
+<p class="clause"><span class="clause-num">2.1.2.</span> Развернуть и поддерживать систему обнаружения угроз (Wazuh SIEM) для мониторинга событий безопасности в периметре Заказчика.</p>
+<p class="clause"><span class="clause-num">2.1.3.</span> Проводить периодическое сканирование уязвимостей (CVE) и предоставлять отчёты с рекомендациями по их устранению.</p>
+<p class="clause"><span class="clause-num">2.1.4.</span> Настраивать и поддерживать централизованную защиту endpoints с использованием Kaspersky Security Center / Kaspersky Security for Windows Server в пределах согласованного периметра (при наличии лицензий Заказчика или их включении в стоимость по отдельному соглашению).</p>
+<p class="clause"><span class="clause-num">2.1.5.</span> Реагировать на критические инциденты приоритета P1 в течение <strong>1 (одного) часа</strong> круглосуточно, включая выходные и праздничные дни.</p>
+<p class="clause"><span class="clause-num">2.1.6.</span> Уведомлять Заказчика о факте обнаружения P1-инцидента в течение 15 (пятнадцати) минут с момента детектирования и предоставлять обновления статуса не реже одного раза в 30 минут до разрешения.</p>
+<p class="clause"><span class="clause-num">2.1.7.</span> Подготавливать пост-мортем-отчёт по каждому P1-инциденту в течение 3 (трёх) рабочих дней с момента разрешения.</p>
+<p class="clause"><span class="clause-num">2.1.8.</span> Проводить ежемесячную стратегическую IT-сессию (до 1 часа) с ответственным представителем Заказчика для обзора состояния инфраструктуры, рисков и планирования.</p>
+<p class="clause"><span class="clause-num">2.1.9.</span> Обеспечивать функционирование тикет-системы для управления заявками Заказчика и предоставлять ежемесячный SLA-отчёт с метриками времени реакции и разрешения.</p>
+<p class="clause"><span class="clause-num">2.1.10.</span> Обеспечивать лимит ручного участия до <strong>4–5 часов в месяц</strong>.</p>
+
+<h3>2.2. Обязательства в области информационной безопасности:</h3>
+<p class="clause"><span class="clause-num">2.2.1.</span> Исполнитель не несёт ответственности за выявление и устранение угроз, которые появились до момента подключения SIEM или возникли вне периметра мониторинга.</p>
+<p class="clause"><span class="clause-num">2.2.2.</span> Обнаружение угрозы системой Wazuh является основанием для уведомления Заказчика, но не гарантией предотвращения всех инцидентов безопасности.</p>
+<p class="clause"><span class="clause-num">2.2.3.</span> При обнаружении признаков активной кибератаки или компрометации данных Исполнитель обязан немедленно уведомить Заказчика и предложить план реагирования.</p>
+
+<h3>2.3. Заказчик обязуется:</h3>
+<p class="clause"><span class="clause-num">2.3.1.</span> Предоставить все необходимые доступы для развёртывания агентов Wazuh, KSC и иных компонентов Gold-уровня в течение 3 (трёх) рабочих дней с момента подписания Договора.</p>
+<p class="clause"><span class="clause-num">2.3.2.</span> Обеспечить наличие действующих лицензий Kaspersky Security (либо оплатить их по отдельному счёту). В случае истечения лицензии Kaspersky уведомить Исполнителя не менее чем за 30 дней.</p>
+<p class="clause"><span class="clause-num">2.3.3.</span> Назначить ответственного IT-представителя для участия в ежемесячных стратегических сессиях.</p>
+<p class="clause"><span class="clause-num">2.3.4.</span> Принять меры по устранению критических уязвимостей (CVSS ≥ 9.0) в течение 7 (семи) рабочих дней с момента получения рекомендаций Исполнителя.</p>
+<p class="clause"><span class="clause-num">2.3.5.</span> Все иные обязательства аналогичны тарифу Silver.</p>
+
+<h2>3. Ограничения и исключения</h2>
+
+<p class="clause"><span class="clause-num">3.1.</span> Wazuh SIEM является инструментом обнаружения, а не предотвращения. Наличие SIEM не гарантирует защиту от всех видов киберугроз и не заменяет комплексный аудит безопасности.</p>
+
+<p class="clause"><span class="clause-num">3.2.</span> Gold <strong>не является</strong> полноценным SOC (Security Operations Center) и не включает:</p>
+<p class="clause">а) круглосуточное дежурство аналитиков безопасности;</p>
+<p class="clause">б) активное противодействие атакам в реальном времени (только уведомление);</p>
+<p class="clause">в) пентесты и аудиты безопасности (выполняются отдельно);</p>
+<p class="clause">г) расследование инцидентов в формате Forensics;</p>
+<p class="clause">д) разработку кастомных правил обнаружения Wazuh в объёме более 5 правил в месяц.</p>
+
+<table>
+<tr><th>Категория исключений Gold</th><th>Описание</th></tr>
+<tr><td>Полный аутсорсинг IT-отдела</td><td>Лимит 4–5 ч/мес — мы не замена штатным специалистам</td></tr>
+<tr><td>Пентест / Red Team</td><td>Отдельный проект по отдельному договору</td></tr>
+<tr><td>Сертификация по ИБ</td><td>ISO 27001, PCI DSS, ГОСТ Р — не входит</td></tr>
+<tr><td>Юридическое сопровождение ИБ</td><td>Мы не юристы и не несём ответственности за compliance</td></tr>
+<tr><td>Крупные проекты внутри абонплаты</td><td>Миграции, redesign, внедрение новых систем — отдельно</td></tr>
+</table>
+
+<h2>4. Стоимость и порядок оплаты</h2>
+
+<table>
+<tr><th>Вид платежа</th><th>Сумма</th><th>Условия</th></tr>
+<tr><td>Разовый платёж за запуск</td><td>от 40 000 ₽ до 70 000 ₽</td><td>До начала работ по запуску</td></tr>
+<tr><td>Ежемесячная абонентская плата</td><td>от 70 000 ₽ до 100 000 ₽</td><td>До 5-го числа текущего месяца</td></tr>
+<tr><td>Лицензии Kaspersky (опционально)</td><td>По прайс-листу Kaspersky</td><td>Ежегодно или включено в плату</td></tr>
+</table>
+
+<p class="clause"><span class="clause-num">4.1.</span> Конкретные суммы определяются в Приложении № 1 с учётом количества защищаемых узлов, объёма логов, числа endpoint-устройств под Kaspersky и иных параметров.</p>
+
+<p class="clause"><span class="clause-num">4.2.</span> При нарушении SLA P1 (реакция свыше 1 часа) ежемесячная плата уменьшается на 3% за каждый час сверх установленного срока, но не более 15% от суммы платежа за месяц.</p>
+
+<p class="clause"><span class="clause-num">4.3.</span> Все иные условия оплаты соответствуют тарифу Bronze (разделы 4.3–4.6).</p>
+
+<h2>5. Конфиденциальность и защита данных (расширенные требования Gold)</h2>
+
+<p class="clause"><span class="clause-num">5.1.</span> Учитывая доступ Исполнителя к системам безопасности, журналам событий и потенциально чувствительным данным Заказчика, Стороны устанавливают повышенный уровень конфиденциальности.</p>
+
+<p class="clause"><span class="clause-num">5.2.</span> Исполнитель обязуется: хранить все журналы (логи), полученные в ходе мониторинга безопасности, исключительно в инфраструктуре, доступной только авторизованным лицам; не анализировать содержимое данных Заказчика сверх необходимого для обнаружения угроз; уничтожить все данные Заказчика в течение 30 дней после расторжения Договора.</p>
+
+<p class="clause"><span class="clause-num">5.3.</span> Заказчик признаёт, что система SIEM для выполнения своих функций собирает и анализирует системные журналы, сетевой трафик (метаданные) и события безопасности. Заказчик даёт явное согласие на такую обработку.</p>
+
+<h2>6. Ответственность сторон (Gold)</h2>
+
+<p class="clause"><span class="clause-num">6.1.</span> Ответственность за нарушение SLA P1: снижение платы на 3% за каждый час сверх установленных 60 минут, не более 15% платежа за месяц.</p>
+
+<p class="clause"><span class="clause-num">6.2.</span> Исполнитель не несёт ответственности за ущерб от кибератак, если: SIEM-агенты не были установлены на всех серверах периметра по причине отказа Заказчика; Заказчик не принял меры по устранению критических уязвимостей в установленные сроки; атака использовала zero-day уязвимость, недоступную для детектирования на момент атаки.</p>
+
+<p class="clause"><span class="clause-num">6.3.</span> Совокупная ответственность Исполнителя по настоящему Договору ограничена суммой ежемесячной абонентской платы за 3 (три) месяца, предшествующих инциденту. Данное ограничение не применяется в случае умышленных действий Исполнителя.</p>
+
+<h2>7–9. Срок действия, форс-мажор, споры</h2>
+
+<p class="clause"><span class="clause-num">7.1.</span> Договор заключается сроком на 12 месяцев с автоматической пролонгацией. Уведомление о расторжении — не менее чем за 30 дней.</p>
+
+<p class="clause"><span class="clause-num">7.2.</span> При расторжении Исполнитель обязан передать: все конфигурации из Git, правила SIEM, playbooks, отчёты, контакты и инструкции по переходу на самостоятельное обслуживание.</p>
+
+<p class="clause"><span class="clause-num">7.3.</span> Форс-мажор и порядок разрешения споров — согласно соответствующим разделам договора Bronze.</p>
+
+<h2>10. Реквизиты сторон</h2>
+<div class="sign-block">
+<div class="sign-col"><h3>Исполнитель</h3><p><strong>ИП ________________________</strong><br>ИНН: ________________________<br>ОГРНИП: ________________________<br>Адрес: ________________________<br>Р/с: ________________________<br>Банк: ________________________<br>БИК: ________________________<br>К/с: ________________________<br>Telegram: @________________________<br>Email: ________________________</p><div class="sign-line"></div><div class="sign-label">Подпись / Дата</div></div>
+<div class="sign-col"><h3>Заказчик</h3><p><strong>________________________</strong><br>ИНН: ________________________<br>КПП: ________________________<br>ОГРН: ________________________<br>Адрес: ________________________<br>Р/с: ________________________<br>Банк: ________________________<br>БИК: ________________________<br>К/с: ________________________<br>Email: ________________________</p><div class="sign-line"></div><div class="sign-label">Подпись / ФИО / Дата</div></div>
+</div>
+
+<!-- ПРИЛОЖЕНИЕ 1 -->
+<div class="annex">
+<h1>Приложение № 1 — Спецификация услуг и SLA — Тариф Gold</h1>
+
+<h2>1. Полный состав услуг</h2>
+<table>
+<tr><th>Уровень</th><th>Услуга</th><th>Инструмент</th><th>Режим</th></tr>
+<tr><td rowspan="4" style="font-weight:700;background:#f3f0ff">Bronze</td><td>Мониторинг серверов</td><td>Prometheus+Grafana+Alertmanager</td><td>24/7</td></tr>
+<tr><td>Резервное копирование</td><td>restic/BorgBackup + Yandex S3</td><td>Ежедневно</td></tr>
+<tr><td>VPN/Bastion</td><td>WireGuard</td><td>Постоянно</td></tr>
+<tr><td>Отчёты (weekly)</td><td>—</td><td>Еженедельно</td></tr>
+<tr><td rowspan="4" style="font-weight:700;background:#ede9fe">Silver</td><td>Автоматизация</td><td>Ansible + Puppet</td><td>По запросу</td></tr>
+<tr><td>Централизованные логи</td><td>Grafana Loki</td><td>24/7</td></tr>
+<tr><td>Поддержка AD/DNS/GPO</td><td>—</td><td>В рамках лимита</td></tr>
+<tr><td>Отчёт monthly + IaC</td><td>Git</td><td>Ежемесячно</td></tr>
+<tr><td rowspan="6" style="font-weight:700;background:#ddd6fe">Gold</td><td>SIEM / Детектирование угроз</td><td>Wazuh</td><td>24/7</td></tr>
+<tr><td>Сканирование уязвимостей</td><td>Wazuh Vulnerability Detection</td><td>Еженедельно</td></tr>
+<tr><td>Защита endpoints</td><td>Kaspersky Security Center</td><td>Постоянно</td></tr>
+<tr><td>Тикет-система</td><td>osTicket/аналог</td><td>24/7</td></tr>
+<tr><td>SLA-отчёты</td><td>—</td><td>Ежемесячно</td></tr>
+<tr><td>Стратегическая IT-сессия</td><td>Zoom/Meet</td><td>1 раз/мес</td></tr>
+</table>
+
+<h2>2. Параметры SLA Gold</h2>
+<div class="sla-box">
+<table>
+<tr><th>Приоритет</th><th>Время реакции</th><th>Уведомление Заказчика</th><th>Целевое разрешение</th></tr>
+<tr><td><strong>P1 — Critical</strong></td><td><strong>До 1 часа (24/7)</strong></td><td>В течение 15 мин</td><td>До 4 часов</td></tr>
+<tr><td>P2 — High</td><td>До 3 часов</td><td>В течение 30 мин</td><td>До 1 рабочего дня</td></tr>
+<tr><td>P3 — Medium</td><td>До 6 часов</td><td>—</td><td>До 3 рабочих дней</td></tr>
+</table>
+</div>
+<table>
+<tr><th>Параметр</th><th>Значение</th></tr>
+<tr><td>Рабочее окно (P2/P3)</td><td>Будни 19:00–23:00 МСК, Выходные 10:00–20:00 МСК</td></tr>
+<tr><td>P1 — реакция вне окна</td><td>ДА, 24/7/365</td></tr>
+<tr><td>Пост-мортем после P1</td><td>В течение 3 рабочих дней</td></tr>
+<tr><td>Хранение бэкапов</td><td>30 дней + 12 месяцев (ежемесячные)</td></tr>
+<tr><td>Хранение логов (Loki)</td><td>30 дней</td></tr>
+<tr><td>Хранение логов SIEM (Wazuh)</td><td>90 дней</td></tr>
+<tr><td>Лимит ручного участия</td><td>4–5 часов в месяц</td></tr>
+<tr><td>Стратегическая сессия</td><td>1 раз в месяц, до 1 часа</td></tr>
+</table>
+
+<h2>3. Стоимость</h2>
+<table>
+<tr><th>Платёж</th><th>Сумма</th><th>Срок</th></tr>
+<tr><td>Разовый запуск</td><td>____________ ₽</td><td>До начала работ</td></tr>
+<tr><td>Абонентская плата</td><td>____________ ₽/мес</td><td>До 5-го числа</td></tr>
+<tr><td>Лицензии Kaspersky (если отдельно)</td><td>____________ ₽/год</td><td>По счёту</td></tr>
+</table>
+
+<h2>4. Прайс дополнительных работ</h2>
+<table>
+<tr><th>Услуга</th><th>Разовая цена</th><th>Ежемесячно</th></tr>
+<tr><td>Дополнительный сервер/VM</td><td>1 000 ₽</td><td>1 500 ₽</td></tr>
+<tr><td>Дополнительный endpoint под KSC</td><td>500 ₽</td><td>300 ₽</td></tr>
+<tr><td>Дополнительный backup job</td><td>1 000 ₽</td><td>1 000 ₽</td></tr>
+<tr><td>Дополнительные 100 ГБ хранилища</td><td>—</td><td>700 ₽</td></tr>
+<tr><td>Restore (стандартный)</td><td>2 500 ₽</td><td>—</td></tr>
+<tr><td>Срочный restore</td><td>4 000 ₽</td><td>—</td></tr>
+<tr><td>Кастомные правила Wazuh (пакет 10 шт.)</td><td>5 000 ₽</td><td>—</td></tr>
+<tr><td>Дополнительный Bastion/VPN endpoint</td><td>3 000 ₽</td><td>1 000 ₽</td></tr>
+<tr><td>Дополнительная стратегическая сессия</td><td>3 000 ₽</td><td>—</td></tr>
+</table>
+
+<div class="sign-block" style="margin-top:20pt">
+<div class="sign-col"><div class="sign-line"></div><div class="sign-label">Исполнитель / Подпись / Дата</div></div>
+<div class="sign-col"><div class="sign-line"></div><div class="sign-label">Заказчик / Подпись / Дата</div></div>
+</div>
+</div>
+
+</body>
+</html>

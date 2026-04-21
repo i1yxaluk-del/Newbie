@@ -1,0 +1,191 @@
+---
+# ═══════════════════════════════════════════════════════════════════
+# silver_alerts.yml — Дополнительные правила для Silver
+# Файл: /opt/monitoring/prometheus/rules/silver_alerts.yml
+#
+# Добавляет к bronze_alerts.yml:
+#   - Статус Promtail
+#   - Статус Puppet Agent
+#   - Мониторинг Loki
+#   - Контроль конфигурационного drift
+# ═══════════════════════════════════════════════════════════════════
+
+groups:
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # PROMTAIL — СБОР ЛОГОВ
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - name: silver_promtail
+    rules:
+
+      - alert: PromtailDown
+        expr: |
+          up{job=~"client-.*", instance=~".*:9080"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          category: logging
+          tier: silver
+        annotations:
+          summary: "⚠️ {{ $labels.client_name }} | Promtail недоступен: {{ $labels.instance }}"
+          description: |
+            Сбор логов прерван. Loki не получает данные от {{ $labels.instance }}.
+            Диагностика:
+              systemctl status promtail
+              journalctl -u promtail -n 50
+              curl http://localhost:9080/ready
+
+      - alert: PromtailHighErrors
+        expr: |
+          rate(promtail_request_duration_seconds_count{status_code!~"2.."}[5m]) > 1
+        for: 10m
+        labels:
+          severity: warning
+          category: logging
+          tier: silver
+        annotations:
+          summary: "⚠️ Promtail ошибки отправки в Loki: {{ $value | printf \"%.1f\" }}/с"
+          description: |
+            Promtail не может отправить логи в Loki.
+            Проверить VPN: ping 10.9.0.1
+            Проверить Loki: curl http://10.9.0.1:3100/ready
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # LOKI — ХРАНИЛИЩЕ ЛОГОВ (ИНФРАСТРУКТУРА ИСПОЛНИТЕЛЯ)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - name: silver_loki
+    rules:
+
+      - alert: LokiDown
+        expr: |
+          up{job="loki"} == 0
+        for: 3m
+        labels:
+          severity: critical
+          category: logging
+          tier: silver
+        annotations:
+          summary: "🔴 Loki НЕДОСТУПЕН — сбор логов всех Silver-клиентов остановлен!"
+          description: |
+            docker compose logs msp-loki --tail 50
+            docker compose restart msp-loki
+            curl http://localhost:3100/ready
+
+      - alert: LokiHighIngestionRate
+        expr: |
+          sum(rate(loki_ingester_streams_created_total[5m])) > 1000
+        for: 15m
+        labels:
+          severity: warning
+          category: logging
+          tier: silver
+        annotations:
+          summary: "⚠️ Loki: аномально высокий поток потоков: {{ $value | printf \"%.0f\" }}/с"
+          description: |
+            Один из клиентов генерирует слишком много потоков логов.
+            Проверить в Grafana: sum by(client) (rate({client=~'.+'}[5m]))
+
+      - alert: LokiDiskUsageHigh
+        expr: |
+          (1 - node_filesystem_avail_bytes{instance=~".*monitoring.*", mountpoint="/"}
+               / node_filesystem_size_bytes{instance=~".*monitoring.*", mountpoint="/"}) * 100 > 75
+        for: 30m
+        labels:
+          severity: warning
+          category: logging
+          tier: silver
+        annotations:
+          summary: "⚠️ Loki/Monitoring VM диск заполнен на {{ $value | printf \"%.1f\" }}%"
+          description: |
+            Loki занимает место. Проверить объём хранилища:
+            du -sh /opt/monitoring/loki/
+            Уменьшить retention в loki-config.yml: retention_period
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # PUPPET AGENT
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - name: silver_puppet
+    rules:
+
+      - alert: PuppetLastRunTooOld
+        expr: |
+          time() - puppet_agent_last_run_seconds > 7200
+        for: 30m
+        labels:
+          severity: warning
+          category: config
+          tier: silver
+        annotations:
+          summary: "⚠️ {{ $labels.client_name }} | Puppet Agent не запускался {{ $value | humanizeDuration }} на {{ $labels.instance }}"
+          description: |
+            Puppet Agent не выполнял run более 2 часов.
+            Возможно: агент остановлен, проблемы с сертификатом, недоступен Puppet Server.
+            Диагностика: puppet agent --test --verbose 2>&1 | tail -30
+
+      - alert: PuppetAgentFailing
+        expr: |
+          puppet_agent_resources_failed > 0
+        for: 30m
+        labels:
+          severity: warning
+          category: config
+          tier: silver
+        annotations:
+          summary: "⚠️ {{ $labels.client_name }} | Puppet: {{ $value }} ресурсов с ошибками на {{ $labels.instance }}"
+          description: |
+            Puppet не может применить часть конфигурации.
+            puppet agent --test --verbose 2>&1 | grep -A3 "err:"
+
+      - alert: PuppetServerDown
+        expr: |
+          up{job="puppet-server"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          category: config
+          tier: silver
+        annotations:
+          summary: "🔴 Puppet Server НЕДОСТУПЕН — конфигурации не применяются!"
+          description: |
+            На Automation VM:
+            systemctl status puppetserver
+            journalctl -u puppetserver -n 50
+            curl -sk https://localhost:8140/status/v1/simple
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # БАЗЫ ДАННЫХ (Silver расширяет Bronze)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - name: silver_databases
+    rules:
+
+      - alert: PostgreSQLReplicationLag
+        expr: |
+          pg_replication_lag > 30
+        for: 5m
+        labels:
+          severity: critical
+          category: database
+          tier: silver
+        annotations:
+          summary: "🔴 {{ $labels.client_name }} | Репликация PostgreSQL отстаёт: {{ $value | printf \"%.0f\" }}с"
+          description: |
+            Реплика отстаёт от мастера более чем на 30 секунд.
+            При падении мастера возможна потеря данных за этот период.
+            Диагностика: SELECT * FROM pg_stat_replication;
+
+      - alert: PostgreSQLLongRunningQuery
+        expr: |
+          max by(instance, client, client_name, datname) (
+            pg_stat_activity_max_tx_duration{datname!~"template.*|postgres"}
+          ) > 300
+        for: 5m
+        labels:
+          severity: warning
+          category: database
+          tier: silver
+        annotations:
+          summary: "⚠️ {{ $labels.client_name }} | Долгий запрос в PostgreSQL {{ $labels.datname }}: {{ $value | printf \"%.0f\" }}с"
+          description: |
+            Запрос выполняется более 5 минут.
+            Найти: SELECT pid, now()-query_start AS dur, query FROM pg_stat_activity WHERE state='active' ORDER BY dur DESC LIMIT 5;
+            Убить: SELECT pg_terminate_backend(PID);

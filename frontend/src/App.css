@@ -1,0 +1,5 @@
+/* App-level styles (kept minimal; main design lives in index.css) */
+.App {
+    min-height: 100vh;
+    background: var(--cream);
+}

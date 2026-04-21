@@ -1,0 +1,215 @@
+---
+# ═══════════════════════════════════════════════════════════════════
+# gold_alerts.yml — Правила алертов для Gold-тарифа
+# Файл: /opt/monitoring/prometheus/rules/gold_alerts.yml
+#
+# Включает Bronze alerts + дополнительные:
+#   - Wazuh Agent статус
+#   - Kaspersky статус
+#   - SLA метрики
+#   - Security events
+# ═══════════════════════════════════════════════════════════════════
+
+groups:
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # WAZUH SIEM
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - name: gold_wazuh
+    rules:
+
+      - alert: WazuhAgentDisconnected
+        expr: |
+          wazuh_agent_status{status!="Active"} == 1
+        for: 10m
+        labels:
+          severity: warning
+          category: security
+          tier: gold
+        annotations:
+          summary: "⚠️ {{ $labels.client_name }} | Wazuh Agent неактивен: {{ $labels.agent_name }}"
+          description: |
+            Wazuh Agent не отправляет данные более 10 минут.
+            Диагностика на сервере:
+              /var/ossec/bin/wazuh-control status
+              systemctl status wazuh-agent
+              journalctl -u wazuh-agent -n 30
+
+      - alert: WazuhAgentNeverConnected
+        expr: |
+          wazuh_agent_last_keepalive_seconds{status="Never connected"} > 0
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+          tier: gold
+        annotations:
+          summary: "⚠️ {{ $labels.client_name }} | Wazuh Agent никогда не подключался: {{ $labels.agent_name }}"
+          description: |
+            Агент зарегистрирован, но соединение не установлено.
+            Проверить регистрацию:
+              docker exec wazuh-manager /var/ossec/bin/agent_control -l
+            На клиенте: systemctl restart wazuh-agent
+
+      - alert: WazuhManagerDown
+        expr: |
+          up{job="wazuh-manager"} == 0
+        for: 3m
+        labels:
+          severity: critical
+          category: security
+          tier: gold
+        annotations:
+          summary: "🔴 Wazuh Manager НЕДОСТУПЕН — события безопасности не собираются!"
+          description: |
+            cd /opt/wazuh && docker compose ps wazuh.manager
+            docker compose logs wazuh.manager --tail 50
+            docker compose restart wazuh.manager
+
+      - alert: WazuhHighAlertRate
+        expr: |
+          rate(wazuh_alerts_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+          tier: gold
+        annotations:
+          summary: "⚠️ {{ $labels.client_name }} | Аномально высокий поток алертов Wazuh: {{ $value | printf \"%.0f\" }}/с"
+          description: |
+            Возможна атака, сканирование или ложные срабатывания.
+            Открыть Wazuh Dashboard: https://10.9.0.3:443
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # KASPERSKY ENDPOINT SECURITY
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - name: gold_kaspersky
+    rules:
+
+      - alert: KasperskyNotRunning
+        expr: kaspersky_service_running == 0
+        for: 10m
+        labels:
+          severity: critical
+          category: security
+          tier: gold
+        annotations:
+          summary: "🔴 {{ $labels.client_name }} | Kaspersky НЕ РАБОТАЕТ: {{ $labels.host }}"
+          description: |
+            Антивирусная защита отсутствует!
+            PowerShell (Admin): Start-Service AVP*
+            Проверить в KSC Console: статус защиты
+
+      - alert: KasperskyDatabasesOld
+        expr: kaspersky_database_age_hours > 24
+        for: 2h
+        labels:
+          severity: warning
+          category: security
+          tier: gold
+        annotations:
+          summary: "⚠️ {{ $labels.client_name }} | Базы Kaspersky устарели на {{ $labels.host }}: {{ $value | printf \"%.0f\" }} ч"
+          description: |
+            Антивирусные базы не обновлялись более суток.
+            В KSC Console: запустить задачу обновления
+            Или вручную: в трее Kaspersky → Обновление баз
+
+      - alert: KasperskyDatabasesCritical
+        expr: kaspersky_database_age_hours > 72
+        for: 1h
+        labels:
+          severity: critical
+          category: security
+          tier: gold
+        annotations:
+          summary: "🔴 {{ $labels.client_name }} | Базы Kaspersky УСТАРЕЛИ 3+ дня: {{ $labels.host }}"
+          description: |
+            Критически устаревшие базы! Угрозы могут не детектироваться.
+            СРОЧНО обновить через KSC или вручную.
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # SLA МОНИТОРИНГ
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - name: gold_sla
+    rules:
+
+      # Uptime целей (используется для SLA-отчётов)
+      - record: client:uptime_percent:1w
+        expr: |
+          avg_over_time(up[1w]) * 100
+
+      # Количество P1-инцидентов за последние 30 дней
+      - record: client:p1_incidents:30d
+        expr: |
+          count_over_time(
+            (up{severity="critical"} == 0)[30d:]
+          ) or vector(0)
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # БЕЗОПАСНОСТЬ (текстовые метрики из textfile collector)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - name: gold_security_metrics
+    rules:
+
+      - alert: HighFailedSSHLogins
+        expr: |
+          increase(node_textfile_scrape_error[1h]) > 100
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+          tier: gold
+        annotations:
+          summary: "⚠️ {{ $labels.client_name }} | Много ошибок scrape на {{ $labels.instance }}"
+
+      - alert: RootLoginDetected
+        expr: |
+          increase(node_login_sessions_total{user="root"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          category: security
+          tier: gold
+        annotations:
+          summary: "⚠️ {{ $labels.client_name }} | Вход под root на {{ $labels.instance }}"
+          description: |
+            Обнаружен прямой вход под root-пользователем.
+            Проверить: last root | head -5
+            Если не авторизовано — инцидент безопасности!
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # ИНФРАСТРУКТУРА GOLD (Wazuh VM)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - name: gold_infrastructure
+    rules:
+
+      - alert: WazuhIndexerDiskHigh
+        expr: |
+          (1 - node_filesystem_avail_bytes{instance=~".*wazuh.*", mountpoint="/"}
+               / node_filesystem_size_bytes{instance=~".*wazuh.*", mountpoint="/"}) * 100 > 80
+        for: 30m
+        labels:
+          severity: warning
+          category: infra
+          tier: gold
+        annotations:
+          summary: "⚠️ Wazuh Indexer: диск заполнен на {{ $value | printf \"%.1f\" }}%"
+          description: |
+            OpenSearch (Wazuh Indexer) занимает много места.
+            Уменьшить retention в Wazuh Dashboard → Stack Management → Index Lifecycle Policies
+            Или: docker exec wazuh-indexer curl -X DELETE 'localhost:9200/wazuh-alerts-*-СТАРАЯ_ДАТА'
+
+      - alert: WazuhIndexerDown
+        expr: |
+          up{job="wazuh-indexer"} == 0
+        for: 3m
+        labels:
+          severity: critical
+          category: infra
+          tier: gold
+        annotations:
+          summary: "🔴 Wazuh Indexer (OpenSearch) НЕДОСТУПЕН!"
+          description: |
+            cd /opt/wazuh && docker compose logs wazuh.indexer --tail 50
+            Возможно: vm.max_map_count < 262144
+            Проверить: sysctl vm.max_map_count

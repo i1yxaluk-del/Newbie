@@ -1,0 +1,443 @@
+---
+# deploy_bronze.yml — Полный деплой Bronze-тарифа на серверы клиента
+# ═══════════════════════════════════════════════════════════════════
+# Запуск:
+#   ansible-playbook playbooks/deploy_bronze.yml \
+#     -i inventory/clients/CLIENT_SLUG/hosts \
+#     -e client_slug=CLIENT_SLUG \
+#     -e "client_name='ООО Название'" \
+#     -v
+#
+# Теги:
+#   --tags node_exporter  → только node_exporter
+#   --tags backup         → только restic
+#   --tags verify         → только проверки
+# ═══════════════════════════════════════════════════════════════════
+
+# ── PLAY 1: Linux серверы ──────────────────────────────────────────
+- name: "Bronze: Linux Servers"
+  hosts: client_linux
+  become: yes
+  gather_facts: yes
+  any_errors_fatal: false
+
+  vars:
+    node_exporter_version: "1.7.0"
+    node_exporter_port: 9100
+    restic_version: "0.16.4"
+    msp_vpn_subnet: "10.9.0.0/24"
+
+  vars_files:
+    - "{{ inventory_dir }}/vars.yml"
+
+  pre_tasks:
+    - name: "Pre | Проверить доступность"
+      ansible.builtin.ping:
+      tags: always
+
+    - name: "Pre | Собрать факты"
+      ansible.builtin.setup:
+        gather_subset: [network, hardware, distribution]
+      tags: always
+
+    - name: "Pre | Вывести информацию о сервере"
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}
+          OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          CPU: {{ ansible_processor_vcpus }}
+          RAM: {{ (ansible_memtotal_mb / 1024) | round(1) }} GB
+          Disk: {{ (ansible_mounts | selectattr('mount', 'equalto', '/') | map(attribute='size_total') | first | default(0) / 1073741824) | round(1) }} GB
+      tags: always
+
+    - name: "Pre | Обновить apt cache"
+      ansible.builtin.apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      tags: always
+
+    - name: "Pre | Установить базовые пакеты"
+      ansible.builtin.apt:
+        name: [curl, wget, git, jq, ufw, fail2ban, ca-certificates]
+        state: present
+      tags: always
+
+  # ── node_exporter ────────────────────────────────────────────────
+  tasks:
+    - name: "node_exporter | Создать пользователя"
+      ansible.builtin.user:
+        name: node_exporter
+        system: yes
+        shell: /sbin/nologin
+        create_home: no
+      tags: [node_exporter, monitoring]
+
+    - name: "node_exporter | Проверить текущую версию"
+      ansible.builtin.command: /usr/local/bin/node_exporter --version
+      register: _ne_ver
+      changed_when: false
+      failed_when: false
+      tags: [node_exporter, monitoring]
+
+    - name: "node_exporter | Скачать и установить"
+      when: _ne_ver.rc != 0 or node_exporter_version not in (_ne_ver.stderr | default(''))
+      block:
+        - name: "node_exporter | Download"
+          ansible.builtin.get_url:
+            url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz"
+            dest: "/tmp/ne.tar.gz"
+            mode: "0644"
+            timeout: 120
+          retries: 3
+          delay: 10
+
+        - name: "node_exporter | Extract"
+          ansible.builtin.unarchive:
+            src: /tmp/ne.tar.gz
+            dest: /tmp/
+            remote_src: yes
+
+        - name: "node_exporter | Install binary"
+          ansible.builtin.copy:
+            src: "/tmp/node_exporter-{{ node_exporter_version }}.linux-amd64/node_exporter"
+            dest: /usr/local/bin/node_exporter
+            owner: root
+            group: root
+            mode: "0755"
+            remote_src: yes
+
+        - name: "node_exporter | Cleanup"
+          ansible.builtin.file:
+            path: "{{ item }}"
+            state: absent
+          loop:
+            - /tmp/ne.tar.gz
+            - "/tmp/node_exporter-{{ node_exporter_version }}.linux-amd64"
+      tags: [node_exporter, monitoring]
+
+    - name: "node_exporter | Textfile collector dir"
+      ansible.builtin.file:
+        path: /var/lib/node_exporter/textfile_collector
+        state: directory
+        owner: node_exporter
+        group: node_exporter
+        mode: "0755"
+      tags: [node_exporter, monitoring]
+
+    - name: "node_exporter | systemd unit"
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/node_exporter.service
+        content: |
+          [Unit]
+          Description=Prometheus Node Exporter
+          After=network.target
+
+          [Service]
+          Type=simple
+          User=node_exporter
+          Group=node_exporter
+          ExecStart=/usr/local/bin/node_exporter \
+              --web.listen-address=:{{ node_exporter_port }} \
+              --collector.textfile.directory=/var/lib/node_exporter/textfile_collector \
+              --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/) \
+              --no-collector.ipvs
+          Restart=on-failure
+          RestartSec=5s
+          NoNewPrivileges=true
+          ProtectSystem=strict
+          ReadWritePaths=/var/lib/node_exporter/textfile_collector
+
+          [Install]
+          WantedBy=multi-user.target
+        mode: "0644"
+      notify: [daemon-reload, restart node_exporter]
+      tags: [node_exporter, monitoring]
+
+    - name: "node_exporter | UFW allow from VPN"
+      community.general.ufw:
+        rule: allow
+        from_ip: "{{ msp_vpn_subnet }}"
+        port: "{{ node_exporter_port }}"
+        proto: tcp
+        comment: "node_exporter MSP VPN"
+      failed_when: false
+      tags: [node_exporter, firewall]
+
+    - name: "node_exporter | Start & enable"
+      ansible.builtin.systemd:
+        name: node_exporter
+        state: started
+        enabled: yes
+        daemon_reload: yes
+      tags: [node_exporter, monitoring]
+
+  # ── Restic Backup ────────────────────────────────────────────────
+    - name: "restic | Создать директории"
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - /opt/restic-scripts
+        - /etc/restic
+        - /var/log
+      tags: [restic, backup]
+
+    - name: "restic | Установить из apt (если доступен)"
+      ansible.builtin.apt:
+        name: restic
+        state: present
+      register: _restic_apt
+      failed_when: false
+      tags: [restic, backup]
+
+    - name: "restic | Скачать напрямую (если нет в apt)"
+      when: _restic_apt is failed or _restic_apt.rc is defined
+      block:
+        - name: "restic | Download"
+          ansible.builtin.get_url:
+            url: "https://github.com/restic/restic/releases/download/v{{ restic_version }}/restic_{{ restic_version }}_linux_amd64.bz2"
+            dest: /tmp/restic.bz2
+            mode: "0644"
+            timeout: 120
+          retries: 3
+          delay: 10
+
+        - name: "restic | Extract and install"
+          ansible.builtin.shell:
+            cmd: "bunzip2 -c /tmp/restic.bz2 > /usr/local/bin/restic && chmod +x /usr/local/bin/restic"
+          args:
+            creates: /usr/local/bin/restic
+
+        - name: "restic | Cleanup"
+          ansible.builtin.file:
+            path: /tmp/restic.bz2
+            state: absent
+      tags: [restic, backup]
+
+    - name: "restic | env.sh (шаблон конфига)"
+      ansible.builtin.template:
+        src: restic_env.sh.j2
+        dest: /etc/restic/env.sh
+        owner: root
+        group: root
+        mode: "0600"
+      when: restic_s3_access_key is defined
+      tags: [restic, backup]
+
+    - name: "restic | excludes.txt"
+      ansible.builtin.copy:
+        dest: /opt/restic-scripts/excludes.txt
+        content: |
+          /proc
+          /sys
+          /dev
+          /run
+          /tmp
+          /var/cache
+          /var/tmp
+          /var/lib/docker
+          /lost+found
+          /snap
+          *.sock
+          *.pid
+          *.lock
+          .git
+          node_modules
+          __pycache__
+        mode: "0644"
+      tags: [restic, backup]
+
+    - name: "restic | backup.sh скрипт"
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../files/restic_backup.sh"
+        dest: /opt/restic-scripts/backup.sh
+        mode: "0755"
+      failed_when: false
+      tags: [restic, backup]
+
+    - name: "restic | systemd service"
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/restic-backup.service
+        content: |
+          [Unit]
+          Description=MSP Restic Backup
+          After=network-online.target
+          Wants=network-online.target
+
+          [Service]
+          Type=oneshot
+          EnvironmentFile=/etc/restic/env.sh
+          ExecStart=/opt/restic-scripts/backup.sh
+          Nice=19
+          IOSchedulingClass=best-effort
+          IOSchedulingPriority=7
+          TimeoutStartSec=7200
+
+          [Install]
+          WantedBy=multi-user.target
+        mode: "0644"
+      tags: [restic, backup]
+
+    - name: "restic | systemd timer"
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/restic-backup.timer
+        content: |
+          [Unit]
+          Description=MSP Restic Backup Timer
+          Requires=restic-backup.service
+
+          [Timer]
+          OnCalendar=*-*-* 02:00:00
+          RandomizedDelaySec=5min
+          Persistent=true
+
+          [Install]
+          WantedBy=timers.target
+        mode: "0644"
+      tags: [restic, backup]
+
+    - name: "restic | Включить timer"
+      ansible.builtin.systemd:
+        name: restic-backup.timer
+        state: started
+        enabled: yes
+        daemon_reload: yes
+      tags: [restic, backup]
+
+  # ── Post-tasks: верификация ───────────────────────────────────────
+  post_tasks:
+    - name: "verify | node_exporter отвечает"
+      ansible.builtin.uri:
+        url: "http://localhost:{{ node_exporter_port }}/metrics"
+        status_code: 200
+        timeout: 10
+      register: _verify_ne
+      retries: 5
+      delay: 3
+      tags: [verify]
+
+    - name: "verify | restic timer активен"
+      ansible.builtin.systemd:
+        name: restic-backup.timer
+      register: _verify_timer
+      failed_when: _verify_timer.status.ActiveState != 'active'
+      tags: [verify]
+
+    - name: "verify | ИТОГ"
+      ansible.builtin.debug:
+        msg: >-
+          ✅ {{ inventory_hostname }} Bronze ready |
+          node_exporter: {{ 'OK' if _verify_ne.status == 200 else 'FAIL' }} |
+          backup timer: {{ _verify_timer.status.ActiveState }}
+      tags: [verify, always]
+
+  handlers:
+    - name: daemon-reload
+      ansible.builtin.systemd:
+        daemon_reload: yes
+
+    - name: restart node_exporter
+      ansible.builtin.systemd:
+        name: node_exporter
+        state: restarted
+
+# ── PLAY 2: Windows серверы ────────────────────────────────────────
+- name: "Bronze: Windows Servers"
+  hosts: client_windows
+  gather_facts: yes
+  any_errors_fatal: false
+
+  vars:
+    windows_exporter_version: "0.25.1"
+    windows_exporter_port: 9182
+    msp_vpn_subnet: "10.9.0.0/24"
+
+  vars_files:
+    - "{{ inventory_dir }}/vars.yml"
+
+  pre_tasks:
+    - name: "Pre | WinRM ping"
+      ansible.windows.win_ping:
+      tags: always
+
+    - name: "Pre | Информация о системе"
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}
+          OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          CPU: {{ ansible_processor_vcpus | default('?') }}
+          RAM: {{ ((ansible_memtotal_mb | default(0)) / 1024) | round(1) }} GB
+      tags: always
+
+  tasks:
+    - name: "windows_exporter | Скачать MSI"
+      ansible.windows.win_get_url:
+        url: "https://github.com/prometheus-community/windows_exporter/releases/download/v{{ windows_exporter_version }}/windows_exporter-{{ windows_exporter_version }}-amd64.msi"
+        dest: "{{ ansible_env.TEMP }}\\windows_exporter.msi"
+      register: _we_download
+      retries: 3
+      delay: 10
+      tags: [windows_exporter, monitoring]
+
+    - name: "windows_exporter | Установить"
+      ansible.windows.win_package:
+        path: "{{ ansible_env.TEMP }}\\windows_exporter.msi"
+        state: present
+        arguments: >-
+          /quiet /norestart
+          ENABLED_COLLECTORS="cpu,memory,logical_disk,service,process,system,net,os,textfile"
+          LISTEN_PORT={{ windows_exporter_port }}
+      tags: [windows_exporter, monitoring]
+
+    - name: "windows_exporter | Firewall rule"
+      ansible.windows.win_firewall_rule:
+        name: "MSP windows_exporter"
+        localport: "{{ windows_exporter_port }}"
+        action: allow
+        direction: in
+        protocol: tcp
+        remoteip: "{{ msp_vpn_subnet }}"
+        state: present
+        enabled: yes
+      tags: [windows_exporter, firewall]
+
+    - name: "windows_exporter | Ensure service running"
+      ansible.windows.win_service:
+        name: windows_exporter
+        state: started
+        start_mode: auto
+      tags: [windows_exporter, monitoring]
+
+    - name: "windows_exporter | Создать директорию textfile"
+      ansible.windows.win_file:
+        path: "C:\\Program Files\\windows_exporter\\textfile_collector"
+        state: directory
+      tags: [windows_exporter, monitoring]
+
+    - name: "restic | Скачать"
+      ansible.windows.win_get_url:
+        url: "https://github.com/restic/restic/releases/download/v0.16.4/restic_0.16.4_windows_amd64.zip"
+        dest: "{{ ansible_env.TEMP }}\\restic.zip"
+      retries: 3
+      delay: 10
+      tags: [restic, backup]
+
+    - name: "restic | Установить"
+      community.windows.win_unzip:
+        src: "{{ ansible_env.TEMP }}\\restic.zip"
+        dest: "C:\\Program Files\\restic"
+      tags: [restic, backup]
+
+  post_tasks:
+    - name: "verify | windows_exporter"
+      ansible.windows.win_uri:
+        url: "http://localhost:{{ windows_exporter_port }}/metrics"
+        method: GET
+        status_code: 200
+      tags: [verify]
+
+    - name: "verify | ИТОГ"
+      ansible.builtin.debug:
+        msg: "✅ {{ inventory_hostname }} Windows Bronze ready"
+      tags: [verify, always]

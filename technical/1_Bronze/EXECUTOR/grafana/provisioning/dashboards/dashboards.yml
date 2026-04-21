@@ -1,0 +1,32 @@
+apiVersion: 1
+# ═══════════════════════════════════════════════════════════════════
+# dashboards.yml — провиженинг дашбордов Grafana
+# Файл: /opt/monitoring/grafana/provisioning/dashboards/default.yml
+# ═══════════════════════════════════════════════════════════════════
+
+providers:
+
+  - name: 'MSP Dashboards'
+    orgId: 1
+    folder: 'MSP'
+    folderUid: 'msp-main'
+    type: file
+    disableDeletion: false
+    editable: true
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards/msp
+      foldersFromFilesStructure: false
+
+  - name: 'Node Exporter'
+    orgId: 1
+    folder: 'System'
+    folderUid: 'msp-system'
+    type: file
+    disableDeletion: false
+    editable: true
+    updateIntervalSeconds: 60
+    options:
+      path: /var/lib/grafana/dashboards/system
+      foldersFromFilesStructure: false

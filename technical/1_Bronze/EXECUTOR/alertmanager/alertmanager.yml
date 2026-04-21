@@ -1,0 +1,169 @@
+# ═══════════════════════════════════════════════════════════════════
+# alertmanager.yml — Маршрутизация алертов
+# Файл: /opt/monitoring/alertmanager/alertmanager.yml
+#
+# ДЛЯ JUNIOR:
+#   Alertmanager получает алерты от Prometheus и решает:
+#   - КУДА отправить (Telegram, Email, или оба)
+#   - КАК сгруппировать (чтобы не заспамить)
+#   - КОГДА подавить (если critical — warning не нужен)
+#
+#   Ключевые понятия:
+#   - route       — дерево маршрутизации (как router для алертов)
+#   - receiver    — куда отправить (Telegram bot, email)
+#   - group_by    — объединять алерты с одинаковыми метками
+#   - group_wait  — подождать N секунд перед отправкой группы
+#   - inhibit     — подавить менее важный алерт если есть важный
+#
+#   Поток: Prometheus → Alertmanager → route → receiver → Telegram/Email
+#
+# Логика маршрутизации:
+#   critical → Telegram (немедленно) + Email
+#   warning  → Email (группировка, раз в 4 часа)
+#   info     → только лог
+#
+# Подавление: если critical — warning по той же причине не шлём
+# ═══════════════════════════════════════════════════════════════════
+
+global:
+  resolve_timeout: 5m
+  smtp_smarthost: 'smtp.yandex.ru:587'
+  smtp_from: '${SMTP_FROM}'
+  smtp_auth_username: '${SMTP_USER}'
+  smtp_auth_password: '${SMTP_PASSWORD}'
+  smtp_require_tls: true
+
+# Шаблоны сообщений
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+route:
+  # Fallback receiver
+  receiver: 'email-default'
+
+  # Группировка: объединять алерты по имени и хосту
+  group_by: ['alertname', 'client', 'instance']
+  group_wait:      30s   # Ждать 30с перед первой отправкой группы
+  group_interval:  5m    # Интервал между повторными отправками группы
+  repeat_interval: 4h    # Повторять нерешённые алерты каждые 4ч
+
+  routes:
+    # ── Critical → Telegram немедленно ──────────────────────────
+    - matchers:
+        - severity = "critical"
+      receiver: 'telegram-critical'
+      group_wait: 10s
+      repeat_interval: 1h
+      continue: true  # Продолжить маршрутизацию (также на email)
+
+    - matchers:
+        - severity = "critical"
+      receiver: 'email-critical'
+      group_wait: 10s
+      repeat_interval: 2h
+
+    # ── Warning → Email с группировкой ──────────────────────────
+    - matchers:
+        - severity = "warning"
+      receiver: 'email-warning'
+      group_wait: 5m
+      group_interval: 30m
+      repeat_interval: 8h
+
+    # ── Backup alerts → отдельная группа ────────────────────────
+    - matchers:
+        - category = "backup"
+      receiver: 'telegram-critical'
+      group_wait: 5m
+      repeat_interval: 4h
+
+receivers:
+  # ── Telegram: Critical ────────────────────────────────────────
+  - name: 'telegram-critical'
+    telegram_configs:
+      - bot_token: '${TELEGRAM_BOT_TOKEN}'
+        chat_id: ${TELEGRAM_CHAT_ID}
+        send_resolved: true
+        parse_mode: 'HTML'
+        message: |
+          {{ if eq .Status "firing" }}🔴{{ else }}✅{{ end }} <b>{{ .Status | toUpper }}</b>
+
+          {{ range .Alerts }}
+          <b>Алерт:</b> {{ .Annotations.summary }}
+          <b>Клиент:</b> {{ .Labels.client_name | default "MSP Infrastructure" }}
+          <b>Сервер:</b> {{ .Labels.instance }}
+          <b>Severity:</b> {{ .Labels.severity }}
+
+          {{ if .Annotations.description }}<i>{{ .Annotations.description }}</i>{{ end }}
+
+          ⏰ {{ if eq .Status "firing" }}С {{ .StartsAt.Format "15:04 02.01" }}{{ else }}Решено в {{ .EndsAt.Format "15:04 02.01" }}{{ end }}
+          {{ end }}
+
+  # ── Email: Critical ───────────────────────────────────────────
+  - name: 'email-critical'
+    email_configs:
+      - to: '${ALERT_EMAIL_TO}'
+        from: '${SMTP_FROM}'
+        subject: '[CRITICAL] MSP Alert: {{ .GroupLabels.alertname }} — {{ .GroupLabels.client_name }}'
+        headers:
+          X-MSP-Severity: critical
+          X-MSP-Client: '{{ .GroupLabels.client }}'
+        body: |
+          Критический алерт MSP Monitoring
+
+          Статус: {{ .Status | toUpper }}
+          Время: {{ .Alerts.Firing | len }} активных / {{ .Alerts.Resolved | len }} решённых
+
+          {{ range .Alerts }}
+          ────────────────────────────────────────
+          Алерт: {{ .Annotations.summary }}
+          Клиент: {{ .Labels.client_name }}
+          Сервер: {{ .Labels.instance }}
+          Severity: {{ .Labels.severity }}
+          {{ if .Annotations.description }}
+          Описание:
+          {{ .Annotations.description }}
+          {{ end }}
+          Начало: {{ .StartsAt.Format "15:04:05 02.01.2006" }}
+          {{ if not .EndsAt.IsZero }}Конец: {{ .EndsAt.Format "15:04:05 02.01.2006" }}{{ end }}
+          {{ end }}
+        send_resolved: true
+
+  # ── Email: Warning ────────────────────────────────────────────
+  - name: 'email-warning'
+    email_configs:
+      - to: '${ALERT_EMAIL_TO}'
+        from: '${SMTP_FROM}'
+        subject: '[WARNING] MSP Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          Предупреждение MSP Monitoring
+
+          {{ range .Alerts }}
+          Алерт: {{ .Annotations.summary }}
+          Клиент: {{ .Labels.client_name }}
+          Сервер: {{ .Labels.instance }}
+          {{ end }}
+        send_resolved: true
+
+  # ── Default fallback ──────────────────────────────────────────
+  - name: 'email-default'
+    email_configs:
+      - to: '${ALERT_EMAIL_TO}'
+        from: '${SMTP_FROM}'
+        subject: '[MSP] {{ .GroupLabels.alertname }}'
+        send_resolved: false
+
+# ── Подавление: если critical — не слать warning по той же причине
+inhibit_rules:
+  - source_matchers:
+      - severity = "critical"
+    target_matchers:
+      - severity = "warning"
+    equal: ['alertname', 'instance']
+
+  # Если сервер DOWN — не слать алерты о его ресурсах
+  - source_matchers:
+      - alertname = "TargetDown"
+    target_matchers:
+      - category = "resources"
+    equal: ['instance']

@@ -1,0 +1,87 @@
+# ═══════════════════════════════════════════════════════════════════
+# promtail-config.yml — Конфигурация Promtail для Linux-сервера
+# Тариф: Silver+
+# Размещение: /etc/promtail/config.yml
+#
+# ЧТО ДЕЛАЕТ ЭТОТ КОНФИГ:
+#   - Собирает системные логи (/var/log/syslog)
+#   - Собирает логи аутентификации (/var/log/auth.log)
+#   - Отправляет ВСЕ логи в Loki (у Исполнителя через VPN)
+#
+# ПОСЛЕ ИЗМЕНЕНИЯ: systemctl restart promtail
+# ═══════════════════════════════════════════════════════════════════
+
+server:
+  http_listen_port: 9080      # Порт healthcheck /ready
+  grpc_listen_port: 0
+  log_level: warn
+
+positions:
+  # positions.yaml — запоминает ДО КАКОГО МЕСТА прочитан каждый файл
+  # НЕ УДАЛЯТЬ! Иначе Promtail начнёт читать логи с начала → дубли
+  filename: /var/lib/promtail/positions.yaml
+
+clients:
+  - url: http://10.9.0.1:3100/loki/api/v1/push   # IP Bastion через VPN
+    tenant_id: REPLACE_WITH_CLIENT_SLUG              # Уникальный ID клиента
+    backoff_config:
+      min_period: 500ms
+      max_period: 5m
+      max_retries: 10
+
+scrape_configs:
+
+  # ── Системные логи ───────────────────────────────────────────────
+  - job_name: system
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: varlog
+          host: REPLACE_WITH_HOSTNAME
+          client: REPLACE_WITH_CLIENT_SLUG
+          client_name: "REPLACE_WITH_CLIENT_NAME"
+          __path__: /var/log/syslog
+    pipeline_stages:
+      - multiline:
+          firstline: '^\d{4}-\d{2}-\d{2}'
+          max_wait_time: 3s
+
+  # ── Логи аутентификации (SSH, sudo) ──────────────────────────────
+  # КРИТИЧНО: здесь видно брутфорс, sudo-команды, входы по SSH
+  - job_name: auth
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: auth
+          host: REPLACE_WITH_HOSTNAME
+          client: REPLACE_WITH_CLIENT_SLUG
+          __path__: /var/log/auth.log
+
+  # ── Логи Nginx (раскомментировать если есть Nginx) ──────────────
+  # - job_name: nginx
+  #   static_configs:
+  #     - targets: [localhost]
+  #       labels:
+  #         job: nginx
+  #         host: REPLACE_WITH_HOSTNAME
+  #         client: REPLACE_WITH_CLIENT_SLUG
+  #         __path__: /var/log/nginx/*.log
+  #   pipeline_stages:
+  #     - match:
+  #         selector: '{job="nginx"}'
+  #         stages:
+  #           - regex:
+  #               expression: '^(?P<remote_addr>\S+) - (?P<remote_user>\S+) \[(?P<time_local>[^\]]+)\] "(?P<method>\S+) (?P<request>[^"]+)" (?P<status>\d+) (?P<body_bytes_sent>\d+)'
+  #           - labels:
+  #               status:
+  #               method:
+
+  # ── Логи PostgreSQL (раскомментировать если есть PostgreSQL) ─────
+  # - job_name: postgresql
+  #   static_configs:
+  #     - targets: [localhost]
+  #       labels:
+  #         job: postgresql
+  #         host: REPLACE_WITH_HOSTNAME
+  #         client: REPLACE_WITH_CLIENT_SLUG
+  #         __path__: /var/log/postgresql/*.log

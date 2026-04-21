@@ -1,0 +1,192 @@
+---
+# ═══════════════════════════════════════════════════════════════════
+# prometheus.yml — Основная конфигурация сбора метрик
+# Файл: /opt/monitoring/prometheus/prometheus.yml
+#
+# ДЛЯ JUNIOR:
+#   Prometheus работает по модели PULL:
+#   сам опрашивает (scrape) экспортеры на клиентах по расписанию.
+#   Клиенты НЕ отправляют данные — Prometheus сам забирает.
+#
+#   Ключевые понятия:
+#   - scrape_interval — как часто опрашивать (по умолчанию)
+#   - job_name       — группа targets (один тип мониторинга)
+#   - labels         — метки для фильтрации в Grafana/алертах
+#   - metric_relabel_configs — фильтрация/переименование метрик
+#
+# Команды управления:
+#   Проверить конфиг:  promtool check config prometheus.yml
+#   Reload без рестарта: curl -X POST http://localhost:9090/-/reload
+#   Статус targets:    http://10.9.0.1:9090/targets
+# ═══════════════════════════════════════════════════════════════════
+
+global:
+  scrape_interval:     15s    # Как часто опрашивать targets
+  evaluation_interval: 15s    # Как часто вычислять alert rules
+  scrape_timeout:      10s    # Таймаут одного scrape-запроса
+
+  # Метки на всех метриках этого Prometheus
+  external_labels:
+    region:       'ru-central1'
+    msp_instance: 'primary'
+
+# ── Alertmanager ────────────────────────────────────────────────────
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+      timeout:     10s
+      api_version: v2
+
+# ── Файлы с правилами алертов ───────────────────────────────────────
+rule_files:
+  - "/etc/prometheus/rules/*.yml"
+
+# ── Scrape configs ──────────────────────────────────────────────────
+scrape_configs:
+
+  # ══════════════════════════════════════════════════════════════════
+  # ИНФРАСТРУКТУРА ИСПОЛНИТЕЛЯ
+  # ══════════════════════════════════════════════════════════════════
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          role:     'monitoring'
+          owner:    'executor'
+          instance: 'prometheus'
+
+  - job_name: 'alertmanager'
+    static_configs:
+      - targets: ['alertmanager:9093']
+        labels:
+          role:  'monitoring'
+          owner: 'executor'
+
+  - job_name: 'grafana'
+    scrape_interval: 60s
+    static_configs:
+      - targets: ['grafana:3000']
+        labels:
+          role:  'monitoring'
+          owner: 'executor'
+
+  - job_name: 'node-exporter-msp-vm'
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          role:     'monitoring-host'
+          owner:    'executor'
+          instance: 'msp-monitoring-vm'
+
+  - job_name: 'cadvisor'
+    scrape_interval: 30s
+    static_configs:
+      - targets: ['cadvisor:8080']
+        labels:
+          role:  'docker'
+          owner: 'executor'
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'container_tasks_state|container_memory_failures_total'
+        action: drop
+
+  - job_name: 'blackbox-exporter'
+    scrape_interval: 60s
+    static_configs:
+      - targets: ['blackbox-exporter:9115']
+        labels:
+          role:  'monitoring'
+          owner: 'executor'
+
+  # ══════════════════════════════════════════════════════════════════
+  # КЛИЕНТЫ — ШАБЛОН
+  # При добавлении нового клиента скопировать блок ниже
+  # и заменить все CLIENT_ значения
+  # ══════════════════════════════════════════════════════════════════
+
+  # ┌────────────────────────────────────────────────────────────────
+  # │ ШАБЛОН КЛИЕНТА (раскомментировать и заполнить)
+  # └────────────────────────────────────────────────────────────────
+  #
+  # # Linux-серверы клиента
+  # - job_name: 'client-CLIENT_SLUG-linux'
+  #   scrape_interval: 30s
+  #   scrape_timeout:  25s
+  #   static_configs:
+  #     - targets:
+  #         - '10.9.0.XX:9100'    # server-01 (роль)
+  #         - '10.9.0.XY:9100'    # server-02 (роль)
+  #       labels:
+  #         client:      'CLIENT_SLUG'
+  #         client_name: 'ООО Название'
+  #         tier:        'bronze'
+  #         env:         'production'
+  #   metric_relabel_configs:
+  #     # Убрать технические метрики Go-runtime (экономия места)
+  #     - source_labels: [__name__]
+  #       regex: 'go_gc_.*|go_goroutines|go_memstats_.*'
+  #       action: drop
+  #
+  # # Windows-серверы клиента
+  # - job_name: 'client-CLIENT_SLUG-windows'
+  #   scrape_interval: 30s
+  #   static_configs:
+  #     - targets:
+  #         - '10.9.0.XZ:9182'    # 1c-server-01
+  #       labels:
+  #         client:      'CLIENT_SLUG'
+  #         client_name: 'ООО Название'
+  #         tier:        'bronze'
+  #         env:         'production'
+  #
+  # # HTTP-проверки сайтов (если есть)
+  # - job_name: 'client-CLIENT_SLUG-http'
+  #   scrape_interval: 60s
+  #   metrics_path: /probe
+  #   params:
+  #     module: [http_2xx]
+  #   static_configs:
+  #     - targets:
+  #         - 'https://site-client.ru'
+  #         - 'https://api.site-client.ru'
+  #       labels:
+  #         client:      'CLIENT_SLUG'
+  #         client_name: 'ООО Название'
+  #         tier:        'bronze'
+  #   relabel_configs:
+  #     - source_labels: [__address__]
+  #       target_label: __param_target
+  #     - source_labels: [__param_target]
+  #       target_label: instance
+  #     - target_label: __address__
+  #       replacement: 'blackbox-exporter:9115'
+
+  # ══════════════════════════════════════════════════════════════════
+  # ПРИМЕР: Клиент "ООО Пример" (Bronze)
+  # Добавлен: 2026-04-01 | VPN: 10.9.0.10-19
+  # ══════════════════════════════════════════════════════════════════
+
+  # - job_name: 'client-example-linux'
+  #   scrape_interval: 30s
+  #   static_configs:
+  #     - targets:
+  #         - '10.9.0.10:9100'    # web-01 (Nginx)
+  #         - '10.9.0.11:9100'    # db-01 (PostgreSQL)
+  #       labels:
+  #         client:      'example'
+  #         client_name: 'ООО Пример'
+  #         tier:        'bronze'
+  #         env:         'production'
+  #
+  # - job_name: 'client-example-windows'
+  #   scrape_interval: 30s
+  #   static_configs:
+  #     - targets:
+  #         - '10.9.0.20:9182'    # 1c-01 (1С Enterprise)
+  #       labels:
+  #         client:      'example'
+  #         client_name: 'ООО Пример'
+  #         tier:        'bronze'
+  #         env:         'production'

@@ -1,0 +1,94 @@
+---
+# ═══════════════════════════════════════════════════════════════════
+# docker-compose.yml — osTicket тикет-система для Gold-тарифа
+# Файл: /opt/osticket/docker-compose.yml
+#
+# Запуск: docker compose up -d
+# Доступ: http://10.9.0.1:8080 (только через VPN)
+# ═══════════════════════════════════════════════════════════════════
+version: "3.8"
+
+networks:
+  osticket:
+    name: msp-osticket
+    driver: bridge
+
+volumes:
+  osticket_db:    { name: msp-osticket-db }
+  osticket_data:  { name: msp-osticket-data }
+  osticket_logs:  { name: msp-osticket-logs }
+
+services:
+
+  # ── MariaDB ─────────────────────────────────────────────────────
+  db:
+    image: mariadb:10.11
+    container_name: osticket-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASS}
+      MYSQL_DATABASE:      osticket
+      MYSQL_USER:          osticket
+      MYSQL_PASSWORD:      ${DB_PASS}
+      TZ:                  Europe/Moscow
+    volumes:
+      - osticket_db:/var/lib/mysql
+    networks: [osticket]
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--su-mysql", "--connect", "--innodb_initialized"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    deploy:
+      resources:
+        limits:   { memory: 512M }
+        reservations: { memory: 128M }
+    logging:
+      driver: json-file
+      options: { max-size: "5m", max-file: "2" }
+
+  # ── osTicket ────────────────────────────────────────────────────
+  web:
+    image: osticket/osticket:v1.18.1
+    container_name: osticket-web
+    restart: unless-stopped
+    ports:
+      - "10.9.0.1:8080:80"    # Только через VPN!
+    environment:
+      # База данных
+      MYSQL_HOST:     db
+      MYSQL_DATABASE: osticket
+      MYSQL_USER:     osticket
+      MYSQL_PASSWORD: ${DB_PASS}
+
+      # Почта (для уведомлений о тикетах)
+      SMTP_HOST:     ${SMTP_HOST:-smtp.yandex.ru}
+      SMTP_PORT:     ${SMTP_PORT:-587}
+      SMTP_USER:     ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASS}
+      SMTP_FROM:     ${SMTP_FROM}
+      SMTP_TLS:      "1"
+
+      # Первоначальная настройка
+      INSTALL_SECRET: ${OSTICKET_SECRET}
+      ADMIN_FIRSTNAME: MSP
+      ADMIN_LASTNAME:  Admin
+      ADMIN_EMAIL:     ${ADMIN_EMAIL}
+
+      TZ: Europe/Moscow
+
+    volumes:
+      - osticket_data:/var/www/html/upload/attachments
+      - osticket_logs:/var/log/osticket
+      - ./config/ost-sampleconfig.php:/var/www/html/upload/include/ost-config.php:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [osticket]
+    deploy:
+      resources:
+        limits:   { memory: 512M }
+        reservations: { memory: 128M }
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }

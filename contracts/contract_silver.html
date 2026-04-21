@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Договор оказания услуг — Silver</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=PT+Serif:ital,wght@0,400;0,700;1,400&family=PT+Sans:wght@400;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'PT Serif',serif;font-size:12pt;line-height:1.6;color:#1a1a1a;background:#fff;max-width:210mm;margin:0 auto;padding:20mm 25mm}
+h1{font-family:'PT Sans',sans-serif;font-size:15pt;font-weight:700;text-align:center;margin-bottom:6pt;text-transform:uppercase;letter-spacing:.05em}
+h2{font-family:'PT Sans',sans-serif;font-size:12pt;font-weight:700;margin:16pt 0 6pt;text-transform:uppercase;letter-spacing:.03em}
+h3{font-family:'PT Sans',sans-serif;font-size:11pt;font-weight:700;margin:10pt 0 4pt}
+.subtitle{text-align:center;font-size:10pt;color:#555;margin-bottom:16pt}
+.parties-block{background:#f8f8f8;border:1px solid #ddd;border-radius:4pt;padding:12pt;margin:16pt 0}
+.parties-block p{margin-bottom:6pt;font-size:11pt}
+p{margin-bottom:8pt;text-align:justify}
+.clause{margin-bottom:6pt;padding-left:20pt;text-indent:-20pt}
+.clause-num{font-weight:700;font-size:10pt}
+table{width:100%;border-collapse:collapse;margin:8pt 0;font-size:10.5pt}
+th{background:#1e3a5f;color:#fff;padding:6pt 8pt;text-align:left;font-family:'PT Sans',sans-serif;font-size:10pt}
+td{padding:6pt 8pt;border:1px solid #ccc;vertical-align:top}
+tr:nth-child(even) td{background:#f9f9f9}
+.highlight{background:#e8f4fd;border-left:3pt solid #3b82f6;padding:8pt;margin:8pt 0;font-size:11pt}
+.warning{background:#fff0f0;border-left:3pt solid #ef4444;padding:8pt;margin:8pt 0;font-size:11pt}
+.sign-block{display:grid;grid-template-columns:1fr 1fr;gap:30pt;margin-top:24pt;page-break-inside:avoid}
+.sign-col h3{font-size:11pt;margin-bottom:12pt}
+.sign-line{border-bottom:1px solid #333;margin:20pt 0 4pt;height:20pt}
+.sign-label{font-size:9pt;color:#666}
+.annex{page-break-before:always}
+@media print{body{padding:10mm 15mm}@page{margin:15mm}}
+</style>
+</head>
+<body>
+
+<h1>Договор оказания услуг<br>Тариф «Silver — Автоматизированное сопровождение»</h1>
+<div class="subtitle">г. _____________ &nbsp;&nbsp;&nbsp;&nbsp; «___» ____________ 202__ г.</div>
+
+<div class="parties-block">
+<p><strong>Исполнитель:</strong> Индивидуальный предприниматель ________________________________, 
+ИНН ________________________, ОГРНИП _________________________, именуемый в дальнейшем «<strong>Исполнитель</strong>»,</p>
+<p><strong>Заказчик:</strong> ________________________________, ИНН ________________________, ОГРН _________________________, 
+в лице ________________________________, действующего на основании ________________________________, 
+именуемый в дальнейшем «<strong>Заказчик</strong>»,</p>
+<p>совместно именуемые «<strong>Стороны</strong>», заключили настоящий Договор о нижеследующем:</p>
+</div>
+
+<h2>1. Предмет договора</h2>
+<p class="clause"><span class="clause-num">1.1.</span> Исполнитель обязуется оказывать Заказчику услуги по управлению IT-инфраструктурой в рамках тарифного плана «Silver — Автоматизированное сопровождение», включающего расширенный набор услуг по сравнению с тарифом «Bronze», а Заказчик обязуется принимать и оплачивать Услуги.</p>
+<p class="clause"><span class="clause-num">1.2.</span> Перечень, объём и параметры Услуг определены в Приложении № 1. Периметр обслуживания — в Приложении № 2.</p>
+<p class="clause"><span class="clause-num">1.3.</span> В рамках Silver Исполнитель дополнительно к услугам Bronze обеспечивает: автоматизацию операций (Ansible/Puppet), централизованное логирование (Grafana Loki), поддержку Active Directory/DNS/GPO, расширенный ежемесячный отчёт.</p>
+
+<h2>2. Права и обязанности сторон</h2>
+
+<h3>2.1. Исполнитель обязуется:</h3>
+<p class="clause"><span class="clause-num">2.1.1.</span> Выполнять все обязательства, предусмотренные для тарифа «Bronze» (мониторинг 24/7, бэкапы, VPN/Bastion, еженедельный отчёт).</p>
+<p class="clause"><span class="clause-num">2.1.2.</span> Обеспечивать автоматизацию типовых операций на серверах Заказчика с использованием Ansible и Puppet в пределах согласованного периметра.</p>
+<p class="clause"><span class="clause-num">2.1.3.</span> Настраивать и поддерживать централизованный сбор логов (Grafana Loki) с серверов, входящих в периметр.</p>
+<p class="clause"><span class="clause-num">2.1.4.</span> Осуществлять базовую поддержку Active Directory, DNS, GPO в рамках текущей конфигурации, не выходящей за пределы согласованного домена.</p>
+<p class="clause"><span class="clause-num">2.1.5.</span> Хранить все конфигурации в системе контроля версий (Git) и передавать их Заказчику по запросу или при расторжении Договора.</p>
+<p class="clause"><span class="clause-num">2.1.6.</span> Реагировать на критические инциденты (P1) в течение <strong>2 (двух) часов</strong> с момента детектирования.</p>
+<p class="clause"><span class="clause-num">2.1.7.</span> Направлять ежемесячный подробный отчёт по инфраструктуре, включая статистику инцидентов и тренды использования ресурсов.</p>
+
+<h3>2.2. Заказчик обязуется:</h3>
+<p class="clause"><span class="clause-num">2.2.1.</span> Предоставить все необходимые доступы: SSH/RDP к серверам, доступ к контроллеру домена (при наличии AD), доступ к сетевому оборудованию (при необходимости).</p>
+<p class="clause"><span class="clause-num">2.2.2.</span> Уведомлять Исполнителя о планируемых изменениях в AD, DNS, инфраструктуре не менее чем за 24 часа.</p>
+<p class="clause"><span class="clause-num">2.2.3.</span> Согласовывать все изменения конфигурации, затрагивающие периметр, с Исполнителем.</p>
+<p class="clause"><span class="clause-num">2.2.4.</span> Оплачивать Услуги в порядке и сроки, предусмотренные разделом 4.</p>
+
+<h2>3. Ограничения и исключения</h2>
+
+<p class="clause"><span class="clause-num">3.1.</span> Поддержка AD/DNS/GPO в рамках Silver <strong>не включает</strong>: проектирование новой AD-инфраструктуры, миграцию домена, реструктуризацию OU, создание сложных GPO-политик (более 3 новых GPO в месяц), интеграцию сторонних систем с AD.</p>
+
+<p class="clause"><span class="clause-num">3.2.</span> Лимит ручного участия составляет <strong>до 3 часов в месяц</strong>. Работы сверх лимита — по дополнительной оплате.</p>
+
+<p class="clause"><span class="clause-num">3.3.</span> Silver <strong>не включает</strong> (доступно в Gold): SIEM-мониторинг (Wazuh), контроль уязвимостей, SLA-отчёты с метриками, Kaspersky Security Center.</p>
+
+<table>
+<tr><th>Категория исключений</th><th>Описание</th></tr>
+<tr><td>Миграция инфраструктуры</td><td>Перенос серверов, доменов, сервисов — отдельный проект</td></tr>
+<tr><td>Redesign сети</td><td>Перестройка сетевой архитектуры — отдельный проект</td></tr>
+<tr><td>SIEM/Security</td><td>Wazuh, KSC, аудит ИБ — уровень Gold</td></tr>
+<tr><td>Бесконечные срочные задачи</td><td>Свыше лимита 3 ч/мес — дополнительная оплата</td></tr>
+<tr><td>Разработка кастомных playbook</td><td>Сложная Ansible/Puppet автоматизация — дополнительно от 3 000 ₽</td></tr>
+</table>
+
+<p class="clause"><span class="clause-num">3.4.</span> Ответственность Исполнителя за сбои, вызванные изменениями в AD/DNS/GPO, внесёнными Заказчиком без согласования, исключается.</p>
+
+<h2>4. Стоимость и порядок оплаты</h2>
+
+<table>
+<tr><th>Вид платежа</th><th>Сумма</th><th>Условия</th></tr>
+<tr><td>Разовый платёж за запуск</td><td>от 25 000 ₽ до 45 000 ₽</td><td>До начала работ по запуску</td></tr>
+<tr><td>Ежемесячная абонентская плата</td><td>от 40 000 ₽ до 60 000 ₽</td><td>До 5-го числа текущего месяца</td></tr>
+</table>
+
+<p class="clause"><span class="clause-num">4.1.</span> Конкретные суммы определяются в Приложении № 1 с учётом фактического количества серверов, рабочих станций, объёма хранилища и иных параметров инфраструктуры.</p>
+<p class="clause"><span class="clause-num">4.2.</span> Все иные условия оплаты аналогичны тарифу Bronze (пп. 4.3–4.6 договора Bronze).</p>
+
+<h2>5–9. Конфиденциальность, ответственность, расторжение, форс-мажор, споры</h2>
+<div class="highlight">
+📋 Разделы 5–9 аналогичны соответствующим разделам Договора тарифа Bronze, за исключением следующих изменений:
+<br>• Пункт 6.1: пеня за нарушение SLA — 5% за каждый час сверх 2 часов реакции P1.
+<br>• Пункт 7.1: срок уведомления о расторжении — 30 дней.
+</div>
+
+<h2>10. Реквизиты сторон</h2>
+<div class="sign-block">
+<div class="sign-col"><h3>Исполнитель</h3><p><strong>ИП ________________________</strong><br>ИНН: ________________________<br>ОГРНИП: ________________________<br>Адрес: ________________________<br>Р/с: ________________________<br>Банк: ________________________<br>БИК: ________________________<br>К/с: ________________________<br>Telegram: @________________________<br>Email: ________________________</p><div class="sign-line"></div><div class="sign-label">Подпись / Дата</div></div>
+<div class="sign-col"><h3>Заказчик</h3><p><strong>________________________</strong><br>ИНН: ________________________<br>КПП: ________________________<br>ОГРН: ________________________<br>Адрес: ________________________<br>Р/с: ________________________<br>Банк: ________________________<br>БИК: ________________________<br>К/с: ________________________<br>Email: ________________________</p><div class="sign-line"></div><div class="sign-label">Подпись / ФИО / Дата</div></div>
+</div>
+
+<!-- ПРИЛОЖЕНИЕ 1 -->
+<div class="annex">
+<h1>Приложение № 1 — Спецификация услуг и SLA — Тариф Silver</h1>
+
+<h2>1. Состав услуг</h2>
+<table>
+<tr><th>Услуга</th><th>Описание</th><th>Параметр</th></tr>
+<tr><td colspan="3" style="background:#e8f4fd;font-weight:700">Базовые услуги (из Bronze)</td></tr>
+<tr><td>Мониторинг серверов 24/7</td><td>Prometheus + Grafana + Alertmanager</td><td>24/7</td></tr>
+<tr><td>Резервное копирование</td><td>restic/BorgBackup + Yandex Object Storage</td><td>Ежедневно</td></tr>
+<tr><td>VPN/Bastion</td><td>WireGuard-туннель</td><td>Постоянно</td></tr>
+<tr><td>Еженедельный отчёт</td><td>Статус, алерты, рекомендации</td><td>Каждый понедельник</td></tr>
+<tr><td colspan="3" style="background:#e8f4fd;font-weight:700">Дополнительные услуги Silver</td></tr>
+<tr><td>Автоматизация (Ansible)</td><td>Установка агентов, обновления, типовые операции</td><td>По запросу</td></tr>
+<tr><td>Desired State Control (Puppet)</td><td>Непрерывный контроль конфигурации, 30-минутный цикл</td><td>Постоянно</td></tr>
+<tr><td>Централизованные логи (Loki)</td><td>Сбор и хранение логов, поиск через Grafana Explore</td><td>24/7</td></tr>
+<tr><td>Поддержка AD/DNS/GPO</td><td>Мониторинг DC, репликация, базовые GPO</td><td>В рамках лимита</td></tr>
+<tr><td>Ежемесячный отчёт</td><td>Полная аналитика инфраструктуры с трендами</td><td>1-го числа</td></tr>
+<tr><td>Консультации/работы</td><td>До 3 часов ручной работы в месяц</td><td>По запросу</td></tr>
+<tr><td>Git (IaC)</td><td>Хранение всех конфигураций в системе контроля версий</td><td>Постоянно</td></tr>
+</table>
+
+<h2>2. Параметры SLA</h2>
+<table>
+<tr><th>Параметр</th><th>Значение</th></tr>
+<tr><td>Время реакции P1 (Critical)</td><td><strong>До 2 часов</strong> с момента детектирования</td></tr>
+<tr><td>Время реакции P2 (High)</td><td>До 6 часов</td></tr>
+<tr><td>Время реакции P3 (Medium)</td><td>До 12 часов</td></tr>
+<tr><td>Целевое время разрешения P1</td><td>До 4 часов</td></tr>
+<tr><td>Рабочее окно</td><td>Будни 19:00–23:00 МСК, Выходные 10:00–20:00 МСК</td></tr>
+<tr><td>Хранение бэкапов</td><td>30 дней (ежедневные) + 8 недель (еженедельные)</td></tr>
+<tr><td>Хранение логов (Loki)</td><td>14 дней</td></tr>
+<tr><td>Лимит ручного участия</td><td>До 3 часов в месяц</td></tr>
+</table>
+
+<h2>3. Стоимость и прайс доп. работ</h2>
+<table>
+<tr><th>Платёж</th><th>Сумма</th><th>Срок</th></tr>
+<tr><td>Разовый запуск</td><td>____________ ₽</td><td>До начала работ</td></tr>
+<tr><td>Абонентская плата</td><td>____________ ₽/мес</td><td>До 5-го числа</td></tr>
+</table>
+
+<table>
+<tr><th>Услуга</th><th>Разовая цена</th><th>Ежемесячно</th></tr>
+<tr><td>Дополнительный сервер/VM</td><td>1 500 ₽</td><td>2 000 ₽</td></tr>
+<tr><td>Дополнительный backup job</td><td>1 500 ₽</td><td>1 200 ₽</td></tr>
+<tr><td>Дополнительные 100 ГБ хранилища</td><td>—</td><td>800 ₽</td></tr>
+<tr><td>Restore (стандартный)</td><td>3 000 ₽</td><td>—</td></tr>
+<tr><td>Срочный restore</td><td>5 000 ₽</td><td>—</td></tr>
+<tr><td>Кастомный Ansible playbook/role</td><td>3 000 ₽</td><td>—</td></tr>
+<tr><td>Дополнительный Bastion/VPN endpoint</td><td>3 500 ₽</td><td>1 200 ₽</td></tr>
+<tr><td>Дополнительное окно изменений</td><td>—</td><td>800 ₽</td></tr>
+</table>
+
+<div class="sign-block" style="margin-top:20pt">
+<div class="sign-col"><div class="sign-line"></div><div class="sign-label">Исполнитель / Подпись / Дата</div></div>
+<div class="sign-col"><div class="sign-line"></div><div class="sign-label">Заказчик / Подпись / Дата</div></div>
+</div>
+</div>
+
+</body>
+</html>

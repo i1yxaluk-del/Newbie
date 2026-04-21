@@ -1,0 +1,80 @@
+---
+# ═══════════════════════════════════════════════════════════════════
+# vars.yml — Переменные клиента
+# Файл: /opt/ansible/inventory/clients/CLIENT_SLUG/vars.yml
+# ЗАПОЛНИТЬ реальными значениями при онбординге
+#
+# ДЛЯ JUNIOR:
+#   Этот файл содержит ЧУВСТВИТЕЛЬНЫЕ данные (S3 ключи, пароли).
+#   После заполнения — ОБЯЗАТЕЛЬНО зашифровать через ansible-vault!
+#   См. Junior/vault_guide.md для пошаговой инструкции.
+#
+#   Без vault: ключи хранятся в открытом виде → утечка через Git/логи
+#   С vault: ключи зашифрованы AES-256 → безопасно хранить в Git
+# ═══════════════════════════════════════════════════════════════════
+
+# ── Идентификация ─────────────────────────────────────────────────
+client_slug:  "CLIENT_SLUG"    # Латиница, без пробелов (для меток Prometheus/Loki)
+client_name:  "ООО Название"   # Полное название для отчётов
+
+# ── Тариф ─────────────────────────────────────────────────────────
+client_tier:  "bronze"         # bronze | silver | gold
+
+# ── Сетевые параметры ─────────────────────────────────────────────
+msp_vpn_subnet: "10.9.0.0/24"
+loki_url:       "http://10.9.0.1:3100"
+puppet_server:  "puppet-server.internal"
+wazuh_manager:  "10.9.0.3"
+
+# ── Версии компонентов ────────────────────────────────────────────
+node_exporter_version:    "1.7.0"
+windows_exporter_version: "0.25.1"
+restic_version:           "0.16.4"
+promtail_version:         "3.0.0"
+puppet_version:           "8"
+
+# ── Порты ─────────────────────────────────────────────────────────
+node_exporter_port:    9100
+windows_exporter_port: 9182
+promtail_port:         9080
+
+# ── Бэкап (restic) — ЧУВСТВИТЕЛЬНЫЕ ДАННЫЕ ────────────────────────
+# ══════════════════════════════════════════════════════════════════
+# ВНИМАНИЕ! Ниже — секреты. После заполнения ЗАШИФРОВАТЬ:
+#
+#   # Способ 1: зашифровать весь файл
+#   ansible-vault encrypt inventory/clients/CLIENT_SLUG/vars.yml
+#
+#   # Способ 2: зашифровать только секретные значения (рекомендуется)
+#   ansible-vault encrypt_string 'РЕАЛЬНЫЙ_S3_КЛЮЧ' --name 'restic_s3_access_key' >> vars.yml
+#
+# См. подробнее: Junior/vault_guide.md
+# ══════════════════════════════════════════════════════════════════
+restic_s3_access_key:  "!vault | encrypted — заполнить через ansible-vault encrypt_string"
+restic_s3_secret_key:  "!vault | encrypted — заполнить через ansible-vault encrypt_string"
+restic_s3_bucket:      "backup-CLIENT_SLUG"
+restic_repo_password:  "!vault | encrypted — заполнить через ansible-vault encrypt_string"
+
+# ── Пути для бэкапа (настроить под клиента) ──────────────────────
+restic_backup_paths:
+  - /etc
+  - /home
+  - /root
+  - /srv
+  - /opt
+  - /var/www
+  # - /var/lib/postgresql  # Раскомментировать если есть PostgreSQL
+
+# ── Контактная информация клиента ────────────────────────────────
+client_contact_name:     "Иван Петров"
+client_contact_telegram: "@username"
+client_contact_email:    "ivan@company.ru"
+client_onboarded_at:     "2026-04-01"
+
+# ── Специфика инфраструктуры ──────────────────────────────────────
+has_1c_enterprise:  false   # true если есть 1С (добавляет специфические проверки)
+has_postgresql:     false
+has_mssql:          false
+has_nginx:          false
+has_active_directory: false
+site_urls: []               # ["https://site.ru"] — для HTTP-мониторинга

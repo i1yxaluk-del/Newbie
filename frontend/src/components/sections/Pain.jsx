@@ -1,0 +1,316 @@
+import { useState, useMemo } from "react";
+import { ArrowUpRight } from "lucide-react";
+
+const PAIN_POINTS = [
+  "Бэкапы «примерно делаются», но никто не проверял успешное восстановление",
+  "О падении сервера узнаёте от сотрудников, а не от системы",
+  "Штатный сисадмин в отпуске — инфраструктура без присмотра",
+  "Непредсказуемые счета «по вызову» без гарантий и отчётности",
+  "Доступы уволенных сотрудников никто не отозвал своевременно",
+  "Ни одного регулярного отчёта: что работает, что перегружено, где риски",
+];
+
+const fmt = (n) => Math.round(n).toLocaleString("ru-RU") + " ₽";
+
+export default function Pain() {
+  const [revenue, setRevenue] = useState(3_000_000);
+  const [days, setDays] = useState(22);
+  const [hours, setHours] = useState(9);
+  const [downtime, setDowntime] = useState(8);
+  const [incidents, setIncidents] = useState(4);
+
+  const calc = useMemo(() => {
+    const workHours = Math.max(1, days * hours);
+    const hourCost = revenue / workHours;
+    const perIncident = hourCost * downtime;
+    const yearLoss = perIncident * incidents;
+    const serviceYear = 240_000; // Bronze annual
+    const ratio = yearLoss / serviceYear;
+    let verdict;
+    if (ratio >= 5) {
+      verdict = `Потери ${fmt(yearLoss)}/год — это в ${ratio.toFixed(1)}× больше годовой стоимости Bronze. Сервис окупается при первом предотвращённом инциденте.`;
+    } else if (ratio >= 1.5) {
+      verdict = `Потери от простоев (${fmt(yearLoss)}/год) в ${ratio.toFixed(1)}× превышают стоимость обслуживания — вложение обосновано.`;
+    } else {
+      verdict = `Даже при консервативных оценках окупаемость достигается при первом же предотвращённом инциденте.`;
+    }
+    return { hourCost, perIncident, yearLoss, serviceYear, verdict };
+  }, [revenue, days, hours, downtime, incidents]);
+
+  return (
+    <section
+      data-testid="pain-section"
+      id="calc"
+      style={{ padding: "104px 0", background: "var(--ink)", color: "#fff" }}
+    >
+      <div className="wrap">
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 80,
+            alignItems: "center",
+          }}
+          className="pain-grid-md"
+        >
+          <div className="reveal">
+            <div
+              className="tag-dot"
+              style={{ color: "rgba(255,255,255,.5)", marginBottom: 20 }}
+            >
+              Почему это важно
+            </div>
+            <h2
+              className="font-display"
+              style={{
+                fontSize: "clamp(36px, 4vw, 54px)",
+                fontWeight: 400,
+                lineHeight: 1.08,
+                letterSpacing: "-.02em",
+                color: "#fff",
+                marginBottom: 20,
+              }}
+            >
+              «Всё работает» —
+              <br />
+              <em style={{ fontStyle: "italic", color: "rgba(255,255,255,.45)" }}>
+                пока не перестаёт
+              </em>
+            </h2>
+            <p
+              style={{
+                fontSize: 16,
+                color: "rgba(255,255,255,.55)",
+                lineHeight: 1.7,
+                marginBottom: 32,
+                fontWeight: 300,
+                maxWidth: 480,
+              }}
+            >
+              Большинство B2B-компаний узнают о проблеме тогда, когда она уже
+              стала катастрофой. Посчитайте, во сколько обходится час простоя
+              вашему бизнесу.
+            </p>
+            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+              {PAIN_POINTS.map((p) => (
+                <li
+                  key={p}
+                  style={{
+                    display: "flex",
+                    gap: 14,
+                    padding: "14px 0",
+                    borderTop: "1px solid rgba(255,255,255,.07)",
+                    fontSize: 15,
+                    color: "rgba(255,255,255,.78)",
+                  }}
+                >
+                  <ArrowUpRight
+                    size={16}
+                    color="rgba(255,255,255,.35)"
+                    style={{ flexShrink: 0, marginTop: 3 }}
+                  />
+                  <span>{p}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Calculator */}
+          <div
+            data-testid="roi-calculator"
+            className="reveal reveal-d1"
+            style={{
+              background: "rgba(255,255,255,.04)",
+              border: "1px solid rgba(255,255,255,.1)",
+              borderRadius: 8,
+              padding: 36,
+            }}
+          >
+            <div
+              className="font-display"
+              style={{ fontSize: 24, color: "#fff", marginBottom: 6 }}
+            >
+              Калькулятор стоимости простоя
+            </div>
+            <div style={{ fontSize: 13, color: "rgba(255,255,255,.45)", marginBottom: 26 }}>
+              Введите параметры — расчёт обновится автоматически
+            </div>
+
+            <CalcField label="Ежемесячная выручка (₽)">
+              <input
+                data-testid="calc-revenue"
+                type="number"
+                min={100000}
+                step={100000}
+                value={revenue}
+                onChange={(e) => setRevenue(Number(e.target.value) || 0)}
+                className="calc-input"
+              />
+            </CalcField>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <CalcField label="Рабочих дней в месяце">
+                <input
+                  data-testid="calc-days"
+                  type="number"
+                  min={15}
+                  max={26}
+                  value={days}
+                  onChange={(e) => setDays(Number(e.target.value) || 22)}
+                  className="calc-input"
+                />
+              </CalcField>
+              <CalcField label="Часов в рабочем дне">
+                <input
+                  data-testid="calc-hours"
+                  type="number"
+                  min={4}
+                  max={24}
+                  value={hours}
+                  onChange={(e) => setHours(Number(e.target.value) || 9)}
+                  className="calc-input"
+                />
+              </CalcField>
+            </div>
+
+            <CalcField label="Среднее время простоя при инциденте">
+              <select
+                data-testid="calc-downtime"
+                value={downtime}
+                onChange={(e) => setDowntime(Number(e.target.value))}
+                className="calc-input"
+              >
+                <option value={2}>2 часа — быстрое обнаружение</option>
+                <option value={4}>4 часа — среднее</option>
+                <option value={8}>8 часов — обнаружили утром</option>
+                <option value={24}>24 часа — критический сбой</option>
+              </select>
+            </CalcField>
+
+            <CalcField label="Инцидентов в год без мониторинга">
+              <select
+                data-testid="calc-incidents"
+                value={incidents}
+                onChange={(e) => setIncidents(Number(e.target.value))}
+                className="calc-input"
+              >
+                <option value={2}>2 — оптимистично</option>
+                <option value={4}>4 — реалистично</option>
+                <option value={6}>6 — типично</option>
+                <option value={12}>12 — часто</option>
+              </select>
+            </CalcField>
+
+            <div
+              data-testid="calc-result"
+              style={{
+                marginTop: 22,
+                padding: 20,
+                background: "rgba(27,77,62,.18)",
+                border: "1px solid rgba(27,77,62,.4)",
+                borderRadius: 6,
+              }}
+            >
+              <CalcRow label="Стоимость 1 часа простоя" value={fmt(calc.hourCost)} />
+              <CalcRow
+                label="Потери за один инцидент"
+                value={fmt(calc.perIncident)}
+                tone="danger"
+              />
+              <CalcRow
+                label="Потери за год (без мониторинга)"
+                value={fmt(calc.yearLoss)}
+                tone="danger"
+              />
+              <CalcRow
+                label="Стоимость Bronze-тарифа в год"
+                value={fmt(calc.serviceYear)}
+                tone="safe"
+                bold
+              />
+            </div>
+
+            <p
+              data-testid="calc-verdict"
+              style={{
+                marginTop: 16,
+                fontSize: 13.5,
+                color: "rgba(255,255,255,.55)",
+                lineHeight: 1.6,
+                fontStyle: "italic",
+              }}
+            >
+              {calc.verdict}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <style>{`
+        .calc-input {
+          width: 100%;
+          background: rgba(255,255,255,.06);
+          border: 1px solid rgba(255,255,255,.14);
+          border-radius: 4px;
+          padding: 11px 14px;
+          font-family: var(--fb);
+          font-size: 14.5px;
+          color: #fff;
+          transition: border-color .15s;
+          -webkit-appearance: none;
+        }
+        .calc-input:focus { outline: none; border-color: rgba(45,107,88,.8); }
+        .calc-input option { background: #2c2a26; color: #fff; }
+        @media (max-width: 960px) {
+          .pain-grid-md { grid-template-columns: 1fr !important; gap: 48px !important; }
+        }
+      `}</style>
+    </section>
+  );
+}
+
+function CalcField({ label, children }) {
+  return (
+    <div style={{ marginBottom: 18 }}>
+      <label
+        className="font-mono"
+        style={{
+          display: "block",
+          fontSize: 11,
+          letterSpacing: ".08em",
+          textTransform: "uppercase",
+          color: "rgba(255,255,255,.45)",
+          marginBottom: 8,
+        }}
+      >
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+function CalcRow({ label, value, tone, bold }) {
+  const color = tone === "danger" ? "#FCA5A5" : tone === "safe" ? "#6EE7B7" : "#fff";
+  return (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "baseline",
+        padding: "6px 0",
+        fontSize: 14,
+        color: "rgba(255,255,255,.65)",
+        borderTop: bold ? "1px solid rgba(255,255,255,.1)" : "none",
+        marginTop: bold ? 8 : 0,
+        paddingTop: bold ? 14 : 6,
+        fontWeight: bold ? 500 : 400,
+      }}
+    >
+      <span>{label}</span>
+      <span className="font-mono" style={{ fontSize: 15, color }}>
+        {value}
+      </span>
+    </div>
+  );
+}

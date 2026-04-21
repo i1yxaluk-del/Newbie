@@ -1,0 +1,309 @@
+---
+# deploy_silver.yml — Деплой Silver-компонентов (Promtail + Puppet)
+# ═══════════════════════════════════════════════════════════════════
+# Требования: Bronze уже должен быть установлен
+# Запуск:
+#   ansible-playbook playbooks/deploy_silver.yml \
+#     -i inventory/clients/CLIENT_SLUG/hosts \
+#     -e client_slug=CLIENT_SLUG \
+#     -e "client_name='ООО Название'" \
+#     -v
+# ═══════════════════════════════════════════════════════════════════
+
+- name: "Silver: Linux — Promtail + Puppet Agent"
+  hosts: client_linux
+  become: yes
+  gather_facts: yes
+  any_errors_fatal: false
+
+  vars:
+    promtail_version: "3.0.0"
+    puppet_version:   "8"
+    loki_url:         "http://10.9.0.1:3100"
+    puppet_server:    "puppet-server.internal"
+
+  vars_files:
+    - "{{ inventory_dir }}/vars.yml"
+
+  pre_tasks:
+    - name: "Pre | Проверить Bronze: node_exporter"
+      ansible.builtin.uri:
+        url: "http://localhost:9100/metrics"
+        status_code: 200
+        timeout: 5
+      register: _bronze_check
+      failed_when: _bronze_check.status != 200
+      tags: always
+
+    - name: "Pre | Bronze ОК"
+      ansible.builtin.debug:
+        msg: "✅ Bronze компоненты подтверждены на {{ inventory_hostname }}"
+      tags: always
+
+  tasks:
+
+    # ── Promtail ──────────────────────────────────────────────────
+    - name: "promtail | Проверить текущую версию"
+      ansible.builtin.command: /usr/local/bin/promtail --version
+      register: _pt_ver
+      changed_when: false
+      failed_when: false
+      tags: [promtail, logging]
+
+    - name: "promtail | Скачать"
+      when: _pt_ver.rc != 0 or promtail_version not in (_pt_ver.stdout | default(''))
+      ansible.builtin.get_url:
+        url: "https://github.com/grafana/loki/releases/download/v{{ promtail_version }}/promtail-linux-amd64.zip"
+        dest: /tmp/promtail.zip
+        mode: "0644"
+        timeout: 120
+      retries: 3
+      delay: 10
+      tags: [promtail, logging]
+
+    - name: "promtail | Распаковать и установить"
+      when: _pt_ver.rc != 0 or promtail_version not in (_pt_ver.stdout | default(''))
+      block:
+        - ansible.builtin.unarchive:
+            src: /tmp/promtail.zip
+            dest: /tmp/
+            remote_src: yes
+
+        - ansible.builtin.copy:
+            src: /tmp/promtail-linux-amd64
+            dest: /usr/local/bin/promtail
+            owner: root
+            group: root
+            mode: "0755"
+            remote_src: yes
+
+        - ansible.builtin.file:
+            path: /tmp/promtail.zip
+            state: absent
+      tags: [promtail, logging]
+
+    - name: "promtail | Создать директории"
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - /etc/promtail
+        - /var/lib/promtail
+      tags: [promtail, logging]
+
+    - name: "promtail | Конфигурация"
+      ansible.builtin.template:
+        dest: /etc/promtail/config.yml
+        mode: "0644"
+        content: |
+          server:
+            http_listen_port: 9080
+            grpc_listen_port: 0
+            log_level: warn
+
+          positions:
+            filename: /var/lib/promtail/positions.yaml
+
+          clients:
+            - url: {{ loki_url }}/loki/api/v1/push
+              tenant_id: {{ client_slug }}
+              backoff_config:
+                min_period: 500ms
+                max_period: 5m
+                max_retries: 10
+
+          scrape_configs:
+            - job_name: system
+              static_configs:
+                - targets: [localhost]
+                  labels:
+                    job: syslog
+                    host: "{{ inventory_hostname_short }}"
+                    client: "{{ client_slug }}"
+                    client_name: "{{ client_name }}"
+                    __path__: /var/log/syslog
+
+            - job_name: auth
+              static_configs:
+                - targets: [localhost]
+                  labels:
+                    job: auth
+                    host: "{{ inventory_hostname_short }}"
+                    client: "{{ client_slug }}"
+                    __path__: /var/log/auth.log
+
+            - job_name: nginx
+              static_configs:
+                - targets: [localhost]
+                  labels:
+                    job: nginx
+                    host: "{{ inventory_hostname_short }}"
+                    client: "{{ client_slug }}"
+                    __path__: /var/log/nginx/*.log
+
+            - job_name: postgresql
+              static_configs:
+                - targets: [localhost]
+                  labels:
+                    job: postgresql
+                    host: "{{ inventory_hostname_short }}"
+                    client: "{{ client_slug }}"
+                    __path__: /var/log/postgresql/*.log
+      notify: restart promtail
+      tags: [promtail, logging]
+
+    - name: "promtail | systemd unit"
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/promtail.service
+        content: |
+          [Unit]
+          Description=Promtail Log Shipper → Loki
+          After=network-online.target
+          Wants=network-online.target
+
+          [Service]
+          Type=simple
+          ExecStart=/usr/local/bin/promtail -config.file=/etc/promtail/config.yml
+          Restart=on-failure
+          RestartSec=5s
+
+          [Install]
+          WantedBy=multi-user.target
+        mode: "0644"
+      notify: [daemon-reload, restart promtail]
+      tags: [promtail, logging]
+
+    - name: "promtail | Открыть порт из VPN (для health-check)"
+      community.general.ufw:
+        rule: allow
+        from_ip: "10.9.0.0/24"
+        port: "9080"
+        proto: tcp
+        comment: "promtail health from MSP VPN"
+      failed_when: false
+      tags: [promtail, firewall]
+
+    - name: "promtail | Запустить"
+      ansible.builtin.systemd:
+        name: promtail
+        state: started
+        enabled: yes
+        daemon_reload: yes
+      tags: [promtail, logging]
+
+    # ── Puppet Agent ──────────────────────────────────────────────
+    - name: "puppet | Проверить наличие"
+      ansible.builtin.stat:
+        path: /opt/puppetlabs/bin/puppet
+      register: _puppet_installed
+      tags: [puppet]
+
+    - name: "puppet | Добавить репозиторий"
+      when: not _puppet_installed.stat.exists
+      block:
+        - ansible.builtin.get_url:
+            url: "https://apt.puppetlabs.com/puppet{{ puppet_version }}-release-{{ ansible_distribution_release }}.deb"
+            dest: /tmp/puppet-release.deb
+            mode: "0644"
+            timeout: 60
+          retries: 3
+          delay: 10
+
+        - ansible.builtin.apt:
+            deb: /tmp/puppet-release.deb
+
+        - ansible.builtin.apt:
+            name: puppet-agent
+            state: present
+            update_cache: yes
+
+        - ansible.builtin.file:
+            path: /tmp/puppet-release.deb
+            state: absent
+      tags: [puppet]
+
+    - name: "puppet | Конфигурация puppet.conf"
+      ansible.builtin.copy:
+        dest: /etc/puppetlabs/puppet/puppet.conf
+        content: |
+          [main]
+          certname   = {{ inventory_hostname }}
+          server     = {{ puppet_server }}
+          environment = production
+
+          [agent]
+          runinterval    = 1800
+          report         = true
+          splay          = true
+          splaylimit     = 300
+          usecacheonfailure = true
+        mode: "0644"
+      tags: [puppet]
+
+    - name: "puppet | Добавить puppet-server в /etc/hosts"
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        line: "10.9.0.2 puppet-server.internal puppet-server"
+        state: present
+      tags: [puppet]
+
+    - name: "puppet | Запустить агент и запросить сертификат"
+      ansible.builtin.command:
+        cmd: /opt/puppetlabs/bin/puppet agent --test --waitforcert 60
+      register: _puppet_cert
+      changed_when: _puppet_cert.rc == 0
+      failed_when: false
+      timeout: 90
+      tags: [puppet]
+
+    - name: "puppet | Инструкция по подписи сертификата"
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════
+          На Puppet Server выполнить:
+          puppetserver ca sign --certname {{ inventory_hostname }}
+
+          Затем проверить на этом хосте:
+          puppet agent --test --verbose
+          ═══════════════════════════════════════════════
+      when: _puppet_cert.rc != 0
+      tags: [puppet]
+
+    - name: "puppet | Включить сервис (после подписи сертификата)"
+      ansible.builtin.systemd:
+        name: puppet
+        state: started
+        enabled: yes
+        daemon_reload: yes
+      failed_when: false
+      tags: [puppet]
+
+  post_tasks:
+    - name: "verify | promtail ready"
+      ansible.builtin.uri:
+        url: "http://localhost:9080/ready"
+        status_code: 200
+        timeout: 10
+      register: _pt_check
+      retries: 5
+      delay: 3
+      tags: [verify]
+
+    - name: "verify | ИТОГ Silver"
+      ansible.builtin.debug:
+        msg: >-
+          ✅ {{ inventory_hostname }} Silver ready |
+          promtail: {{ 'OK' if _pt_check.status == 200 else 'FAIL' }} |
+          puppet: установлен (требует подписи сертификата на Puppet Server)
+      tags: [verify, always]
+
+  handlers:
+    - name: daemon-reload
+      ansible.builtin.systemd:
+        daemon_reload: yes
+
+    - name: restart promtail
+      ansible.builtin.systemd:
+        name: promtail
+        state: restarted

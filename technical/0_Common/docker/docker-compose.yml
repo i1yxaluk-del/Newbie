@@ -1,0 +1,258 @@
+version: "3.8"
+# ═══════════════════════════════════════════════════════════════════
+# MSPShield — Production Docker Compose
+# Профили:
+#   monitoring  → Bronze (Prometheus + Alertmanager + Grafana)
+#   silver      → Silver (+ Loki)
+#   gold        → Gold  (все выше, Wazuh — отдельная VM)
+#
+# Запуск:
+#   Bronze: docker compose --profile monitoring up -d
+#   Silver: docker compose --profile silver up -d
+#   Gold:   docker compose --profile gold up -d
+# ═══════════════════════════════════════════════════════════════════
+
+networks:
+  monitoring:
+    name: msp-monitoring
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
+
+volumes:
+  prometheus_data:   { name: msp-prometheus-data }
+  grafana_data:      { name: msp-grafana-data }
+  loki_data:         { name: msp-loki-data }
+  alertmanager_data: { name: msp-alertmanager-data }
+
+services:
+
+  # ──────────────────────────────────────────────────────────────
+  # PROMETHEUS
+  # ──────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:${PROMETHEUS_VERSION:-v2.51.0}
+    container_name: msp-prometheus
+    restart: unless-stopped
+    profiles: [monitoring, silver, gold]
+    user: "65534:65534"
+    volumes:
+      - prometheus_data:/prometheus
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=45d"
+      - "--storage.tsdb.retention.size=8GB"
+      - "--storage.tsdb.wal-compression"
+      - "--web.enable-lifecycle"
+      - "--web.enable-admin-api"
+      - "--web.external-url=http://10.9.0.1:9090"
+      - "--query.timeout=60s"
+      - "--query.max-concurrency=20"
+    ports:
+      - "127.0.0.1:9090:9090"
+    networks:
+      monitoring:
+        ipv4_address: 172.20.0.10
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:   { memory: 2G }
+        reservations: { memory: 512M }
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  # ──────────────────────────────────────────────────────────────
+  # ALERTMANAGER
+  # ──────────────────────────────────────────────────────────────
+  alertmanager:
+    image: prom/alertmanager:${ALERTMANAGER_VERSION:-v0.27.0}
+    container_name: msp-alertmanager
+    restart: unless-stopped
+    profiles: [monitoring, silver, gold]
+    volumes:
+      - alertmanager_data:/alertmanager
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+      - "--web.external-url=http://10.9.0.1:9093"
+      - "--cluster.listen-address="
+    ports:
+      - "127.0.0.1:9093:9093"
+    networks:
+      monitoring:
+        ipv4_address: 172.20.0.11
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9093/-/healthy"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:   { memory: 256M }
+        reservations: { memory: 64M }
+    logging:
+      driver: json-file
+      options: { max-size: "5m", max-file: "2" }
+
+  # ──────────────────────────────────────────────────────────────
+  # GRAFANA
+  # ──────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:${GRAFANA_VERSION:-10.4.2}
+    container_name: msp-grafana
+    restart: unless-stopped
+    profiles: [monitoring, silver, gold]
+    user: "472:472"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?GRAFANA_ADMIN_USER must be set in .env}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD must be set in .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SERVER_ROOT_URL: "http://10.9.0.1:3000"
+      GF_SERVER_DOMAIN: "10.9.0.1"
+      # Отключить телеметрию
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_SECURITY_DISABLE_GRAVATAR: "true"
+      # Алерты Grafana отключены (используем Alertmanager)
+      GF_UNIFIED_ALERTING_ENABLED: "false"
+      GF_ALERTING_ENABLED: "false"
+      # Плагины
+      GF_INSTALL_PLUGINS: "grafana-clock-panel,grafana-piechart-panel"
+      # Уменьшить логи
+      GF_LOG_LEVEL: "warn"
+    ports:
+      - "10.9.0.1:3000:3000"   # ТОЛЬКО VPN
+    networks:
+      monitoring:
+        ipv4_address: 172.20.0.12
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:   { memory: 512M }
+        reservations: { memory: 128M }
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  # ──────────────────────────────────────────────────────────────
+  # NODE EXPORTER (метрики самой Monitoring VM)
+  # ──────────────────────────────────────────────────────────────
+  node-exporter:
+    image: prom/node-exporter:${NODE_EXPORTER_VERSION:-v1.7.0}
+    container_name: msp-node-exporter
+    restart: unless-stopped
+    profiles: [monitoring, silver, gold]
+    pid: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--path.rootfs=/rootfs"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+      - "--no-collector.ipvs"
+    networks: [monitoring]
+    deploy:
+      resources:
+        limits:   { memory: 128M }
+        reservations: { memory: 32M }
+
+  # ──────────────────────────────────────────────────────────────
+  # CADVISOR (метрики Docker-контейнеров)
+  # ──────────────────────────────────────────────────────────────
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:${CADVISOR_VERSION:-v0.49.1}
+    container_name: msp-cadvisor
+    restart: unless-stopped
+    profiles: [monitoring, silver, gold]
+    privileged: true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+    command:
+      - "--housekeeping_interval=30s"
+      - "--max_housekeeping_interval=35s"
+      - "--event_storage_event_limit=default=0"
+      - "--event_storage_age_limit=default=0"
+      - "--disable_metrics=percpu,sched,tcp,udp,accelerator,hugetlb,referenced_memory,cpu_topology,resctrl"
+      - "--docker_only=true"
+    networks: [monitoring]
+    deploy:
+      resources:
+        limits:   { memory: 256M }
+        reservations: { memory: 64M }
+
+  # ──────────────────────────────────────────────────────────────
+  # BLACKBOX EXPORTER (HTTP/DNS/SSL проверки сайтов)
+  # ──────────────────────────────────────────────────────────────
+  blackbox-exporter:
+    image: prom/blackbox-exporter:${BLACKBOX_VERSION:-v0.24.0}
+    container_name: msp-blackbox
+    restart: unless-stopped
+    profiles: [monitoring, silver, gold]
+    volumes:
+      - ./prometheus/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    command:
+      - "--config.file=/etc/blackbox_exporter/config.yml"
+    ports:
+      - "127.0.0.1:9115:9115"
+    networks: [monitoring]
+    deploy:
+      resources:
+        limits:   { memory: 64M }
+        reservations: { memory: 16M }
+
+  # ──────────────────────────────────────────────────────────────
+  # LOKI (Silver+) — централизованные логи
+  # ──────────────────────────────────────────────────────────────
+  loki:
+    image: grafana/loki:${LOKI_VERSION:-3.0.0}
+    container_name: msp-loki
+    restart: unless-stopped
+    profiles: [silver, gold]
+    user: "10001:10001"
+    volumes:
+      - loki_data:/loki
+      - ./loki/loki-config.yml:/etc/loki/local-config.yaml:ro
+    command: -config.file=/etc/loki/local-config.yaml
+    ports:
+      - "10.9.0.1:3100:3100"   # ТОЛЬКО VPN
+    networks:
+      monitoring:
+        ipv4_address: 172.20.0.20
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3100/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:   { memory: 2G }
+        reservations: { memory: 512M }
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }

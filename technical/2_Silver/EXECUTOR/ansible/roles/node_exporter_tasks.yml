@@ -1,0 +1,114 @@
+---
+# roles/node_exporter/tasks/main.yml
+# Ansible роль: установка node_exporter на Linux
+# Используется в playbooks/deploy_bronze.yml
+
+- name: "node_exporter | Создать пользователя"
+  ansible.builtin.user:
+    name: node_exporter
+    system: yes
+    shell: /sbin/nologin
+    create_home: no
+    comment: "Prometheus Node Exporter"
+  tags: [node_exporter]
+
+- name: "node_exporter | Проверить текущую версию"
+  ansible.builtin.command:
+    cmd: /usr/local/bin/node_exporter --version
+  register: ne_current_version
+  changed_when: false
+  failed_when: false
+  tags: [node_exporter]
+
+- name: "node_exporter | Установить (если нет или старая версия)"
+  when: >
+    ne_current_version.rc != 0 or
+    node_exporter_version not in (ne_current_version.stderr | default(''))
+  block:
+    - name: "node_exporter | Скачать архив"
+      ansible.builtin.get_url:
+        url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz"
+        dest: "/tmp/node_exporter-{{ node_exporter_version }}.tar.gz"
+        mode: "0644"
+        timeout: 60
+      register: download_result
+      retries: 3
+      delay: 10
+
+    - name: "node_exporter | Распаковать"
+      ansible.builtin.unarchive:
+        src: "/tmp/node_exporter-{{ node_exporter_version }}.tar.gz"
+        dest: /tmp/
+        remote_src: yes
+
+    - name: "node_exporter | Установить бинарник"
+      ansible.builtin.copy:
+        src: "/tmp/node_exporter-{{ node_exporter_version }}.linux-amd64/node_exporter"
+        dest: /usr/local/bin/node_exporter
+        owner: root
+        group: root
+        mode: "0755"
+        remote_src: yes
+      notify: restart node_exporter
+
+    - name: "node_exporter | Cleanup"
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "/tmp/node_exporter-{{ node_exporter_version }}.tar.gz"
+        - "/tmp/node_exporter-{{ node_exporter_version }}.linux-amd64"
+  tags: [node_exporter]
+
+- name: "node_exporter | Создать директорию textfile_collector"
+  ansible.builtin.file:
+    path: /var/lib/node_exporter/textfile_collector
+    state: directory
+    owner: node_exporter
+    group: node_exporter
+    mode: "0755"
+  tags: [node_exporter]
+
+- name: "node_exporter | Создать systemd unit"
+  ansible.builtin.template:
+    src: node_exporter.service.j2
+    dest: /etc/systemd/system/node_exporter.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - daemon-reload
+    - restart node_exporter
+  tags: [node_exporter]
+
+- name: "node_exporter | UFW: открыть порт из VPN"
+  community.general.ufw:
+    rule: allow
+    from_ip: "{{ msp_vpn_subnet | default('10.9.0.0/24') }}"
+    port: "{{ node_exporter_port | default('9100') }}"
+    proto: tcp
+    comment: "node_exporter from MSP VPN"
+  when: ansible_facts.packages['ufw'] is defined
+  tags: [node_exporter, firewall]
+
+- name: "node_exporter | Запустить и включить"
+  ansible.builtin.systemd:
+    name: node_exporter
+    state: started
+    enabled: yes
+  tags: [node_exporter]
+
+- name: "node_exporter | Верификация"
+  ansible.builtin.uri:
+    url: "http://localhost:{{ node_exporter_port | default(9100) }}/metrics"
+    status_code: 200
+    timeout: 10
+  register: verify
+  retries: 3
+  delay: 5
+  tags: [node_exporter, verify]
+
+- name: "node_exporter | Статус"
+  ansible.builtin.debug:
+    msg: "✅ node_exporter {{ node_exporter_version }} установлен на {{ inventory_hostname }}"
+  tags: [node_exporter]

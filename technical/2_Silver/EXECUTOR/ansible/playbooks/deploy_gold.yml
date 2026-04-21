@@ -1,0 +1,263 @@
+---
+# deploy_gold.yml — Развёртывание Gold-компонентов (Wazuh + Kaspersky)
+# ═══════════════════════════════════════════════════════════════════
+# Требования: Silver уже должен быть установлен
+# Запуск:
+#   ansible-playbook playbooks/deploy_gold.yml \
+#     -i inventory/clients/CLIENT_SLUG/hosts \
+#     -e client_slug=CLIENT_SLUG \
+#     -e "client_name='ООО Название'" \
+#     -v
+# ═══════════════════════════════════════════════════════════════════
+
+- name: "Gold: Linux — Wazuh Agent"
+  hosts: client_linux
+  become: yes
+  gather_facts: yes
+  any_errors_fatal: false
+
+  vars:
+    wazuh_version: "4.7.5"
+    wazuh_manager: "10.9.0.3"
+    wazuh_manager_port: "1514"
+
+  vars_files:
+    - "{{ inventory_dir }}/vars.yml"
+
+  pre_tasks:
+    - name: "Pre | Проверить Silver: promtail"
+      ansible.builtin.uri:
+        url: "http://localhost:9080/ready"
+        status_code: 200
+        timeout: 5
+      register: _silver_check
+      failed_when: _silver_check.status != 200
+      tags: always
+
+    - name: "Pre | Silver ОК"
+      ansible.builtin.debug:
+        msg: "✅ Silver компоненты подтверждены на {{ inventory_hostname }}"
+      tags: always
+
+    - name: "Pre | Проверить доступность Wazuh Manager"
+      ansible.builtin.wait_for:
+        host: "{{ wazuh_manager }}"
+        port: 1515
+        timeout: 10
+      register: _wazuh_reachable
+      failed_when: false
+      tags: always
+
+    - name: "Pre | Статус Manager"
+      ansible.builtin.debug:
+        msg: "{{ 'Wazuh Manager доступен' if _wazuh_reachable.elapsed is defined else 'ВНИМАНИЕ: Wazuh Manager недоступен — агент установится, но подключится позже' }}"
+      tags: always
+
+  tasks:
+
+    # ── Wazuh Agent ──────────────────────────────────────────────
+    - name: "wazuh | Добавить GPG ключ"
+      ansible.builtin.shell:
+        cmd: |
+          curl -sS https://packages.wazuh.com/key/GPG-KEY-WAZUH \
+            | gpg --no-default-keyring \
+                  --keyring gnupg-ring:/usr/share/keyrings/wazuh.gpg \
+                  --import
+          chmod 644 /usr/share/keyrings/wazuh.gpg
+        creates: /usr/share/keyrings/wazuh.gpg
+      tags: [wazuh]
+
+    - name: "wazuh | Добавить репозиторий"
+      ansible.builtin.copy:
+        dest: /etc/apt/sources.list.d/wazuh.list
+        content: |
+          deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main
+        mode: "0644"
+      tags: [wazuh]
+
+    - name: "wazuh | Обновить apt cache"
+      ansible.builtin.apt:
+        update_cache: yes
+      tags: [wazuh]
+
+    - name: "wazuh | Установить wazuh-agent"
+      ansible.builtin.apt:
+        name: "wazuh-agent={{ wazuh_version }}-*"
+        state: present
+      environment:
+        WAZUH_MANAGER: "{{ wazuh_manager }}"
+        WAZUH_AGENT_NAME: "{{ inventory_hostname_short }}"
+        WAZUH_AGENT_GROUP: "{{ client_slug }}"
+      tags: [wazuh]
+
+    - name: "wazuh | Установить Manager IP в ossec.conf"
+      ansible.builtin.lineinfile:
+        path: /var/ossec/etc/ossec.conf
+        regexp: '<address>.*</address>'
+        line: "    <address>{{ wazuh_manager }}</address>"
+        backrefs: yes
+      notify: restart wazuh-agent
+      tags: [wazuh]
+
+    - name: "wazuh | Скопировать кастомный FIM конфиг"
+      ansible.builtin.copy:
+        dest: /var/ossec/etc/ossec.conf.d/fim_msp.xml
+        content: |
+          <ossec_config>
+            <syscheck>
+              <disabled>no</disabled>
+              <frequency>43200</frequency>
+              <directories check_all="yes" report_changes="yes">/etc</directories>
+              <directories check_all="yes">/usr/bin</directories>
+              <directories check_all="yes">/usr/sbin</directories>
+              <directories check_all="yes" report_changes="yes">/var/www</directories>
+              <directories check_all="yes">/root/.ssh</directories>
+              <directories check_all="yes">/opt/restic-scripts</directories>
+              <directories check_all="yes">/etc/wireguard</directories>
+              <ignore type="sregex">.log$</ignore>
+              <ignore type="sregex">.tmp$</ignore>
+              <ignore type="sregex">.swp$</ignore>
+            </syscheck>
+          </ossec_config>
+        mode: "0644"
+      tags: [wazuh]
+
+    - name: "wazuh | UFW — разрешить исходящие на Manager"
+      community.general.ufw:
+        rule: allow
+        direction: out
+        to_ip: "{{ wazuh_manager }}"
+        port: "{{ item }}"
+        proto: tcp
+        comment: "Wazuh Manager"
+      loop:
+        - "1514"
+        - "1515"
+      failed_when: false
+      tags: [wazuh, firewall]
+
+    - name: "wazuh | Запустить и включить"
+      ansible.builtin.systemd:
+        name: wazuh-agent
+        state: started
+        enabled: yes
+        daemon_reload: yes
+      tags: [wazuh]
+
+  post_tasks:
+    - name: "verify | Wazuh Agent статус"
+      ansible.builtin.command:
+        cmd: /var/ossec/bin/wazuh-control status
+      register: _wazuh_status
+      changed_when: false
+      failed_when: false
+      tags: [verify]
+
+    - name: "verify | ИТОГ Gold"
+      ansible.builtin.debug:
+        msg: >-
+          ✅ {{ inventory_hostname }} Gold ready |
+          wazuh-agent: {{ 'running' if 'wazuh-modulesd running' in _wazuh_status.stdout else 'starting/error' }}
+
+          НА PUPPET SERVER подписать сертификат Puppet (если не сделано).
+          НА WAZUH MANAGER проверить регистрацию агента:
+            docker exec wazuh-manager /var/ossec/bin/agent_control -l | grep {{ inventory_hostname_short }}
+      tags: [verify, always]
+
+  handlers:
+    - name: restart wazuh-agent
+      ansible.builtin.systemd:
+        name: wazuh-agent
+        state: restarted
+
+# ── PLAY 2: Windows — Wazuh + Kaspersky мониторинг ───────────────
+- name: "Gold: Windows — Wazuh Agent + KES monitoring"
+  hosts: client_windows
+  gather_facts: yes
+  any_errors_fatal: false
+
+  vars:
+    wazuh_version: "4.7.5"
+    wazuh_manager: "10.9.0.3"
+
+  vars_files:
+    - "{{ inventory_dir }}/vars.yml"
+
+  tasks:
+    - name: "wazuh-win | Скачать MSI"
+      ansible.windows.win_get_url:
+        url: "https://packages.wazuh.com/4.x/windows/wazuh-agent-{{ wazuh_version }}-1.msi"
+        dest: "{{ ansible_env.TEMP }}\\wazuh-agent.msi"
+      retries: 3
+      delay: 10
+      tags: [wazuh]
+
+    - name: "wazuh-win | Установить"
+      ansible.windows.win_package:
+        path: "{{ ansible_env.TEMP }}\\wazuh-agent.msi"
+        state: present
+        arguments: >-
+          /quiet /norestart
+          WAZUH_MANAGER={{ wazuh_manager }}
+          WAZUH_AGENT_NAME={{ ansible_hostname }}
+          WAZUH_AGENT_GROUP={{ client_slug }}
+      tags: [wazuh]
+
+    - name: "wazuh-win | Создать скрипт мониторинга KES"
+      ansible.windows.win_copy:
+        dest: "C:\\msp-scripts\\monitor_kaspersky.ps1"
+        content: |
+          $MetricsDir = "C:\Program Files\windows_exporter\textfile_collector"
+          $OutFile = "$MetricsDir\kaspersky.prom"
+          $H = $env:COMPUTERNAME
+          $svc = Get-Service -Name "AVP*" -ErrorAction SilentlyContinue | Select-Object -First 1
+          $running = if ($svc -and $svc.Status -eq "Running") { 1 } else { 0 }
+          $wazuh = Get-Service "OssecSvc" -ErrorAction SilentlyContinue
+          $wazuhRun = if ($wazuh -and $wazuh.Status -eq "Running") { 1 } else { 0 }
+          @"
+          # HELP kaspersky_service_running 1=running 0=stopped
+          # TYPE kaspersky_service_running gauge
+          kaspersky_service_running{host="$H"} $running
+          # HELP wazuh_agent_running 1=running 0=stopped
+          # TYPE wazuh_agent_running gauge
+          wazuh_agent_running{host="$H"} $wazuhRun
+          "@ | Set-Content $OutFile -Encoding UTF8
+      tags: [monitoring]
+
+    - name: "wazuh-win | Зарегистрировать Task Scheduler"
+      ansible.windows.win_scheduled_task:
+        name: MSP-Monitor-Kaspersky
+        description: "MSPShield: мониторинг KES и Wazuh"
+        actions:
+          - path: powershell.exe
+            arguments: "-NonInteractive -ExecutionPolicy Bypass -File C:\\msp-scripts\\monitor_kaspersky.ps1"
+        triggers:
+          - type: daily
+            start_boundary: "2026-01-01T07:00:00"
+            repetition:
+              interval: PT5M
+        run_level: highest
+        logon_type: service_account
+        username: SYSTEM
+        state: present
+        enabled: yes
+      tags: [monitoring]
+
+    - name: "wazuh-win | Запустить службу"
+      ansible.windows.win_service:
+        name: OssecSvc
+        state: started
+        start_mode: auto
+      tags: [wazuh]
+
+  post_tasks:
+    - name: "verify | Wazuh Windows"
+      ansible.windows.win_service:
+        name: OssecSvc
+      register: _wazuh_svc
+      tags: [verify]
+
+    - name: "verify | ИТОГ Gold Windows"
+      ansible.builtin.debug:
+        msg: "✅ {{ inventory_hostname }} Gold Windows ready | Wazuh: {{ _wazuh_svc.state }}"
+      tags: [verify, always]

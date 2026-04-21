@@ -1,0 +1,492 @@
+---
+# ═══════════════════════════════════════════════════════════════════
+# bronze_alerts.yml — Правила алертинга (Bronze тариф)
+# Файл: /opt/monitoring/prometheus/rules/bronze_alerts.yml
+#
+# ДЛЯ JUNIOR:
+#   alert rules = правила, которые срабатывают когда метрика
+#   выходит за допустимые пределы.
+#
+#   Ключевые понятия:
+#   - expr   — PromQL выражение (запрос к Prometheus)
+#              Если результат > 0 — правило срабатывает (firing)
+#   - for    — сколько ВРЕМЕНИ метрика должна быть нарушена
+#              до отправки алерта (защита от "миганий")
+#   - labels.severity    — critical/warning/info (для Alertmanager)
+#   - labels.category    — availability/resources/backup (для группировки)
+#   - annotations.summary — краткое описание (идёт в Telegram)
+#   - annotations.description — детали + как чинить
+#
+#   Поток: metric нарушена → rule firing → for: Xm → Alertmanager → Telegram
+#
+#   КАК ДОБАВИТЬ НОВОЕ ПРАВИЛО:
+#   1. Написать PromQL запрос в Prometheus UI (http://10.9.0.1:9090)
+#   2. Убедиться что запрос возвращает значение > 0 при проблеме
+#   3. Добавить правило в соответствующую группу (availability/resources/etc)
+#   4. Перезагрузить: curl -X POST http://localhost:9090/-/reload
+#   5. Протестировать: остановить сервис, дождаться алерта
+# ═══════════════════════════════════════════════════════════════════
+
+groups:
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # ДОСТУПНОСТЬ
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - name: availability
+    interval: 15s
+    rules:
+
+      - alert: TargetDown
+        expr: up == 0
+        for: 3m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "🔴 {{ $labels.client_name | default \"MSP\" }} | {{ $labels.instance }} НЕДОСТУПЕН"
+          description: |
+            Prometheus не получает метрики от {{ $labels.job }} уже 3 минуты.
+            Клиент: {{ $labels.client_name }}
+
+            Диагностика:
+            1. Проверить VPN: sudo wg show wg0 | grep {{ $labels.instance | replace ":9100" "" | replace ":9182" "" }}
+            2. Ping: ping -c 3 {{ $labels.instance | replace ":9100" "" | replace ":9182" "" }}
+            3. Порт: curl -s http://{{ $labels.instance }}/metrics | head -3
+            4. Служба: ssh ubuntu@<IP> "systemctl status node_exporter"
+
+      - alert: TargetFlapping
+        expr: changes(up[15m]) > 4
+        for: 0m
+        labels:
+          severity: warning
+          category: availability
+        annotations:
+          summary: "⚠️ {{ $labels.client_name }} | Нестабильность: {{ $labels.instance }}"
+          description: |
+            Цель переключалась UP/DOWN более 4 раз за 15 минут.
+            Вероятные причины: нестабильная сеть, VPN проблемы, перегрузка сервера.
+            Диагностика: journalctl -u node_exporter -f
+
+      - alert: NodeRebootDetected
+        expr: (time() - node_boot_time_seconds) < 600
+        for: 0m
+        labels:
+          severity: info
+          category: availability
+        annotations:
+          summary: "ℹ️ {{ $labels.client_name }} | Перезагрузка: {{ $labels.instance }}"
+          description: |
+            Сервер {{ $labels.instance }} перезагружен (uptime < 10 мин).
+            Проверить причину: journalctl -b -1 -p err | tail -30
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # РЕСУРСЫ ХОСТА (Linux)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - name: host_resources_linux
+    rules:
+
+      - alert: HighCPUUsage
+        expr: |
+          100 - (avg by(instance, client, client_name)
+            (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 10m
+        labels:
+          severity: warning
+          category: resources
+        annotations:
+          summary: "⚠️ {{ $labels.client_name }} | CPU {{ $labels.instance }}: {{ $value | printf \"%.1f\" }}%"
+          description: |
+            CPU загружен более 85% уже 10 минут.
+            Диагностика:
+              top -bn1 | head -20
+              ps aux --sort=-%cpu | head -15
+              sar -u 1 5
+
+      - alert: CriticalCPUUsage
+        expr: |
+          100 - (avg by(instance, client, client_name)
+            (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 95
+        for: 5m
+        labels:
+          severity: critical
+          category: resources
+        annotations:
+          summary: "🔴 {{ $labels.client_name }} | КРИТИЧЕСКИЙ CPU {{ $labels.instance }}: {{ $value | printf \"%.1f\" }}%"
+          description: |
+            CPU >95%! Сервисы могут перестать отвечать.
+            СРОЧНО:
+              top -bn1 | head -30
+              ps aux --sort=-%cpu | head -15
+              kill -9 <PID> (только если уверены)
+
+      - alert: HighMemoryUsage
+        expr: |
+          (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 > 88
+        for: 10m
+        labels:
+          severity: warning
+          category: resources
+        annotations:
+          summary: "⚠️ {{ $labels.client_name }} | RAM {{ $labels.instance }}: {{ $value | printf \"%.1f\" }}%"
+          description: |
+            Свободной памяти менее 12%.
+            Диагностика:
+              free -h
+              ps aux --sort=-%mem | head -15
+              cat /proc/meminfo | grep -E "^(MemTotal|MemFree|MemAvailable|Cached|Buffers)"
+
+      - alert: CriticalMemoryUsage
+        expr: |
+          (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 > 96
+        for: 5m
+        labels:
+          severity: critical
+          category: resources
+        annotations:
+          summary: "🔴 {{ $labels.client_name }} | КРИТИЧЕСКИ МАЛО RAM: {{ $labels.instance }}"
+          description: |
+            RAM <4%! OOM killer скоро начнёт убивать процессы.
+            СРОЧНО: free -h; перезапустить самый тяжёлый процесс
+
+      - alert: DiskUsageWarning
+        expr: |
+          (1 - node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*|overlay|squashfs|devtmpfs"}
+               / node_filesystem_size_bytes) * 100 > 80
+        for: 10m
+        labels:
+          severity: warning
+          category: resources
+        annotations:
+          summary: "⚠️ {{ $labels.client_name }} | Диск {{ $labels.mountpoint }} {{ $labels.instance }}: {{ $value | printf \"%.1f\" }}%"
+          description: |
+            Заполнено >80%. Начинайте освобождать место.
+            Диагностика:
+              df -h {{ $labels.mountpoint }}
+              du -sh {{ $labels.mountpoint }}/* 2>/dev/null | sort -rh | head -15
+
+      - alert: DiskUsageCritical
+        expr: |
+          (1 - node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*|overlay|squashfs|devtmpfs"}
+               / node_filesystem_size_bytes) * 100 > 92
+        for: 5m
+        labels:
+          severity: critical
+          category: resources
+        annotations:
+          summary: "🔴 {{ $labels.client_name }} | ДИСК ПОЧТИ ПОЛОН {{ $labels.instance }}:{{ $labels.mountpoint }} — {{ $value | printf \"%.1f\" }}%"
+          description: |
+            Осталось <8%! При заполнении до 100% сервисы упадут.
+            СРОЧНО:
+              find /var/log -name "*.log" -mtime +7 -delete
+              journalctl --vacuum-time=7d
+              du -sh /* 2>/dev/null | sort -rh | head -10
+
+      - alert: DiskWillFillIn6Hours
+        expr: |
+          predict_linear(
+            node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*|overlay|squashfs|devtmpfs"}[3h],
+            6 * 3600
+          ) < 0
+        for: 30m
+        labels:
+          severity: critical
+          category: resources
+        annotations:
+          summary: "🔴 {{ $labels.client_name }} | ПРОГНОЗ: диск {{ $labels.instance }}:{{ $labels.mountpoint }} заполнится через ~6 часов"
+          description: |
+            Прогноз по тренду последних 3 часов.
+            Срочно освободить место или расширить диск.
+
+      - alert: HighLoadAverage
+        expr: |
+          node_load15 / count by(instance, client, client_name)(
+            node_cpu_seconds_total{mode="idle"}
+          ) > 2
+        for: 15m
+        labels:
+          severity: warning
+          category: resources
+        annotations:
+          summary: "⚠️ {{ $labels.client_name }} | Высокий LA на {{ $labels.instance }}: {{ $value | printf \"%.2f\" }}"
+          description: |
+            Load Average (15m) превышает количество CPU в 2 раза.
+            Диагностика: uptime; top; iotop
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # РЕСУРСЫ ХОСТА (Windows)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - name: host_resources_windows
+    rules:
+
+      - alert: WindowsHighCPU
+        expr: |
+          100 - (avg by(instance, client, client_name)
+            (rate(windows_cpu_time_total{mode="idle"}[5m])) * 100) > 85
+        for: 10m
+        labels:
+          severity: warning
+          category: resources
+        annotations:
+          summary: "⚠️ {{ $labels.client_name }} | Windows CPU {{ $labels.instance }}: {{ $value | printf \"%.1f\" }}%"
+          description: |
+            CPU >85% на Windows-сервере.
+            Диагностика (PowerShell):
+              Get-Process | Sort-Object CPU -Descending | Select -First 15
+
+      - alert: WindowsLowMemory
+        expr: |
+          (1 - windows_memory_available_bytes / windows_cs_physical_memory_bytes) * 100 > 90
+        for: 10m
+        labels:
+          severity: warning
+          category: resources
+        annotations:
+          summary: "⚠️ {{ $labels.client_name }} | Windows RAM {{ $labels.instance }}: {{ $value | printf \"%.1f\" }}%"
+          description: |
+            Свободной памяти < 10% на Windows.
+            Get-Process | Sort-Object WorkingSet -Descending | Select -First 15
+
+      - alert: WindowsDiskWarning
+        expr: |
+          (1 - windows_logical_disk_free_bytes{volume!~"HarddiskVolume.*"}
+               / windows_logical_disk_size_bytes) * 100 > 80
+        for: 10m
+        labels:
+          severity: warning
+          category: resources
+        annotations:
+          summary: "⚠️ {{ $labels.client_name }} | Windows диск {{ $labels.volume }} на {{ $labels.instance }}: {{ $value | printf \"%.1f\" }}%"
+          description: "Get-Volume; cleanmgr"
+
+      - alert: WindowsDiskCritical
+        expr: |
+          (1 - windows_logical_disk_free_bytes{volume!~"HarddiskVolume.*"}
+               / windows_logical_disk_size_bytes) * 100 > 92
+        for: 5m
+        labels:
+          severity: critical
+          category: resources
+        annotations:
+          summary: "🔴 {{ $labels.client_name }} | Windows диск ПОЧТИ ПОЛОН {{ $labels.volume }} {{ $labels.instance }}: {{ $value | printf \"%.1f\" }}%"
+          description: "СРОЧНО: Get-ChildItem C:\ -Recurse | Sort-Object Length -Descending | Select -First 20"
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # СЕРВИСЫ WINDOWS
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - name: windows_services
+    rules:
+
+      - alert: CriticalWindowsServiceDown
+        expr: |
+          windows_service_status{
+            name=~"1C:.*|MSSQLSERVER|SQLSERVERAGENT|DNS|NTDS|Netlogon|LanmanServer|W32Time|RpcSs",
+            status="running"
+          } == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: services
+        annotations:
+          summary: "🔴 {{ $labels.client_name }} | Критичная служба {{ $labels.name }} DOWN: {{ $labels.instance }}"
+          description: |
+            Критичная Windows-служба остановлена более 2 минут!
+            Восстановление (PowerShell от Admin):
+              Start-Service "{{ $labels.name }}"
+              Get-EventLog -LogName Application -Source "*{{ $labels.name }}*" -Newest 20 | Format-List
+
+      - alert: WindowsServiceDown
+        expr: |
+          windows_service_status{
+            name!~"1C:.*|MSSQLSERVER|SQLSERVERAGENT|DNS|NTDS|Netlogon|LanmanServer|W32Time|RpcSs",
+            status="running",
+            start_mode="auto"
+          } == 0
+        for: 5m
+        labels:
+          severity: warning
+          category: services
+        annotations:
+          summary: "⚠️ {{ $labels.client_name }} | Служба {{ $labels.name }} DOWN: {{ $labels.instance }}"
+          description: |
+            Windows-служба с автозапуском остановлена.
+            Get-Service "{{ $labels.name }}"
+            Get-EventLog -LogName System -Newest 10 | Where-Object {$_.Source -like "*{{ $labels.name }}*"}
+
+      - alert: OneCRphostHighMemory
+        expr: |
+          windows_process_working_set_bytes{process="rphost"} / 1073741824 > 8
+        for: 15m
+        labels:
+          severity: warning
+          category: services
+        annotations:
+          summary: "⚠️ {{ $labels.client_name }} | 1С rphost потребляет {{ $value | printf \"%.1f\" }} ГБ RAM"
+          description: |
+            Рабочий процесс 1С потребляет более 8 ГБ RAM.
+            Причины: утечка памяти в коде 1С, много пользователей, долгий отчёт.
+            Решение: перезапустить rphost в консоли кластера 1С.
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # РЕЗЕРВНОЕ КОПИРОВАНИЕ
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - name: backups
+    rules:
+
+      - alert: BackupFailed
+        expr: restic_backup_last_status == 0
+        for: 5m
+        labels:
+          severity: critical
+          category: backup
+        annotations:
+          summary: "🔴 {{ $labels.client_name }} | БЭКАП УПАЛ: {{ $labels.host | default $labels.instance }}"
+          description: |
+            Последний бэкап завершился с ошибкой!
+            ЭТО КРИТИЧНО — данные не защищены.
+
+            Диагностика:
+              journalctl -u restic-backup -n 100 --no-pager
+              systemctl status restic-backup.service
+              source /etc/restic/env.sh && restic check
+
+            Запустить вручную:
+              systemctl start restic-backup.service
+
+      - alert: BackupTooOld
+        expr: time() - restic_backup_last_timestamp_seconds > 90000
+        for: 1h
+        labels:
+          severity: critical
+          category: backup
+        annotations:
+          summary: "🔴 {{ $labels.client_name }} | НЕТ СВЕЖЕГО БЭКАПА >25ч: {{ $labels.host | default $labels.instance }}"
+          description: |
+            Бэкап не выполнялся более 25 часов!
+            Проверить таймер: systemctl list-timers restic-backup.timer
+            Проверить лог: tail -50 /var/log/restic-backup.log
+
+      - alert: BackupNeverRan
+        expr: restic_backup_last_timestamp_seconds == 0
+        for: 5m
+        labels:
+          severity: critical
+          category: backup
+        annotations:
+          summary: "🔴 {{ $labels.client_name }} | БЭКАП НИКОГДА НЕ ЗАПУСКАЛСЯ: {{ $labels.host | default $labels.instance }}"
+          description: |
+            Метрика показывает 0 — бэкап не был выполнен ни разу.
+            Проверить установку:
+              systemctl status restic-backup.timer
+              source /etc/restic/env.sh && restic snapshots
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # СЕТЬ / VPN
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - name: network
+    rules:
+
+      - alert: HighNetworkReceive
+        expr: |
+          rate(node_network_receive_bytes_total{device!~"lo|docker.*|veth.*|br-.*|wg.*"}[5m])
+          * 8 / 1000000 > 800
+        for: 15m
+        labels:
+          severity: warning
+          category: network
+        annotations:
+          summary: "⚠️ {{ $labels.client_name }} | Высокий входящий трафик {{ $labels.instance }} {{ $labels.device }}: {{ $value | printf \"%.0f\" }} Mбит/с"
+          description: |
+            Более 800 Мбит/с входящего трафика на интерфейсе {{ $labels.device }}.
+            Возможна атака, резкий рост нагрузки или проблема с приложением.
+            Диагностика: iftop -i {{ $labels.device }}; ss -s
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # WEB / HTTP / SSL (если есть сайты)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - name: web_services
+    rules:
+
+      - alert: WebsiteDown
+        expr: probe_success{job=~"client-.*-http"} == 0
+        for: 3m
+        labels:
+          severity: critical
+          category: web
+        annotations:
+          summary: "🔴 {{ $labels.client_name }} | Сайт НЕДОСТУПЕН: {{ $labels.instance }}"
+          description: |
+            HTTP-проверка не проходит более 3 минут.
+            curl -Iv {{ $labels.instance }}
+            Проверить: systemctl status nginx
+
+      - alert: WebsiteSlowResponse
+        expr: probe_http_duration_seconds{job=~"client-.*-http"} > 3
+        for: 5m
+        labels:
+          severity: warning
+          category: web
+        annotations:
+          summary: "⚠️ {{ $labels.client_name }} | Медленный сайт {{ $labels.instance }}: {{ $value | printf \"%.2f\" }}с"
+          description: |
+            Время ответа >3 секунд.
+            Проверить: БД-запросы, PHP-FPM, дисковый I/O, RAM.
+
+      - alert: SSLCertExpiring30d
+        expr: (probe_ssl_earliest_cert_expiry - time()) / 86400 < 30
+        for: 6h
+        labels:
+          severity: warning
+          category: web
+        annotations:
+          summary: "⚠️ {{ $labels.client_name }} | SSL {{ $labels.instance }} истекает через {{ $value | printf \"%.0f\" }} дней"
+          description: |
+            Обновить сертификат:
+            certbot renew --dry-run
+            certbot renew && systemctl reload nginx
+
+      - alert: SSLCertExpiring7d
+        expr: (probe_ssl_earliest_cert_expiry - time()) / 86400 < 7
+        for: 1h
+        labels:
+          severity: critical
+          category: web
+        annotations:
+          summary: "🔴 {{ $labels.client_name }} | SSL {{ $labels.instance }} истекает через {{ $value | printf \"%.0f\" }} ДНЕЙ!"
+          description: "СРОЧНО: certbot renew --force-renewal && systemctl reload nginx"
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # МОНИТОРИНГ ИНФРАСТРУКТУРЫ ИСПОЛНИТЕЛЯ
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  - name: executor_infra
+    rules:
+
+      - alert: PrometheusConfigReloadFailed
+        expr: prometheus_config_last_reload_successful != 1
+        for: 5m
+        labels:
+          severity: critical
+          category: infra
+        annotations:
+          summary: "🔴 Ошибка перезагрузки конфига Prometheus"
+          description: "promtool check config /opt/monitoring/prometheus/prometheus.yml"
+
+      - alert: PrometheusHighTSDBSize
+        expr: prometheus_tsdb_head_chunks_storage_size_bytes / 1073741824 > 5
+        for: 1h
+        labels:
+          severity: warning
+          category: infra
+        annotations:
+          summary: "⚠️ TSDB Prometheus занимает {{ $value | printf \"%.1f\" }} ГБ"
+          description: |
+            Рассмотреть: уменьшение retention, увеличение диска, Thanos.
+
+      - alert: AlertmanagerDown
+        expr: up{job="alertmanager"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: infra
+        annotations:
+          summary: "🔴 Alertmanager НЕДОСТУПЕН — алерты не доставляются!"
+          description: "docker compose restart alertmanager"

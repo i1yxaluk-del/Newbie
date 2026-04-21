@@ -1,0 +1,25 @@
+# ═══════════════════════════════════════════════════════════════════
+# Шаблон inventory для нового клиента
+# Скопировать в: /opt/ansible/inventory/clients/CLIENT_SLUG/
+# Файл: hosts
+# ═══════════════════════════════════════════════════════════════════
+
+[client_linux]
+# Формат: псевдоним ansible_host=VPN_IP ansible_user=USER
+# web-01   ansible_host=10.9.0.10  ansible_user=ubuntu
+# db-01    ansible_host=10.9.0.11  ansible_user=ubuntu
+# app-01   ansible_host=10.9.0.12  ansible_user=ubuntu
+
+[client_windows]
+# Формат: псевдоним ansible_host=VPN_IP
+# 1c-01    ansible_host=10.9.0.20  ansible_user=Administrator ansible_password={{ vault_win_password }} ansible_connection=winrm ansible_winrm_transport=ntlm ansible_winrm_server_cert_validation=ignore
+# file-01  ansible_host=10.9.0.21  ansible_user=Administrator ansible_password={{ vault_win_password }} ansible_connection=winrm
+
+[client_all:children]
+client_linux
+client_windows
+
+[client_all:vars]
+# Общие переменные для всех серверов клиента
+ansible_ssh_common_args='-o StrictHostKeyChecking=no -o ConnectTimeout=30'
+ansible_ssh_private_key_file=~/.ssh/id_ed25519

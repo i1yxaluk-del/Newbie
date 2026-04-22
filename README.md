@@ -268,9 +268,7 @@ Newbie/ (MSPShield v4.1)
 │   ├── 3_Gold/                     Wazuh + KSC + compliance
 │   └── Junior/                     (наследие; новая программа — в docs/training/)
 │
-├── memory/PRD.md                   product requirements
-├── tests/                          placeholder e2e
-└── test_result.md
+└── infra/terraform/                Yandex Cloud baseline (landing + bastion)
 ```
 
 ---

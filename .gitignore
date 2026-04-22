@@ -88,3 +88,8 @@ credentials.json
 *.pem
 *.key
 .credentials
+
+# Агентские артефакты (prev Emergent-платформа, тест-прогоны) — не храним в git
+.emergent/
+test_result.md
+test_reports/

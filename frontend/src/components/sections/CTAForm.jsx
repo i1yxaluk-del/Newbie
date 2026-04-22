@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { CheckCircle2, ArrowRight } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const SMARTCAPTCHA_SITE_KEY = process.env.REACT_APP_SMARTCAPTCHA_SITE_KEY || "";
 
 const SERVERS = [
   { v: "1-3", label: "1–3 сервера" },
@@ -28,11 +29,20 @@ export default function CTAForm() {
     servers: "",
     tariff: "undecided",
     message: "",
+    consent: false,
+    website: "", // honeypot — must stay empty
   });
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const captchaContainerRef = useRef(null);
+  const captchaWidgetId = useRef(null);
 
-  const onChange = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
+  const onChange = (k) => (e) =>
+    setForm((p) => ({
+      ...p,
+      [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value,
+    }));
 
   // Sync tariff selection from Pricing section clicks
   useEffect(() => {
@@ -45,25 +55,86 @@ export default function CTAForm() {
     return () => window.removeEventListener("msp:set-tariff", onPrefill);
   }, []);
 
+  // Load Yandex SmartCaptcha (only if site key is configured)
+  useEffect(() => {
+    if (!SMARTCAPTCHA_SITE_KEY) return;
+    if (document.getElementById("ya-smartcaptcha-script")) {
+      tryRender();
+      return;
+    }
+    const s = document.createElement("script");
+    s.id = "ya-smartcaptcha-script";
+    s.src = "https://smartcaptcha.yandexcloud.net/captcha.js";
+    s.async = true;
+    s.defer = true;
+    s.onload = tryRender;
+    document.head.appendChild(s);
+
+    function tryRender() {
+      // eslint-disable-next-line no-undef
+      if (!window.smartCaptcha || !captchaContainerRef.current) return;
+      if (captchaWidgetId.current !== null) return;
+      // eslint-disable-next-line no-undef
+      captchaWidgetId.current = window.smartCaptcha.render(
+        captchaContainerRef.current,
+        {
+          sitekey: SMARTCAPTCHA_SITE_KEY,
+          hl: "ru",
+          callback: (token) => setCaptchaToken(token),
+        }
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const resetCaptcha = () => {
+    setCaptchaToken("");
+    // eslint-disable-next-line no-undef
+    if (window.smartCaptcha && captchaWidgetId.current !== null) {
+      // eslint-disable-next-line no-undef
+      window.smartCaptcha.reset(captchaWidgetId.current);
+    }
+  };
+
   const onSubmit = async (e) => {
     e.preventDefault();
     if (!form.name.trim() || !form.company.trim() || !form.contact.trim() || !form.servers) {
       toast.error("Пожалуйста, заполните обязательные поля");
       return;
     }
+    if (!form.consent) {
+      toast.error("Необходимо согласие на обработку персональных данных (152-ФЗ)");
+      return;
+    }
+    if (SMARTCAPTCHA_SITE_KEY && !captchaToken) {
+      toast.error("Подтвердите, что вы не робот");
+      return;
+    }
+
     setSending(true);
     try {
       const payload = {
         ...form,
         source: "landing",
-        downtime_loss: document.querySelector('[data-testid="calc-result"] .font-mono:last-of-type')?.textContent || null,
+        downtime_loss:
+          document.querySelector('[data-testid="calc-result"] .font-mono:last-of-type')
+            ?.textContent || null,
+        smartcaptcha_token: captchaToken || undefined,
       };
       await axios.post(`${API}/leads`, payload);
       toast.success("Заявка отправлена — свяжемся в течение 2 часов");
       setDone(true);
     } catch (err) {
+      const status = err?.response?.status;
       const msg = err?.response?.data?.detail || "Не удалось отправить. Попробуйте ещё раз.";
-      toast.error(typeof msg === "string" ? msg : "Ошибка валидации");
+      if (status === 429) {
+        toast.error("Слишком много попыток. Подождите минуту и попробуйте снова.");
+      } else if (status === 400 || status === 422) {
+        toast.error(typeof msg === "string" ? msg : "Проверьте введённые данные");
+      } else {
+        toast.error(typeof msg === "string" ? msg : "Ошибка сервера");
+      }
+      resetCaptcha();
     } finally {
       setSending(false);
     }
@@ -251,7 +322,10 @@ export default function CTAForm() {
                         servers: "",
                         tariff: "undecided",
                         message: "",
+                        consent: false,
+                        website: "",
                       });
+                      resetCaptcha();
                     }}
                     className="btn-core btn-ghost"
                     data-testid="lead-form-reset"
@@ -260,7 +334,7 @@ export default function CTAForm() {
                   </button>
                 </div>
               ) : (
-                <form onSubmit={onSubmit}>
+                <form onSubmit={onSubmit} noValidate>
                   <div
                     className="font-display"
                     style={{ fontSize: 24, fontWeight: 500, marginBottom: 4, letterSpacing: "-.01em" }}
@@ -270,6 +344,29 @@ export default function CTAForm() {
                   <p style={{ fontSize: 13, color: "var(--stone)", marginBottom: 22 }}>
                     Ответим в течение 2 часов в рабочее время
                   </p>
+
+                  {/* Honeypot — hidden from humans, visible to bots */}
+                  <div
+                    aria-hidden="true"
+                    style={{
+                      position: "absolute",
+                      left: "-9999px",
+                      width: 1,
+                      height: 1,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <label htmlFor="website">Website (do not fill)</label>
+                    <input
+                      id="website"
+                      name="website"
+                      type="text"
+                      tabIndex={-1}
+                      autoComplete="off"
+                      value={form.website}
+                      onChange={onChange("website")}
+                    />
+                  </div>
 
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                     <Field label="Имя *">
@@ -362,6 +459,44 @@ export default function CTAForm() {
                     />
                   </Field>
 
+                  {/* Consent checkbox (152-ФЗ) */}
+                  <label
+                    style={{
+                      display: "flex",
+                      gap: 10,
+                      alignItems: "flex-start",
+                      margin: "8px 0 14px",
+                      fontSize: 12.5,
+                      color: "var(--stone)",
+                      lineHeight: 1.55,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      data-testid="f-consent"
+                      type="checkbox"
+                      checked={form.consent}
+                      onChange={onChange("consent")}
+                      required
+                      style={{ marginTop: 3, flexShrink: 0 }}
+                    />
+                    <span>
+                      Я согласен с{" "}
+                      <a href="/docs/privacy.html" target="_blank" rel="noopener noreferrer" style={{ color: "var(--forest)", textDecoration: "underline" }}>
+                        политикой обработки персональных данных
+                      </a>{" "}
+                      в соответствии с 152-ФЗ. Данные не передаются третьим лицам.
+                    </span>
+                  </label>
+
+                  {SMARTCAPTCHA_SITE_KEY ? (
+                    <div
+                      ref={captchaContainerRef}
+                      data-testid="smartcaptcha"
+                      style={{ marginBottom: 14 }}
+                    />
+                  ) : null}
+
                   <button
                     type="submit"
                     disabled={sending}
@@ -380,9 +515,14 @@ export default function CTAForm() {
                       lineHeight: 1.6,
                     }}
                   >
-                    Нажимая кнопку, вы соглашаетесь на обработку персональных
-                    данных в соответствии с ФЗ-152. Данные не передаются
-                    третьим лицам.
+                    Подробнее:{" "}
+                    <a href="/docs/offer.html" target="_blank" rel="noopener noreferrer" style={{ color: "var(--stone)", textDecoration: "underline" }}>
+                      оферта
+                    </a>
+                    {" · "}
+                    <a href="/docs/sla.html" target="_blank" rel="noopener noreferrer" style={{ color: "var(--stone)", textDecoration: "underline" }}>
+                      SLA
+                    </a>
                   </p>
                 </form>
               )}

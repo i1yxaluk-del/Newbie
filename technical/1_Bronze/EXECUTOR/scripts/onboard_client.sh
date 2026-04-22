@@ -285,6 +285,7 @@ chmod 600 "${CLIENT_CONFIGS_DIR}/server-01.conf"
 IDX=2
 for ENTRY in "${EXTRA_IPS[@]:-}"; do
     [[ -z "$ENTRY" ]] && continue
+    # shellcheck disable=SC2034  # PUB зарезервирован для будущего генератора сервер-side peer-записей
     IFS=':' read -r IP PRIV PUB <<< "$ENTRY"
     cat > "${CLIENT_CONFIGS_DIR}/server-$(printf '%02d' $IDX).conf" << EOF
 # WireGuard конфиг для ${CLIENT_NAME} — server-$(printf '%02d' $IDX)

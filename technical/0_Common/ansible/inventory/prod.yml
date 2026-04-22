@@ -1,0 +1,29 @@
+---
+# Ansible inventory · prod
+# Hosts are referred by name; connection goes through the bastion via
+# ProxyJump configured in ansible.cfg.
+
+all:
+  vars:
+    ansible_user: ubuntu
+    ansible_python_interpreter: /usr/bin/python3
+
+  children:
+    landing:
+      hosts:
+        mspshield-landing:
+          ansible_host: 10.10.0.11
+    bastion:
+      hosts:
+        mspshield-bastion:
+          ansible_host: "{{ lookup('env', 'BASTION_PUBLIC_IP') }}"
+
+    # Populated per tenant. Template:
+    # tenants:
+    #   children:
+    #     acme:
+    #       hosts:
+    #         acme-dc01: { ansible_host: 10.20.10.11 }
+    #         acme-fs01: { ansible_host: 10.20.10.12 }
+    tenants:
+      children: {}

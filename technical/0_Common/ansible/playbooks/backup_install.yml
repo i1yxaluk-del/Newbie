@@ -1,0 +1,57 @@
+---
+# backup_install.yml — install and enable restic on a tenant host
+# Run: ansible-playbook playbooks/backup_install.yml -l <host> -e tier=bronze
+- hosts: all
+  become: true
+  vars:
+    tier: bronze
+    restic_repo_base: "s3:storage.yandexcloud.net/mspshield-backups-prod"
+  tasks:
+    - name: Install restic
+      ansible.builtin.package:
+        name: restic
+        state: present
+
+    - name: Ensure /etc/restic exists
+      ansible.builtin.file:
+        path: /etc/restic
+        state: directory
+        mode: "0700"
+
+    - name: Drop env file
+      ansible.builtin.template:
+        src: templates/restic_env.j2
+        dest: /etc/restic/env
+        mode: "0600"
+
+    - name: Init repo (idempotent)
+      ansible.builtin.shell: |
+        source /etc/restic/env
+        restic snapshots > /dev/null 2>&1 || restic init
+      args:
+        executable: /bin/bash
+
+    - name: Install backup.sh
+      ansible.builtin.copy:
+        src: files/backup.sh
+        dest: /usr/local/sbin/restic-backup.sh
+        mode: "0750"
+
+    - name: Install systemd service
+      ansible.builtin.copy:
+        src: files/restic-backup.service
+        dest: /etc/systemd/system/restic-backup.service
+        mode: "0644"
+
+    - name: Install systemd timer (schedule depends on tier)
+      ansible.builtin.template:
+        src: templates/restic-backup.timer.j2
+        dest: /etc/systemd/system/restic-backup.timer
+        mode: "0644"
+
+    - name: Enable + start timer
+      ansible.builtin.systemd:
+        name: restic-backup.timer
+        enabled: true
+        state: started
+        daemon_reload: true

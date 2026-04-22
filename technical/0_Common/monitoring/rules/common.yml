@@ -1,0 +1,34 @@
+groups:
+  - name: common
+    rules:
+      - alert: NodeDown
+        expr: up{job=~"node|tenant-nodes"} == 0
+        for: 3m
+        labels:
+          severity: P1
+        annotations:
+          summary: "Node {{ $labels.instance }} is down"
+
+      - alert: HighCPU
+        expr: 100 - (avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+        for: 10m
+        labels:
+          severity: P2
+        annotations:
+          summary: "CPU > 90% on {{ $labels.instance }}"
+
+      - alert: LowDisk
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) < 0.1
+        for: 15m
+        labels:
+          severity: P2
+        annotations:
+          summary: "Disk <10% free on {{ $labels.instance }} ({{ $labels.mountpoint }})"
+
+      - alert: HighMemory
+        expr: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 0.95
+        for: 10m
+        labels:
+          severity: P2
+        annotations:
+          summary: "Memory > 95% used on {{ $labels.instance }}"

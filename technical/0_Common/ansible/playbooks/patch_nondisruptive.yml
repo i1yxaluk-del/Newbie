@@ -1,0 +1,24 @@
+---
+# patch_nondisruptive.yml — safe package upgrades, no reboot
+- hosts: "{{ client | default('tenants') }}"
+  become: true
+  serial: 1
+  tasks:
+    - name: apt update
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+
+    - name: apt safe-upgrade
+      ansible.builtin.apt:
+        upgrade: safe
+        autoremove: true
+      when: ansible_os_family == "Debian"
+
+    - name: dnf update (security only)
+      ansible.builtin.dnf:
+        name: "*"
+        state: latest
+        security: true
+      when: ansible_os_family == "RedHat"

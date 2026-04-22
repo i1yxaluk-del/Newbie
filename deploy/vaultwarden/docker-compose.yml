@@ -1,0 +1,30 @@
+# Vaultwarden self-hosted — secrets vault for MSPShield and clients.
+# Deployed on a separate VM, not mixed with landing stack.
+# Reference: https://github.com/dani-garcia/vaultwarden
+version: "3.9"
+
+services:
+  vaultwarden:
+    image: vaultwarden/server:latest
+    restart: unless-stopped
+    environment:
+      DOMAIN: https://vault.mspshield.ru
+      SIGNUPS_ALLOWED: "false"         # invites only
+      INVITATIONS_ALLOWED: "true"
+      ADMIN_TOKEN: ${VAULTWARDEN_ADMIN_TOKEN}  # from env/secret store
+      WEBSOCKET_ENABLED: "true"
+      LOG_FILE: /data/vaultwarden.log
+      LOG_LEVEL: warn
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_FROM: ${SMTP_FROM}
+      SMTP_PORT: 587
+      SMTP_SECURITY: starttls
+      SMTP_USERNAME: ${SMTP_USERNAME}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+    volumes:
+      - ./data:/data
+    ports:
+      - "127.0.0.1:8080:80"
+      - "127.0.0.1:3012:3012"    # websocket
+
+  # nginx reverse proxy with Let's Encrypt is separate (shared across services)

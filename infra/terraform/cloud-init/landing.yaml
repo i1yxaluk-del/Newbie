@@ -1,0 +1,29 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+packages:
+  - nginx
+  - certbot
+  - python3-certbot-nginx
+  - docker.io
+  - docker-compose-plugin
+  - git
+  - fail2ban
+  - ufw
+  - unattended-upgrades
+
+users:
+  - name: ubuntu
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+
+runcmd:
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow 22/tcp
+  - ufw allow 80/tcp
+  - ufw allow 443/tcp
+  - ufw --force enable
+  - systemctl enable --now fail2ban
+  - systemctl enable --now docker
+  - dpkg-reconfigure -plow unattended-upgrades

@@ -1,0 +1,18 @@
+groups:
+  - name: ssl
+    rules:
+      - alert: SSLExpiringSoon
+        expr: (ssl_cert_not_after - time()) / 86400 < 14
+        for: 1h
+        labels:
+          severity: P3
+        annotations:
+          summary: "SSL cert expiring in <14d on {{ $labels.instance }}"
+
+      - alert: SSLExpired
+        expr: (ssl_cert_not_after - time()) < 0
+        for: 5m
+        labels:
+          severity: P1
+        annotations:
+          summary: "SSL cert EXPIRED on {{ $labels.instance }}"

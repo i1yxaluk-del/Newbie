@@ -1,0 +1,18 @@
+groups:
+  - name: backups
+    rules:
+      - alert: BackupFailed
+        expr: restic_last_status != 1
+        for: 10m
+        labels:
+          severity: P1
+        annotations:
+          summary: "Restic backup failing on {{ $labels.instance }}"
+
+      - alert: BackupStale
+        expr: time() - restic_last_snapshot_timestamp_seconds > 129600  # 36h
+        for: 1h
+        labels:
+          severity: P1
+        annotations:
+          summary: "No new restic snapshot for >36h on {{ $labels.instance }}"

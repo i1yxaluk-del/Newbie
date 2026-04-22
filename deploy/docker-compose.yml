@@ -1,0 +1,40 @@
+# ──────────────────────────────────────────────────────────────
+# MSPShield · dev / staging compose
+# ──────────────────────────────────────────────────────────────
+# Production разворачивается через Terraform + Ansible. Этот
+# compose используется локально и в staging-stand.
+# ──────────────────────────────────────────────────────────────
+version: "3.9"
+
+services:
+  mongo:
+    image: mongo:6
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - "27017:27017"
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: ../deploy/Dockerfile.backend
+    env_file: ../backend/.env
+    depends_on:
+      - mongo
+    ports:
+      - "8001:8001"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: ../deploy/Dockerfile.frontend
+    ports:
+      - "3000:80"
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+volumes:
+  mongo_data:

@@ -1,0 +1,18 @@
+groups:
+  - name: active_directory
+    rules:
+      - alert: ADReplicationLag
+        expr: ad_replication_lag_seconds > 3600
+        for: 15m
+        labels:
+          severity: P2
+        annotations:
+          summary: "AD replication lag > 1h on {{ $labels.instance }}"
+
+      - alert: ADDcDiagFailing
+        expr: ad_dcdiag_failed_tests > 0
+        for: 30m
+        labels:
+          severity: P2
+        annotations:
+          summary: "dcdiag failing on {{ $labels.instance }}"

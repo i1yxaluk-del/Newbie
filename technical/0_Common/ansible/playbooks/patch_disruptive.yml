@@ -1,0 +1,32 @@
+---
+# patch_disruptive.yml — full upgrade with reboot-if-required
+- hosts: "{{ client | default('tenants') }}"
+  become: true
+  serial: "{{ batch_size | default(1) }}"
+  max_fail_percentage: 0
+  tasks:
+    - name: apt full-upgrade
+      ansible.builtin.apt:
+        upgrade: dist
+        update_cache: true
+        autoremove: true
+      when: ansible_os_family == "Debian"
+
+    - name: Check if reboot is required
+      ansible.builtin.stat:
+        path: /var/run/reboot-required
+      register: reboot_required
+
+    - name: Reboot if required
+      ansible.builtin.reboot:
+        msg: "MSP patch window — scheduled reboot"
+        reboot_timeout: 600
+      when: reboot_required.stat.exists
+
+    - name: Health-check after reboot — critical systemd units
+      ansible.builtin.shell: >
+        systemctl is-active {{ item }}
+      loop: "{{ critical_services | default(['sshd']) }}"
+      register: svc_status
+      failed_when: svc_status.stdout != "active"
+      changed_when: false

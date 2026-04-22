@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, follow" />
+<title>Service Level Agreement (SLA) — MSPShield</title>
+<style>
+  :root { --ink:#1A1815; --stone:#5C5852; --rule:#E2DDD5; --forest:#3E5C3A; }
+  body { font-family: 'DM Sans', -apple-system, Segoe UI, Roboto, Arial, sans-serif; color: var(--ink); line-height: 1.65; margin: 0; padding: 48px 24px 120px; background: #FCFAF7; }
+  main { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 32px; font-weight: 500; margin: 0 0 8px; letter-spacing: -.01em; }
+  .meta { color: var(--stone); font-size: 13px; margin-bottom: 40px; }
+  h2 { font-size: 20px; font-weight: 500; margin: 36px 0 12px; border-top: 1px solid var(--rule); padding-top: 24px; }
+  h3 { font-size: 16px; font-weight: 500; margin: 20px 0 8px; }
+  p, li { font-size: 15px; color: var(--ink); }
+  a { color: var(--forest); }
+  small { color: var(--stone); font-size: 13px; }
+  .nav { display: flex; gap: 16px; margin-bottom: 32px; font-size: 13px; }
+  .nav a { color: var(--stone); text-decoration: none; border-bottom: 1px dashed var(--rule); padding-bottom: 2px; }
+  table { border-collapse: collapse; margin: 16px 0; font-size: 14px; width: 100%; }
+  th, td { border: 1px solid var(--rule); padding: 8px 12px; text-align: left; vertical-align: top; }
+  th { background: #F1ECE3; font-weight: 500; }
+  .p1 { background: #FDECEC; }
+  .p2 { background: #FFF6E8; }
+  .p3 { background: #F3F7EF; }
+  .p4 { background: #F5F5F5; }
+</style>
+</head>
+<body>
+<main>
+  <div class="nav">
+    <a href="/">← На главную</a>
+    <a href="/docs/privacy.html">Политика ПД</a>
+    <a href="/docs/offer.html">Оферта</a>
+  </div>
+
+  <h1>Service Level Agreement (SLA)</h1>
+  <p class="meta">Редакция от 1 апреля 2026 г.</p>
+
+  <p>
+    Настоящий документ определяет уровни обслуживания (SLA), которые
+    MSPShield (далее — «Исполнитель») гарантирует Заказчику по каждому
+    тарифу. Прилагается к основному договору на оказание услуг.
+  </p>
+
+  <h2>1. Классификация инцидентов</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Приоритет</th>
+        <th>Описание</th>
+        <th>Примеры</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="p1">
+        <td><b>P1 — Критический</b></td>
+        <td>Полный простой ключевого сервиса или его недоступность для большинства пользователей.</td>
+        <td>Сервер 1С недоступен; потеря интернет-связи на офис; ransomware.</td>
+      </tr>
+      <tr class="p2">
+        <td><b>P2 — Высокий</b></td>
+        <td>Деградация ключевого сервиса; существенно замедлена работа.</td>
+        <td>1С тормозит, отчёт делается 30 мин вместо 30 сек; частичная потеря почты.</td>
+      </tr>
+      <tr class="p3">
+        <td><b>P3 — Средний</b></td>
+        <td>Нарушение работы второстепенного сервиса; обходные решения есть.</td>
+        <td>Принтер не печатает; VPN у 1 пользователя не подключается.</td>
+      </tr>
+      <tr class="p4">
+        <td><b>P4 — Низкий</b></td>
+        <td>Запрос, не требующий срочной реакции. Улучшения, вопросы.</td>
+        <td>«Как настроить почту на новом телефоне?», «Добавьте ПО в GPO».</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>2. Время реакции и восстановления</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Приоритет</th>
+        <th>Bronze (раб. 09–21 МСК)</th>
+        <th>Silver (раб. 09–21 МСК)</th>
+        <th>Gold (24/7)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="p1">
+        <td><b>P1</b></td>
+        <td>Реакция ≤ 15 мин<br />Восст. ≤ 4 ч</td>
+        <td>Реакция ≤ 10 мин<br />Восст. ≤ 2 ч</td>
+        <td>Реакция ≤ 5 мин<br />Восст. ≤ 1 ч</td>
+      </tr>
+      <tr class="p2">
+        <td><b>P2</b></td>
+        <td>Реакция ≤ 1 ч<br />Восст. ≤ 8 ч</td>
+        <td>Реакция ≤ 30 мин<br />Восст. ≤ 4 ч</td>
+        <td>Реакция ≤ 15 мин<br />Восст. ≤ 2 ч</td>
+      </tr>
+      <tr class="p3">
+        <td><b>P3</b></td>
+        <td>Реакция ≤ 4 ч<br />Восст. ≤ 2 раб. дн</td>
+        <td>Реакция ≤ 2 ч<br />Восст. ≤ 1 раб. дн</td>
+        <td>Реакция ≤ 1 ч<br />Восст. ≤ 4 ч</td>
+      </tr>
+      <tr class="p4">
+        <td><b>P4</b></td>
+        <td>Реакция ≤ 1 раб. дн<br />Выполнение ≤ 5 раб. дн</td>
+        <td>Реакция ≤ 4 ч<br />Выполнение ≤ 3 раб. дн</td>
+        <td>Реакция ≤ 2 ч<br />Выполнение ≤ 2 раб. дн</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Рабочее время</h3>
+  <ul>
+    <li><b>Bronze / Silver:</b> 09:00–21:00 МСК, пн–пт. Ночные и выходные P1 — по best-effort (для Bronze) / в пределах 2 ч для Silver.</li>
+    <li><b>Gold:</b> 24/7/365, без праздничных исключений.</li>
+  </ul>
+
+  <h2>3. Доступность инфраструктуры</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Метрика</th>
+        <th>Bronze</th>
+        <th>Silver</th>
+        <th>Gold</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Uptime ключевых сервисов (в среднем за месяц)</td>
+        <td>≥ 99.0%</td>
+        <td>≥ 99.5%</td>
+        <td>≥ 99.9%</td>
+      </tr>
+      <tr>
+        <td>Плановые простои (maintenance)</td>
+        <td>≤ 8 ч/мес</td>
+        <td>≤ 4 ч/мес</td>
+        <td>≤ 2 ч/мес</td>
+      </tr>
+      <tr>
+        <td>Бэкапы (RPO)</td>
+        <td>24 ч</td>
+        <td>12 ч</td>
+        <td>4 ч</td>
+      </tr>
+      <tr>
+        <td>Восстановление (RTO P1)</td>
+        <td>≤ 4 ч</td>
+        <td>≤ 2 ч</td>
+        <td>≤ 1 ч</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>4. Штрафы за нарушение SLA</h2>
+  <p>
+    При нарушении времени реакции или восстановления Исполнитель
+    предоставляет Заказчику кредит на следующий месяц в размере:
+  </p>
+  <ul>
+    <li><b>P1 просрочка ≤ 50% от SLA:</b> 10% от абонплаты за месяц.</li>
+    <li><b>P1 просрочка &gt; 50% от SLA:</b> 25% от абонплаты за месяц.</li>
+    <li><b>P2 просрочка &gt; 100% от SLA:</b> 5% от абонплаты за месяц.</li>
+    <li>Uptime ниже гарантированного (за месяц): дополнительно 10–30% в зависимости от отклонения.</li>
+  </ul>
+  <p>
+    Максимальный совокупный кредит за месяц — <b>50% от абонплаты</b>.
+    Кредит применяется автоматически в следующем расчётном счёте.
+  </p>
+
+  <h2>5. Каналы связи для инцидентов</h2>
+  <ul>
+    <li><b>Bronze / Silver:</b> Telegram (primary), email (secondary), звонок (для P1).</li>
+    <li><b>Gold:</b> 24/7 горячая линия + Telegram + email + osTicket (self-service).</li>
+  </ul>
+  <p>
+    Официальной регистрацией инцидента считается обращение через
+    указанные каналы с чётким описанием проблемы. Время реакции
+    отсчитывается от момента получения обращения Исполнителем.
+  </p>
+
+  <h2>6. Исключения</h2>
+  <p>SLA не распространяется на:</p>
+  <ul>
+    <li>Форс-мажор (природные катастрофы, масштабные сбои интернета РФ).</li>
+    <li>Действия регулирующих органов (блокировки, отключения).</li>
+    <li>Инциденты, вызванные самостоятельными действиями Заказчика без согласования с Исполнителем.</li>
+    <li>Инциденты на ПО третьих сторон, за которое Исполнитель не отвечает (например, сбой у внешнего провайдера email).</li>
+    <li>Период первых 5 рабочих дней onboarding (calibration period).</li>
+  </ul>
+
+  <h2>7. Отчётность</h2>
+  <ul>
+    <li>Ежемесячный отчёт: количество инцидентов по приоритетам, фактические метрики реакции/восстановления, отклонения от SLA, применённые кредиты.</li>
+    <li>Ежеквартальный расширенный отчёт: trend-анализ, root causes частых инцидентов, рекомендации.</li>
+  </ul>
+
+  <p><small>© 2026 MSPShield. Все права защищены.</small></p>
+</main>
+</body>
+</html>

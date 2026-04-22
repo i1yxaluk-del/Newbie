@@ -1,0 +1,42 @@
+---
+# Entry-point playbook: applies baseline role to every host,
+# then tier-specific roles where relevant.
+
+- name: Baseline hardening (all hosts)
+  hosts: all
+  become: true
+  roles:
+    - baseline
+
+- name: Landing stack
+  hosts: landing
+  become: true
+  roles:
+    - nginx
+    - fastapi_backend
+    - mongo
+
+- name: Bastion
+  hosts: bastion
+  become: true
+  roles:
+    - wireguard_hub
+
+- name: Bronze tenants
+  hosts: tenants
+  become: true
+  tags: tier_bronze
+  roles:
+    - monitoring_agent
+    - restic_client
+    - base_hardening
+
+- name: Silver tenants (AD + Ansible-managed)
+  hosts: tenants
+  become: true
+  tags: tier_silver
+  roles:
+    - monitoring_agent
+    - restic_client
+    - base_hardening
+    - ad_health_check

@@ -35,6 +35,7 @@ go-to-market**.
 - [Карта документов по ролям](#карта-документов-по-ролям)
 - [Технический стек MSP](#технический-стек-msp)
 - [Тарифы и юнит-экономика](#тарифы-и-юнит-экономика)
+- [Roadmap (Этап 4 · 12 спринтов)](#roadmap-этап-4--12-спринтов)
 - [Дорожная карта](#дорожная-карта-v40--v50)
 - [Контроль качества (DoD)](#контроль-качества-dod)
 
@@ -399,6 +400,21 @@ Newbie/ (MSPShield v4.1)
 | **Gold** | 85 000 | 16–30 | ≤ 1 ч, 24/7 | 74% | 2 250 000 |
 
 Детали: [`analysis/unit_economics.md`](analysis/unit_economics.md), [`analysis/ltv_model.md`](analysis/ltv_model.md).
+
+---
+
+## Roadmap (Этап 4 · 12 спринтов)
+
+После получения стратегических ответов (Q1–Q5 Этапа 5) добавлен раздел [`docs/roadmap/`](docs/roadmap/) с операционным планом запуска:
+
+| Файл | Назначение |
+|---|---|
+| [`docs/roadmap/README.md`](docs/roadmap/README.md) | Индекс roadmap-документов + go/no-go триггеры |
+| [`docs/roadmap/strategic_decisions.md`](docs/roadmap/strategic_decisions.md) | Ответы Q1–Q5 → binding-решения на 6 мес |
+| [`docs/roadmap/etape_4_sprints.md`](docs/roadmap/etape_4_sprints.md) | 12 спринтов × 2 недели = 24 недели |
+| [`docs/roadmap/wife_role.md`](docs/roadmap/wife_role.md) | Роль супруги (маркетинг + account mgmt), границы, оплата |
+| [`docs/roadmap/budget_constraints.md`](docs/roadmap/budget_constraints.md) | OPEX ≤ 2 000 ₽/мес до первого клиента |
+| [`contracts/wife_nda.md`](contracts/wife_nda.md) | Внутрисемейный NDA |
 
 ---
 

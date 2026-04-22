@@ -32,7 +32,9 @@ fi
 # ── Функции ────────────────────────────────────────────────────────
 log() {
     local level="${2:-INFO}"
-    local msg="[$(date '+%Y-%m-%d %H:%M:%S')] [${level}] $1"
+    local ts
+    ts=$(date '+%Y-%m-%d %H:%M:%S')
+    local msg="[$ts] [${level}] $1"
     echo "$msg"
     echo "$msg" >> "$LOG_FILE"
 }
@@ -133,7 +135,7 @@ if command -v pg_dumpall &>/dev/null && systemctl is-active --quiet postgresql 2
     PG_DUMP_DIR="/tmp/pg_dump_$(date +%Y%m%d_%H%M%S)"
     mkdir -p "$PG_DUMP_DIR"
 
-    if sudo -u postgres pg_dumpall --clean > "${PG_DUMP_DIR}/all_databases.sql" 2>>"$LOG_FILE"; then
+    if sudo -u postgres pg_dumpall --clean 2>>"$LOG_FILE" | sudo tee "${PG_DUMP_DIR}/all_databases.sql" >/dev/null; then
         if restic backup "$PG_DUMP_DIR" \
             --tag "pg-dump" \
             --tag "$HOSTNAME_SHORT" \

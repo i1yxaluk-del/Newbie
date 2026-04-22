@@ -104,11 +104,11 @@ receivers:
     email_configs:
       - to: '${ALERT_EMAIL_TO}'
         from: '${SMTP_FROM}'
-        subject: '[CRITICAL] MSP Alert: {{ .GroupLabels.alertname }} — {{ .GroupLabels.client_name }}'
         headers:
+          Subject: '[CRITICAL] MSP Alert: {{ .GroupLabels.alertname }} — {{ .GroupLabels.client_name }}'
           X-MSP-Severity: critical
           X-MSP-Client: '{{ .GroupLabels.client }}'
-        body: |
+        text: |
           Критический алерт MSP Monitoring
 
           Статус: {{ .Status | toUpper }}
@@ -134,8 +134,9 @@ receivers:
     email_configs:
       - to: '${ALERT_EMAIL_TO}'
         from: '${SMTP_FROM}'
-        subject: '[WARNING] MSP Alert: {{ .GroupLabels.alertname }}'
-        body: |
+        headers:
+          Subject: '[WARNING] MSP Alert: {{ .GroupLabels.alertname }}'
+        text: |
           Предупреждение MSP Monitoring
 
           {{ range .Alerts }}
@@ -150,7 +151,8 @@ receivers:
     email_configs:
       - to: '${ALERT_EMAIL_TO}'
         from: '${SMTP_FROM}'
-        subject: '[MSP] {{ .GroupLabels.alertname }}'
+        headers:
+          Subject: '[MSP] {{ .GroupLabels.alertname }}'
         send_resolved: false
 
 # ── Подавление: если critical — не слать warning по той же причине

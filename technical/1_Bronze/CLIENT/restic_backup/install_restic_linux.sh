@@ -18,6 +18,7 @@ RESTIC_VERSION="${RESTIC_VERSION:-0.16.4}"
 SCRIPTS_DIR="/opt/restic-scripts"
 ENV_FILE="/etc/restic/env.sh"
 LOG_FILE="/var/log/restic-backup.log"
+# shellcheck disable=SC2034  # используется скриптами бэкапа для node_exporter textfile collector
 TEXTFILE_DIR="/var/lib/node_exporter/textfile_collector"
 
 [[ $EUID -ne 0 ]] && err "Запустить с sudo"
@@ -315,6 +316,7 @@ EOF
 ok "Systemd timer создан (02:00 ежедневно)"
 
 # ── Инициализировать репозиторий ──────────────────────────────────
+# shellcheck disable=SC1090  # ENV_FILE задаётся в runtime, не резолвится статически
 source "$ENV_FILE" 2>/dev/null || true
 
 if [[ "$AWS_ACCESS_KEY_ID" == "REPLACE"* ]]; then

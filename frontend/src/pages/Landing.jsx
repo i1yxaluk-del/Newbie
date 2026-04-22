@@ -6,11 +6,8 @@ import Pain from "@/components/sections/Pain";
 import HowItWorks from "@/components/sections/HowItWorks";
 import ForWhom from "@/components/sections/ForWhom";
 import Compliance from "@/components/sections/Compliance";
-import Compare from "@/components/sections/Compare";
 import Pricing from "@/components/sections/Pricing";
 import Process from "@/components/sections/Process";
-import Tools from "@/components/sections/Tools";
-import Cases from "@/components/sections/Cases";
 import FAQ from "@/components/sections/FAQ";
 import CTAForm from "@/components/sections/CTAForm";
 
@@ -25,11 +22,8 @@ export default function Landing() {
       <HowItWorks />
       <ForWhom />
       <Compliance />
-      <Compare />
       <Pricing />
       <Process />
-      <Tools />
-      <Cases />
       <FAQ />
       <CTAForm />
       <Footer />

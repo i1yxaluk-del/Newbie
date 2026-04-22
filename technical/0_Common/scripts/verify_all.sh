@@ -13,12 +13,19 @@ PROMETHEUS="http://localhost:9090"
 FAILED=0
 PASSED=0
 
-G='\033[0;32m'; R='\033[0;31m'; Y='\033[1;33m'; C='\033[0;36m'; B='\033[1m'; NC='\033[0m'
+# Цвета для вывода (часть используется в заголовках ниже по коду)
+# shellcheck disable=SC2034  # Y зарезервирован для будущих WARN-сообщений
+G='\033[0;32m'
+R='\033[0;31m'
+# shellcheck disable=SC2034
+Y='\033[1;33m'
+C='\033[0;36m'
+B='\033[1m'
+NC='\033[0m'
 
 check() {
     local name="$1"
     local cmd="$2"
-    local expected="${3:-0}"
 
     if eval "$cmd" &>/dev/null; then
         echo -e "  ${G}✓${NC} ${name}"
@@ -45,6 +52,7 @@ check_http() {
     fi
 }
 
+# shellcheck disable=SC2120
 check_prom_targets() {
     local filter="${1:-}"
     local data

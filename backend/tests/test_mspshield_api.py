@@ -5,14 +5,18 @@ import requests
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
 if not BASE_URL:
-    # Load from frontend .env as fallback
+    # Fallback: читаем из frontend/.env относительно корня репозитория.
     from pathlib import Path
-    env = Path("/app/frontend/.env").read_text()
-    for line in env.splitlines():
-        if line.startswith("REACT_APP_BACKEND_URL="):
-            BASE_URL = line.split("=", 1)[1].strip().strip('"').rstrip("/")
+    repo_root = Path(__file__).resolve().parents[2]
+    env_path = repo_root / "frontend" / ".env"
+    if env_path.exists():
+        for line in env_path.read_text().splitlines():
+            if line.startswith("REACT_APP_BACKEND_URL="):
+                BASE_URL = line.split("=", 1)[1].strip().strip('"').rstrip("/")
+    if not BASE_URL:
+        BASE_URL = "http://localhost:8001"
 
-ADMIN_TOKEN = "change-me-to-strong-random-string"
+ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "change-me-to-strong-random-string")
 
 
 @pytest.fixture(scope="module")

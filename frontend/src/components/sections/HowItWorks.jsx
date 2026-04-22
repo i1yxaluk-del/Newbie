@@ -1,16 +1,16 @@
-import { Activity, HardDrive, Lock, FileText } from "lucide-react";
+import { Activity, HardDrive, Lock } from "lucide-react";
 
 const STEPS = [
   {
     num: "01",
-    title: "Мониторинг",
-    desc: "Prometheus опрашивает серверы каждые 15 секунд. Grafana визуализирует. Alertmanager отправляет уведомления в Telegram до того, как проблема повлияет на бизнес.",
+    title: "Мониторинг 24/7",
+    desc: "Prometheus опрашивает серверы каждые 15 секунд. Grafana визуализирует. Alertmanager отправляет уведомления в Telegram до того, как проблема повлияет на бизнес. Еженедельный отчёт — в email.",
     tools: ["Prometheus", "Grafana", "Alertmanager"],
     Icon: Activity,
   },
   {
     num: "02",
-    title: "Бэкапы",
+    title: "Бэкапы с автопроверкой",
     desc: "Ежедневное шифрованное копирование в Yandex Object Storage. Автоматическая проверка каждое утро. Тестовое восстановление по расписанию — а не «когда-нибудь потом».",
     tools: ["restic", "Yandex S3", "AES-256"],
     Icon: HardDrive,
@@ -21,13 +21,6 @@ const STEPS = [
     desc: "WireGuard VPN + Bastion-сервер. Никаких открытых RDP/SSH в интернет. Все подключения через зашифрованный туннель с журналом действий.",
     tools: ["WireGuard", "Bastion", "nftables"],
     Icon: Lock,
-  },
-  {
-    num: "04",
-    title: "Отчёты и SLA",
-    desc: "Еженедельный отчёт о состоянии инфраструктуры. Реакция на критические инциденты — по чётко прописанному SLA в договоре, а не «когда удобно».",
-    tools: ["Weekly report", "SLA", "Git IaC"],
-    Icon: FileText,
   },
 ];
 
@@ -70,7 +63,7 @@ export default function HowItWorks() {
 
         <div
           className="how-grid"
-          style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 0 }}
+          style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 0 }}
         >
           {STEPS.map(({ num, title, desc, tools, Icon }, i) => (
             <div
@@ -78,9 +71,9 @@ export default function HowItWorks() {
               className={`reveal ${i > 0 ? `reveal-d${i}` : ""}`}
               style={{
                 padding: "28px 24px",
-                borderRight: i === 3 ? "none" : "1px solid var(--rule)",
+                borderRight: i === STEPS.length - 1 ? "none" : "1px solid var(--rule)",
                 paddingLeft: i === 0 ? 0 : 24,
-                paddingRight: i === 3 ? 0 : 24,
+                paddingRight: i === STEPS.length - 1 ? 0 : 24,
               }}
             >
               <div

@@ -45,10 +45,10 @@ terraform {
     }
   }
   backend "s3" {
-    endpoint = "storage.yandexcloud.net"
-    bucket   = "mspshield-tfstate"
-    key      = "landing/terraform.tfstate"
-    region   = "ru-central1"
+    endpoint                    = "storage.yandexcloud.net"
+    bucket                      = "mspshield-tfstate"
+    key                         = "landing/terraform.tfstate"
+    region                      = "ru-central1"
     skip_region_validation      = true
     skip_credentials_validation = true
   }

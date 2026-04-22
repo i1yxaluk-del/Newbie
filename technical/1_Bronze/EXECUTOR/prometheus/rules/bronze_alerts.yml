@@ -43,7 +43,7 @@ groups:
           severity: critical
           category: availability
         annotations:
-          summary: "🔴 {{ $labels.client_name | or \"MSP\" }} | {{ $labels.instance }} НЕДОСТУПЕН"
+          summary: "🔴 {{ or $labels.client_name \"MSP\" }} | {{ $labels.instance }} НЕДОСТУПЕН"
           description: |
             Prometheus не получает метрики от {{ $labels.job }} уже 3 минуты.
             Клиент: {{ $labels.client_name }}
@@ -339,7 +339,7 @@ groups:
           severity: critical
           category: backup
         annotations:
-          summary: "🔴 {{ $labels.client_name }} | БЭКАП УПАЛ: {{ $labels.host | or $labels.instance }}"
+          summary: "🔴 {{ $labels.client_name }} | БЭКАП УПАЛ: {{ or $labels.host $labels.instance }}"
           description: |
             Последний бэкап завершился с ошибкой!
             ЭТО КРИТИЧНО — данные не защищены.
@@ -359,7 +359,7 @@ groups:
           severity: critical
           category: backup
         annotations:
-          summary: "🔴 {{ $labels.client_name }} | НЕТ СВЕЖЕГО БЭКАПА >25ч: {{ $labels.host | or $labels.instance }}"
+          summary: "🔴 {{ $labels.client_name }} | НЕТ СВЕЖЕГО БЭКАПА >25ч: {{ or $labels.host $labels.instance }}"
           description: |
             Бэкап не выполнялся более 25 часов!
             Проверить таймер: systemctl list-timers restic-backup.timer
@@ -372,7 +372,7 @@ groups:
           severity: critical
           category: backup
         annotations:
-          summary: "🔴 {{ $labels.client_name }} | БЭКАП НИКОГДА НЕ ЗАПУСКАЛСЯ: {{ $labels.host | or $labels.instance }}"
+          summary: "🔴 {{ $labels.client_name }} | БЭКАП НИКОГДА НЕ ЗАПУСКАЛСЯ: {{ or $labels.host $labels.instance }}"
           description: |
             Метрика показывает 0 — бэкап не был выполнен ни разу.
             Проверить установку:

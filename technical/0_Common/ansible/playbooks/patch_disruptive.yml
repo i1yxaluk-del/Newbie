@@ -1,5 +1,20 @@
 ---
-# patch_disruptive.yml — full upgrade with reboot-if-required
+# ──────────────────────────────────────────────────────────────
+# patch_disruptive.yml · полное обновление С РЕБУТОМ при необходимости
+# ──────────────────────────────────────────────────────────────
+# RU: Запускается ТОЛЬКО в согласованное с клиентом patch-window
+# (обычно вс. ночью, см. клиентский SLA). Обновляет всё, перезагружает
+# хост если нужно, и проверяет критичные сервисы после загрузки.
+#
+# Переменные:
+#   client          — группа хостов (обязательно; не запускать на tenants без ограничения).
+#   batch_size      — сколько хостов одновременно (по умолчанию 1).
+#   critical_services — список systemd unit'ов для post-reboot health-check.
+#
+# Пример безопасного запуска для одного тенанта:
+#   ansible-playbook playbooks/patch_disruptive.yml \
+#     -e client=acme -e '{"critical_services":["sshd","nginx","postgresql"]}'
+# ──────────────────────────────────────────────────────────────
 - hosts: "{{ client | default('tenants') }}"
   become: true
   serial: "{{ batch_size | default(1) }}"

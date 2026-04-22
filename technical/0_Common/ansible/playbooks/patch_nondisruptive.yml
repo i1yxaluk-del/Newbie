@@ -1,5 +1,17 @@
 ---
-# patch_nondisruptive.yml — safe package upgrades, no reboot
+# ──────────────────────────────────────────────────────────────
+# patch_nondisruptive.yml · безопасное обновление БЕЗ ребута
+# ──────────────────────────────────────────────────────────────
+# RU: Обновляет пакеты, где это не требует перезагрузки сервиса.
+# Запускается еженедельно по cron / GitHub Actions (см. R-10 runbook).
+# Для патчей с ребутом используется patch_disruptive.yml (только в
+# согласованное patch-window клиента).
+#
+# Переменные:
+#   client — ограничение по группе хостов (по умолчанию tenants).
+# Пример:
+#   ansible-playbook playbooks/patch_nondisruptive.yml -e client=acme
+# ──────────────────────────────────────────────────────────────
 - hosts: "{{ client | default('tenants') }}"
   become: true
   serial: 1

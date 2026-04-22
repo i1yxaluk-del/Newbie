@@ -418,6 +418,22 @@ Newbie/ (MSPShield v4.1)
 
 ---
 
+## Развёртывание (инструкции на русском)
+
+Для запуска стека от локальной разработки до первого клиента в продакшене — см. [`docs/deployment/`](docs/deployment/):
+
+| Файл | Назначение |
+|---|---|
+| [`docs/deployment/README.md`](docs/deployment/README.md) | Оглавление + архитектура в одной картинке + порядок этапов A/B/C |
+| [`docs/deployment/local_dev.md`](docs/deployment/local_dev.md) | Этап A: локальный запуск через `docker compose up` (20 мин, 0 ₽) |
+| [`docs/deployment/landing_production.md`](docs/deployment/landing_production.md) | Этап B: Terraform → WireGuard → Ansible → SSL → мониторинг (4–6 ч) |
+| [`docs/deployment/tenant_onboarding.md`](docs/deployment/tenant_onboarding.md) | Этап C: онбординг нового клиента (Bronze/Silver/Gold) |
+| [`docs/deployment/secrets_management.md`](docs/deployment/secrets_management.md) | Vaultwarden + правила работы с ключами/токенами |
+| [`docs/deployment/disaster_recovery.md`](docs/deployment/disaster_recovery.md) | DR-сценарии: лендинг/bastion/MongoDB/полная потеря |
+| [`docs/deployment/troubleshooting.md`](docs/deployment/troubleshooting.md) | Типовые ошибки (docker, terraform, ansible, wireguard, certbot) |
+
+---
+
 ## Дорожная карта v4.0 → v5.0
 
 - **v4.0** (merged) — README-only: стратегический план и навигация.

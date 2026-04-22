@@ -1,4 +1,24 @@
 ---
+# ──────────────────────────────────────────────────────────────
+# site.yml · полное применение конфигурации на всю инфру
+# ──────────────────────────────────────────────────────────────
+# RU: Точка входа для Ansible. Запускается после `terraform apply`
+# и разовой инициализации bastion'а (wg_bootstrap.sh).
+#
+# Что делает:
+#   1. baseline на ВСЕХ хостах (SSH hardening, auditd, unattended-upgrades).
+#   2. landing-стек (nginx + FastAPI + mongo) только на mspshield-landing.
+#   3. WireGuard-hub только на mspshield-bastion.
+#   4. Тенанты — по тегам: tier_bronze / tier_silver / tier_gold.
+#
+# Запуск полного прогона:
+#   ansible-playbook playbooks/site.yml
+# Точечный прогон (только landing):
+#   ansible-playbook playbooks/site.yml --limit landing
+# Только один тенант Silver:
+#   ansible-playbook playbooks/site.yml --tags tier_silver --limit acme
+# ──────────────────────────────────────────────────────────────
+
 # Entry-point playbook: applies baseline role to every host,
 # then tier-specific roles where relevant.
 

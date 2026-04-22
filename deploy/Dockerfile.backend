@@ -1,8 +1,17 @@
+# ──────────────────────────────────────────────────────────────
+# Dockerfile.backend — FastAPI + Motor (MongoDB) + Prometheus
+# ──────────────────────────────────────────────────────────────
+# RU: Базовый образ для backend-сервиса MSPShield. Собирается из
+# каталога ../backend (см. deploy/docker-compose.yml → build.context).
+# Слушает порт 8001, uvicorn с 1 worker'ом. Продакшен-запуск —
+# через systemd unit на landing-VM (см. docs/deployment/).
+# ──────────────────────────────────────────────────────────────
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# System deps for cryptography, numpy, jq
+# Системные зависимости: build-essential для C-расширений (cryptography),
+# libjq-dev для json-запросов, curl для healthcheck'ов.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential libffi-dev libssl-dev libjq-dev curl \
  && rm -rf /var/lib/apt/lists/*
@@ -12,6 +21,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+# PYTHONUNBUFFERED=1 — логи не буферизируются, важно для docker logs.
 ENV PYTHONUNBUFFERED=1
 EXPOSE 8001
 

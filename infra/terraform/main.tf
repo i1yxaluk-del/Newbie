@@ -1,16 +1,39 @@
 # ──────────────────────────────────────────────────────────────
 # MSPShield · Yandex Cloud baseline infrastructure (landing + bastion)
 # ──────────────────────────────────────────────────────────────
-# Deploys:
-#  • mspshield-landing VM (backend + frontend + mongo + nginx)
-#  • mspshield-bastion VM (WireGuard concentrator for all tenants)
-#  • Object Storage bucket for restic backups
-#  • IAM service accounts with minimum-privilege policies
+# RU: Базовый стек на Yandex Cloud. Разворачивается ОДИН раз при
+# запуске бизнеса (спринт 2 Этапа 4, см. docs/roadmap/etape_4_sprints.md).
+# Поднимает:
+#  • mspshield-landing VM — backend + frontend + mongo + nginx.
+#    Публичный IP, открыты порты 80/443 (HTTP/HTTPS) всему миру.
+#  • mspshield-bastion VM — WireGuard-концентратор для всех тенантов.
+#    Публичный IP, открыт UDP 51820 (WireGuard) и TCP 22 (только для
+#    admin IP из var.admin_ssh_sources).
+#  • Object Storage bucket — S3-совместимый бакет для restic-бэкапов,
+#    версионирование включено в блоке ниже.
+#  • IAM service account — ключ для restic с минимальными правами
+#    (storage.editor на folder).
 #
-# Not included here (kept in separate TF stacks):
-#  • Per-client tenant VMs (var-driven)
-#  • SIEM (Wazuh) stack
-#  • Vaultwarden VM
+# Что НЕ тут (отдельные TF-стеки):
+#  • Per-client tenant VMs — создаются динамически по шаблону из
+#    terraform/tenants/<client>.tfvars.
+#  • SIEM (Wazuh) — поднимается вручную на Gold-тенантах.
+#  • Vaultwarden — отдельный docker-compose на bastion-VM.
+#
+# Перед terraform apply:
+#  1. yc init — настроить CLI и folder_id.
+#  2. terraform init — скачать провайдера Yandex.
+#  3. Создать файл terraform.tfvars (локально, НЕ коммитить):
+#       folder_id       = "b1g..."
+#       ubuntu_image_id = "fd8..."        # yc compute image list
+#       ssh_public_key  = "ssh-ed25519 ..."
+#       admin_ssh_sources = ["1.2.3.4/32"]  # домашний IP
+#  4. terraform plan → проверить.
+#  5. terraform apply.
+# После apply:
+#  • Получить bastion-IP: `terraform output bastion_public_ip`.
+#  • Запустить wg_bootstrap.sh на bastion (см. technical/0_Common/wireguard).
+#  • Запустить Ansible site.yml (см. docs/deployment/landing_production.md).
 # ──────────────────────────────────────────────────────────────
 
 terraform {

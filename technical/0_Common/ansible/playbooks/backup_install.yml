@@ -1,6 +1,22 @@
 ---
-# backup_install.yml — install and enable restic on a tenant host
-# Run: ansible-playbook playbooks/backup_install.yml -l <host> -e tier=bronze
+# ──────────────────────────────────────────────────────────────
+# backup_install.yml · установка restic + systemd timer для клиента
+# ──────────────────────────────────────────────────────────────
+# RU: Разворачивает backup-стек на тенант-хосте:
+#   1. Ставит пакет restic.
+#   2. Кладёт env-файл с ключами Yandex Object Storage (из Vault).
+#   3. Инициализирует restic-репозиторий (идемпотентно).
+#   4. Ставит скрипт + systemd service/timer для регулярных бэкапов.
+#
+# Частота бэкапа зависит от тарифа (tier) — шаблон шагает в
+# templates/restic-backup.timer.j2:
+#   bronze → еженедельно
+#   silver → ежедневно
+#   gold   → каждые 4 часа
+#
+# Запуск:
+#   ansible-playbook playbooks/backup_install.yml -l <host> -e tier=silver
+# ──────────────────────────────────────────────────────────────
 - hosts: all
   become: true
   vars:

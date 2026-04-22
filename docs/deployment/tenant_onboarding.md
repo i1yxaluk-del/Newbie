@@ -1,0 +1,272 @@
+# Онбординг клиента (тенанта)
+
+Цель: за 1–7 дней развернуть клиенту его стек (Bronze/Silver/Gold), подключить его к WireGuard, запустить бэкапы и мониторинг, начать выполнение SLA.
+
+**Предпосылки:**
+
+- Лендинг уже развернут ([`landing_production.md`](landing_production.md)).
+- Bastion с WireGuard работает.
+- Контракт с клиентом подписан (НПД).
+- Получены реквизиты клиента, описание инфры, админ-доступы.
+
+**Время:**
+
+- Bronze: 4–8 часов чистого времени, растягивается на 3–7 дней (зависит от клиента).
+- Silver: 1–2 дня.
+- Gold: 2–4 дня (+ выездной аудит).
+
+**Связанные документы:**
+
+- [`../onboarding/pre_onboarding_checklist.md`](../onboarding/pre_onboarding_checklist.md) — что собрать ДО старта.
+- [`../onboarding/day_1_7_runbook.md`](../onboarding/day_1_7_runbook.md) — день-за-днём.
+- [`../onboarding/welcome_package.md`](../onboarding/welcome_package.md) — что отдать клиенту.
+
+---
+
+## Шаг 0. Pre-onboarding чек-лист
+
+**До начала технических работ** убедись, что собрано:
+
+- [ ] Подписан контракт (НПД-форма, см. `contracts/contract_bronze.html` или аналогичный для тарифа).
+- [ ] Выставлен счёт, получена оплата **первого месяца** (не начинаем работы без предоплаты).
+- [ ] Получены реквизиты: название организации, ИНН, ФИО директора, email для welcome-package.
+- [ ] Клиент заполнил мини-анкету инфры (кол-во серверов, сайтов, почта, AD/без AD, версия ОС).
+- [ ] Получен SSH-доступ к клиентским хостам (отдельный пользователь `mspadmin` с sudo через `ansible`).
+- [ ] Согласована первая patch-window (день недели + время + часовой пояс).
+
+Подробнее: [`../onboarding/pre_onboarding_checklist.md`](../onboarding/pre_onboarding_checklist.md).
+
+---
+
+## Шаг 1. Создать tenant-подсеть WireGuard
+
+Подсеть клиенту выдаётся из `10.20.0.0/16` (10.20.x.0/24 на клиента).
+
+### На bastion:
+
+```bash
+ssh ubuntu@mspshield-bastion
+cd ~/Newbie
+sudo bash technical/0_Common/wireguard/tenant_add.sh acme 10.20.10.0/24
+```
+
+Скрипт напечатает peer-config. Сохранить временно (НЕ в git) для следующего шага.
+
+### На каждом клиентском хосте:
+
+```bash
+# На клиентском сервере:
+sudo apt install -y wireguard
+sudo tee /etc/wireguard/wg0.conf <<EOF
+[Interface]
+PrivateKey = <client_private_key>
+Address = 10.20.10.11/24
+
+[Peer]
+PublicKey = <bastion_server_public_key>
+PresharedKey = <psk>
+Endpoint = <bastion_public_ip>:51820
+AllowedIPs = 10.10.0.0/16, 10.20.0.0/16
+PersistentKeepalive = 25
+EOF
+sudo chmod 600 /etc/wireguard/wg0.conf
+sudo systemctl enable --now wg-quick@wg0
+```
+
+Проверка с bastion:
+
+```bash
+ping 10.20.10.11
+# PONG
+```
+
+---
+
+## Шаг 2. Добавить клиента в Ansible-инвентарь
+
+На control-машине:
+
+```bash
+cd technical/0_Common/ansible
+```
+
+Отредактировать `inventory/prod.yml`, добавить блок:
+
+```yaml
+tenants:
+  children:
+    acme:                                      # имя клиента
+      hosts:
+        acme-srv01: { ansible_host: 10.20.10.11 }
+        acme-srv02: { ansible_host: 10.20.10.12 }
+      vars:
+        tier: bronze                           # или silver / gold
+        tenant_cidr: 10.20.10.0/24
+        patch_window_cron: "0 3 * * 0"         # вс. 03:00 МСК
+        alert_tg_chat_id: "-1001234567890"     # отдельный чат этому клиенту
+```
+
+Закоммитить (без секретов!):
+
+```bash
+git checkout -b devin/$(date +%s)-add-tenant-acme
+git add technical/0_Common/ansible/inventory/prod.yml
+git commit -m "feat(inventory): добавлен тенант acme (Bronze)"
+git push -u origin devin/$(date +%s)-add-tenant-acme
+# PR → review → merge
+```
+
+---
+
+## Шаг 3. Ansible: baseline + tier-specific роли
+
+### Bronze
+
+```bash
+export BASTION_PUBLIC_IP=<из terraform output>
+ansible-playbook playbooks/site.yml --limit acme --tags tier_bronze
+```
+
+Что настроит:
+
+- baseline hardening (SSH, auditd, fail2ban, unattended-upgrades);
+- node_exporter → 9100 (Prometheus будет его scrape'ать);
+- restic client + cron еженедельного бэкапа;
+- базовые логи → rsyslog (без централизованной аггрегации).
+
+Время: 30–60 мин на первый хост.
+
+### Silver (всё что Bronze +)
+
+```bash
+ansible-playbook playbooks/site.yml --limit acme --tags tier_silver
+```
+
+Дополнительно:
+
+- `ad_health_check` — ежедневная проверка AD (если есть).
+- `loki_client` — централизованные логи в Loki на monitoring-VM.
+- Ежедневные (не еженедельные) бэкапы.
+- Puppet agent для пользовательских политик (опционально).
+
+### Gold (всё что Silver +)
+
+Gold требует **выездного аудита** + ручной настройки. Ansible делает только baseline; дальше — ручная обвязка Wazuh (SIEM), SOC2-compliance правил, кастомного runbook.
+
+---
+
+## Шаг 4. Бэкапы (restic)
+
+### На каждом клиентском хосте:
+
+```bash
+ansible-playbook playbooks/backup_install.yml --limit acme-srv01 -e tier=bronze
+```
+
+Плейбук поставит restic и systemd-timer. См. [`../../technical/0_Common/ansible/playbooks/backup_install.yml`](../../technical/0_Common/ansible/playbooks/backup_install.yml).
+
+### Первый бэкап вручную (не ждать cron):
+
+```bash
+ssh ubuntu@acme-srv01
+sudo /usr/local/sbin/restic-backup.sh
+# Проверить:
+sudo /usr/local/sbin/restic snapshots
+```
+
+### Проверить, что snapshot появился в Object Storage:
+
+```bash
+yc storage s3 ls s3://mspshield-backups-prod/acme/
+```
+
+---
+
+## Шаг 5. Мониторинг: алёрты в Telegram клиенту
+
+### 5.1. Отдельный Telegram-чат для клиента
+
+Создать в Telegram группу «MSPShield × Acme — Алёрты», добавить:
+
+- бота `mspshield_alerts_bot` (отдельный от заявочного);
+- ответственного со стороны клиента;
+- тебя.
+
+Получить `CHAT_ID` (см. раздел 7 в [`landing_production.md`](landing_production.md#7-telegram)).
+
+### 5.2. Обновить Alertmanager
+
+```bash
+ssh ubuntu@mspshield-landing
+sudo nano /etc/alertmanager/alertmanager.yml
+# Добавить в routes:
+#   - match: { tenant: acme }
+#     receiver: telegram_acme
+# И в receivers:
+#   - name: telegram_acme
+#     telegram_configs:
+#       - api_url: https://api.telegram.org
+#         bot_token_file: /etc/alertmanager/tg_bot_token
+#         chat_id: -1001234567890   # чат клиента
+sudo systemctl reload alertmanager
+```
+
+### 5.3. В Prometheus пометить таргеты клиента лейблом `tenant=acme`
+
+Ansible это уже делает через `targets/tenants/acme.yml` (генерируется из inventory).
+
+---
+
+## Шаг 6. Welcome-package клиенту
+
+Отправить email по шаблону из [`../onboarding/welcome_package.md`](../onboarding/welcome_package.md). Содержит:
+
+- пример месячного отчёта (шаблон);
+- контактные данные (Telegram-поддержка, email);
+- SLA матрицу для его тарифа;
+- время weekly-sync (еженедельный 15-мин звонок);
+- patch-window договорённости.
+
+---
+
+## Шаг 7. Первый weekly-sync через 7 дней
+
+Календарное событие в Google Calendar, длительность 15 мин.
+
+Повестка:
+
+1. Что успели настроить за неделю (1 мин).
+2. Есть ли инциденты / жалобы от сотрудников клиента (3 мин).
+3. Прогноз на следующую неделю: что мониторим, где патчим (3 мин).
+4. Вопросы клиента (5 мин).
+5. Договориться о месячном отчёте (дата + формат).
+
+Вести в Kaiten — карточка «Weekly-sync Acme YYYY-MM-DD».
+
+---
+
+## Чек-лист готовности тенанта
+
+- [ ] WireGuard peer работает (`ping 10.20.10.11` с bastion).
+- [ ] Ansible site.yml прошёл без ошибок (`--limit acme --tags tier_bronze`).
+- [ ] `systemctl status` на всех сервисах клиента — active.
+- [ ] Первый restic-снапшот создан (`restic snapshots`).
+- [ ] Prometheus-таргеты клиента `UP` (http://localhost:9090/targets).
+- [ ] Alertmanager: маршрут `tenant=acme → telegram_acme` работает (тестовый алёрт дошёл).
+- [ ] Welcome-package отправлен клиенту, клиент подтвердил получение.
+- [ ] Первый weekly-sync запланирован в календаре.
+- [ ] Карточка клиента в Kaiten создана со всеми контактами.
+
+---
+
+## Удаление тенанта (offboarding)
+
+Если клиент ушёл:
+
+1. `ansible-playbook playbooks/site.yml --limit acme --tags cleanup`.
+2. Удалить peer на bastion: `sudo wg set wg0 peer <client_pubkey> remove`.
+3. Экспортировать restic-снапшоты на отдельный диск (оставить у себя 30 дней на случай спора).
+4. Через 30 дней — `restic forget --keep-last 0 --prune`.
+5. Удалить блок из `inventory/prod.yml`, закоммитить.
+6. Удалить Telegram-чат клиента.
+7. Отменить подписку клиента в Kaiten.

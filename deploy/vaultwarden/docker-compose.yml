@@ -1,7 +1,6 @@
 # Vaultwarden self-hosted — secrets vault for MSPShield and clients.
 # Deployed on a separate VM, not mixed with landing stack.
 # Reference: https://github.com/dani-garcia/vaultwarden
-version: "3.9"
 
 services:
   vaultwarden:

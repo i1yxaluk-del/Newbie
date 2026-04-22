@@ -1,9 +1,23 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────
-# tenant_add.sh — create a new WireGuard tenant on mspshield-bastion
+# tenant_add.sh — добавить новую WireGuard-подсеть тенанта на bastion
+# ─────────────────────────────────────────────────────────────
+# RU: Запускается на mspshield-bastion при онбординге нового клиента
+# (Day 1-7, см. docs/onboarding/day_1_7_runbook.md).
+# Генерирует:
+#   • приватный/публичный ключ тенанта;
+#   • peer-конфиг клиента (передаётся клиенту защищённым каналом);
+#   • PresharedKey для дополнительной защиты;
+#   • AllowedIPs на тенант-CIDR.
+# Обновляет /etc/wireguard/wg0.conf и перезагружает интерфейс.
+#
 # Usage:  sudo tenant_add.sh <tenant_name> <tenant_cidr>
 # Example: sudo tenant_add.sh acme 10.20.10.0/24
-# Assumption: main interface is wg0, listen UDP 51820.
+#
+# Предпосылка: wg0 уже поднят через wg_bootstrap.sh.
+# Сетевой план:
+#   10.10.0.0/16 — management overlay (bastion + наши landing/mon).
+#   10.20.0.0/16 — тенанты (каждый клиент = свой /24).
 # ─────────────────────────────────────────────────────────────
 set -euo pipefail
 

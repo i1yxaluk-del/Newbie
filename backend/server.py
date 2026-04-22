@@ -1,6 +1,18 @@
 """
 MSPShield Backend API
-Lead capture + admin dashboard for Managed Service Provider landing.
+=====================
+
+RU: Это backend лендинга и админки MSPShield. Отвечает за:
+  1. POST /api/leads       — приём заявки с лендинга (rate-limit,
+                             honeypot, consent 152-ФЗ, SmartCaptcha).
+  2. GET  /api/leads       — список заявок для админки (X-Admin-Token).
+  3. PATCH /api/leads/{id}/status — смена статуса (новый → связались → …).
+  4. GET  /api/stats       — агрегаты для дашборда.
+  5. GET  /metrics         — Prometheus scrape-эндпоинт.
+  6. GET  /api/health      — liveness probe.
+
+Секреты и конфиг — через .env (см. backend/.env.example).
+База — MongoDB через Motor (async).
 
 v4.1 security additions:
 - Per-IP rate limiting on POST /api/leads

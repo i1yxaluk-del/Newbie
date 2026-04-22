@@ -1,5 +1,16 @@
 #!/usr/bin/env bash
-# Bootstrap wg0 on mspshield-bastion. Run once on a fresh bastion.
+# ─────────────────────────────────────────────────────────────
+# wg_bootstrap.sh — первичная инициализация WireGuard на bastion
+# ─────────────────────────────────────────────────────────────
+# RU: Запускается ОДИН РАЗ на свежем bastion'е (mspshield-bastion),
+# сразу после terraform apply. Генерирует приватный и публичный
+# ключи сервера, создаёт /etc/wireguard/wg0.conf с адресом
+# 10.10.0.1/16 и включает systemd-сервис wg-quick@wg0.
+#
+# После этого добавлять тенантов — tenant_add.sh.
+#
+# Идемпотентно: если /etc/wireguard/wg0.conf уже существует — выходит.
+# ─────────────────────────────────────────────────────────────
 set -euo pipefail
 if [[ $EUID -ne 0 ]]; then echo "root only"; exit 1; fi
 

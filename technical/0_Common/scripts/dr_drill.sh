@@ -1,9 +1,21 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────
-# dr_drill.sh — quarterly DR drill for a single tenant.
-# Verifies that the latest restic snapshot can be restored into a scratch dir.
-# Usage: ./dr_drill.sh <tenant_name> [--full]
-#   --full   do a full restore (not just single file). Requires disk space.
+# dr_drill.sh — квартальный DR-drill для одного тенанта
+# ─────────────────────────────────────────────────────────────
+# RU: Проверяет, что последний restic-снапшот клиента реально
+# восстанавливается. Запускается по расписанию раз в квартал (см.
+# docs/checklists/quarterly.md и docs/runbooks/R-11.md).
+#
+# Режимы:
+#   smoke (default) — восстанавливает только 1 файл и проверяет SHA.
+#   --full          — полная выгрузка всего снапшота в scratch-dir.
+#                     Требует свободное место = размер данных клиента.
+#
+# Usage:
+#   ./dr_drill.sh <tenant_name>
+#   ./dr_drill.sh <tenant_name> --full
+#
+# Логи: /var/log/dr_drill/<tenant>-<timestamp>.log.
 # ─────────────────────────────────────────────────────────────
 set -euo pipefail
 

@@ -1,6 +1,16 @@
+# ──────────────────────────────────────────────────────────────
 # Prometheus scrape config · MSPShield
-# Runs on mspshield-landing (or dedicated monitoring VM).
-# Targets are pulled through WireGuard overlay (10.20.x.x).
+# ──────────────────────────────────────────────────────────────
+# RU: Работает на mspshield-landing (можно вынести на отдельную
+# monitoring-VM, когда > 5 тенантов). Собирает метрики по WireGuard-
+# оверлею из тенант-сетей (10.20.x.x).
+#
+# Файлы таргетов подкладываются Ansible'ом:
+#   targets/node/<tenant>.yml     — node_exporter (каждый хост)
+#   targets/tenants/<tenant>.yml  — app-уровень (nginx_exporter и пр.)
+#
+# Правила алёртов — в rules/. Алёрты летят в Alertmanager на 127.0.0.1:9093.
+# ──────────────────────────────────────────────────────────────
 
 global:
   scrape_interval: 30s

@@ -1,7 +1,23 @@
 ---
+# ──────────────────────────────────────────────────────────────
 # Ansible inventory · prod
-# Hosts are referred by name; connection goes through the bastion via
-# ProxyJump configured in ansible.cfg.
+# ──────────────────────────────────────────────────────────────
+# RU: Инвентарь production-окружения. Все подключения проходят через
+# bastion (WireGuard-концентратор), ProxyJump настроен в ansible.cfg.
+# BASTION_PUBLIC_IP — переменная окружения (выставляем из terraform output).
+#
+# Группы:
+#   landing  — публичный лендинг (1 хост).
+#   bastion  — WireGuard-хаб (1 хост).
+#   tenants  — клиентские хосты, ПОДРАЗДЕЛЯЮТСЯ на отдельные группы
+#              по клиенту (acme / example и т.д.) для удобства
+#              --limit <client>.
+#
+# При добавлении нового клиента:
+#   1. tenant_add.sh на bastion (получить peer-CIDR).
+#   2. Дописать блок children: в секцию tenants ниже.
+#   3. git commit — инвентарь версионирован.
+# ──────────────────────────────────────────────────────────────
 
 all:
   vars:

@@ -1,5 +1,16 @@
 #!/usr/bin/env python3
 """
+Генерирует месячный отчёт для одного тенанта (MSPShield).
+
+RU: Запускается первого числа каждого месяца через cron на landing-VM.
+Собирает в один markdown-отчёт:
+  • uptime из Prometheus (query_range + aggregation);
+  • инциденты из Kaiten (CSV export — API-интеграция в v4.2);
+  • статус бэкапов из restic snapshots (JSON);
+  • SLA-tag тенанта (из config YAML) и сводку по соблюдению.
+
+После генерации markdown → PDF (pandoc) → отправка клиенту по email.
+
 Generate monthly report for one tenant.
 
 Inputs:

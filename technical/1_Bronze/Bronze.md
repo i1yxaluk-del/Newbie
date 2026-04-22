@@ -99,7 +99,7 @@ Internet   ─UDP:51820─→│  │  Bastion VM  │  WG mesh     │
 1. Bastion VM — см. `EXECUTOR/wireguard/setup_wireguard_bastion.sh`
 2. Monitoring VM — docker-compose из `../0_Common/docker/`
 3. Базовые alert rules — `EXECUTOR/prometheus/rules/bronze_alerts.yml`
-4. Alertmanager маршруты — `../0_Common/alertmanager/alertmanager.yml`
+4. Alertmanager маршруты — `../0_Common/monitoring/alertmanager.yml`
 5. **Для клиента:**
    - WireGuard клиент
    - Экспортёры (node / windows)

@@ -1,15 +1,33 @@
-# ──────────────────────────────────────────────────────────────
-# Alertmanager · MSPShield
-# ──────────────────────────────────────────────────────────────
-# RU: Принимает алёрты от Prometheus и шлёт уведомления в Telegram
-# (основной канал; SMS/email — опционально). P1-severity идёт в
-# отдельную группу telegram_p1 с send_resolved=true (важно видеть
-# когда инцидент починили).
+# ═══════════════════════════════════════════════════════════════════
+# alertmanager.yml — Общая конфигурация Alertmanager для всех тарифов
+# ═══════════════════════════════════════════════════════════════════
+# RU: Единый конфиг для landing-VM / monitoring-VM. Принимает алёрты
+# от Prometheus и шлёт уведомления в Telegram (основной канал;
+# email — резервный для P3).
 #
 # chat_id: 0 — плейсхолдер, заменяется на реальные chat'ы клиентов
 # через Ansible-шаблон при раскатке (каждому тенанту — свой chat).
 # Токен бота и smtp_password — файлы в /etc/alertmanager/.
-# ──────────────────────────────────────────────────────────────
+#
+# Размещение в проде: /etc/alertmanager/alertmanager.yml
+# Секреты:
+#   /etc/alertmanager/tg_bot_token      — токен Telegram-бота (chmod 600)
+#   /etc/alertmanager/smtp_password     — пароль SMTP (chmod 600)
+#
+# Маршрутизация:
+#   severity=P1  → Telegram P1-канал  (≤ 10s, send_resolved=true, retry 1h).
+#   severity=P2  → Telegram общий (≤ 1 мин, retry 4h).
+#   severity=P3  → Email WARNING (резервный канал, группировка 5 мин).
+#   category=backup → Telegram backup-канал (отдельно для DR).
+#   category=sla    → Telegram P1 (SLA — всегда high-urgency).
+#
+# Inhibit:
+#   P1 подавляет P2/P3 от того же tenant+alertname (чтобы не спамить).
+#
+# Связанные документы:
+#   docs/runbooks/README.md          — мэппинг severity → runbook
+#   docs/deployment/landing_production.md §7-8 — включение Telegram
+# ═══════════════════════════════════════════════════════════════════
 
 global:
   resolve_timeout: 5m
@@ -17,34 +35,103 @@ global:
   smtp_from: "alerts@mspshield.ru"
   smtp_auth_username: "alerts@mspshield.ru"
   smtp_auth_password_file: /etc/alertmanager/smtp_password
+  smtp_require_tls: true
+
+templates:
+  - /etc/alertmanager/templates/*.tmpl
 
 route:
   receiver: telegram
-  group_by: [alertname, instance]
+  group_by: [alertname, tenant, instance]
   group_wait: 30s
   group_interval: 2m
-  repeat_interval: 1h
+  repeat_interval: 4h
+
   routes:
+    # ── P1: крит. сервисы вниз, SLA-брейк → Telegram P1-канал (send_resolved) ──
     - match:
         severity: P1
       receiver: telegram_p1
+      group_wait: 10s
+      repeat_interval: 1h
       continue: true
-    - match_re:
-        severity: P2|P3
+
+    # ── P2: деградация → общий Telegram (без send_resolved) ──
+    - match:
+        severity: P2
       receiver: telegram
+      group_wait: 1m
+      repeat_interval: 4h
+
+    # ── P3: warning → email (резервный канал) ──
+    - match:
+        severity: P3
+      receiver: email_warning
+      group_wait: 1m
+      group_interval: 5m
+      repeat_interval: 12h
+
+    # ── Бэкап-алерты → отдельный Telegram-канал (P1-severity реагирование) ──
+    - match:
+        category: backup
+      receiver: telegram_backup
+      group_wait: 30s
+      repeat_interval: 12h
+
+    # ── SLA-алерты → всегда P1 Telegram ──
+    - match:
+        category: sla
+      receiver: telegram_p1
+      group_wait: 0s
+      repeat_interval: 30m
 
 receivers:
+  # ── Общий Telegram (P2/дефолт) ──
   - name: telegram
     telegram_configs:
       - api_url: https://api.telegram.org
         bot_token_file: /etc/alertmanager/tg_bot_token
-        chat_id: 0  # replaced per-client via relabel or override
+        chat_id: 0  # override per-tenant через route-level receiver; 0 = мы (общий канал)
         parse_mode: HTML
 
+  # ── Telegram P1 (всегда send_resolved=true, отдельный чат) ──
   - name: telegram_p1
     telegram_configs:
       - api_url: https://api.telegram.org
         bot_token_file: /etc/alertmanager/tg_bot_token
-        chat_id: 0
+        chat_id: 0  # override на наш P1-oncall-канал
         parse_mode: HTML
         send_resolved: true
+
+  # ── Telegram backup (отдельный канал для DR-сигналов) ──
+  - name: telegram_backup
+    telegram_configs:
+      - api_url: https://api.telegram.org
+        bot_token_file: /etc/alertmanager/tg_bot_token
+        chat_id: 0  # override на backup-канал
+        parse_mode: HTML
+        send_resolved: true
+
+  # ── Email WARNING (резервный канал для P3) ──
+  - name: email_warning
+    email_configs:
+      - to: alerts@mspshield.ru
+        send_resolved: true
+        headers:
+          Subject: "[MSPShield P3] {{ .GroupLabels.alertname }} · {{ .GroupLabels.tenant }}"
+
+# ── Inhibit rules ──────────────────────────────────────────────────
+inhibit_rules:
+  # Если P1 по этому alertname+tenant — подавлять P2 (не спамить)
+  - source_match:
+      severity: P1
+    target_match:
+      severity: P2
+    equal: [tenant, alertname]
+
+  # Если P1 — подавлять P3
+  - source_match:
+      severity: P1
+    target_match:
+      severity: P3
+    equal: [tenant, alertname]

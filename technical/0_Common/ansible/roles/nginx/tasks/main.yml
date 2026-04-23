@@ -9,10 +9,40 @@
     name:
       - nginx-core
       - certbot
-      - python3-certbot-nginx
     state: present
 
-- name: deploy nginx site config (templated)
+- name: static root exists
+  ansible.builtin.file:
+    path: "{{ nginx_static_root }}"
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: "0755"
+
+# ────────────────────────────────────────────────────────────
+# Two-phase deploy:
+#   1) Если cert'а LE ещё нет → деплоим HTTP-only конфиг
+#      (с /.well-known/acme-challenge/ location для webroot-челленджа),
+#      запускаем nginx, получаем cert через `certbot certonly --webroot`.
+#   2) После того как cert есть → деплоим полный конфиг с listen 443 ssl.
+#
+# Почему НЕ используем `certbot --nginx`:
+#   он модифицирует sites-available/*.conf in-place, и на следующий
+#   Ansible-run template перезатрёт эти правки, nginx reload упадёт
+#   с "no ssl_certificate is defined". Webroot-режим оставляет
+#   контроль над конфигом полностью за Ansible.
+# ────────────────────────────────────────────────────────────
+
+- name: check LE cert presence
+  ansible.builtin.stat:
+    path: "/etc/letsencrypt/live/{{ nginx_server_name }}/fullchain.pem"
+  register: nginx_le_cert
+
+- name: set fact — cert exists
+  ansible.builtin.set_fact:
+    nginx_le_cert_exists: "{{ nginx_le_cert.stat.exists | default(false) }}"
+
+- name: deploy nginx site config (conditional on cert presence)
   ansible.builtin.template:
     src: mspshield.conf.j2
     dest: /etc/nginx/sites-available/mspshield.conf
@@ -32,26 +62,39 @@
     state: absent
   notify: reload nginx
 
-- name: static root exists
-  ansible.builtin.file:
-    path: "{{ nginx_static_root }}"
-    state: directory
-    owner: www-data
-    group: www-data
-    mode: "0755"
-
-- name: obtain LE cert (certbot --nginx; idempotent)
-  ansible.builtin.command: >
-    certbot --nginx --non-interactive --agree-tos
-    --email {{ nginx_certbot_email }}
-    --domains {{ nginx_server_name }}
-    --redirect
-  args:
-    creates: "/etc/letsencrypt/live/{{ nginx_server_name }}/fullchain.pem"
-  notify: reload nginx
-
 - name: nginx enabled + started
   ansible.builtin.systemd:
     name: nginx
     enabled: true
     state: started
+
+# Принудительный reload сейчас — чтобы webroot-челлендж смог отработать.
+- name: flush handlers (reload nginx before certbot webroot)
+  ansible.builtin.meta: flush_handlers
+
+- name: obtain LE cert (certbot certonly --webroot)
+  ansible.builtin.command: >
+    certbot certonly --webroot --non-interactive --agree-tos
+    --email {{ nginx_certbot_email }}
+    --webroot-path {{ nginx_static_root }}
+    --domains {{ nginx_server_name }}
+  args:
+    creates: "/etc/letsencrypt/live/{{ nginx_server_name }}/fullchain.pem"
+  when: not nginx_le_cert_exists
+
+- name: re-check LE cert (после certbot)
+  ansible.builtin.stat:
+    path: "/etc/letsencrypt/live/{{ nginx_server_name }}/fullchain.pem"
+  register: nginx_le_cert_after
+
+- name: update fact — cert exists (post-certbot)
+  ansible.builtin.set_fact:
+    nginx_le_cert_exists: "{{ nginx_le_cert_after.stat.exists }}"
+
+- name: re-template with full SSL config (now that cert exists)
+  ansible.builtin.template:
+    src: mspshield.conf.j2
+    dest: /etc/nginx/sites-available/mspshield.conf
+    mode: "0644"
+  when: nginx_le_cert_exists
+  notify: reload nginx

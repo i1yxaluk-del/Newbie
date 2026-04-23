@@ -43,3 +43,6 @@ restic_password:      "REPLACE"
 restic_s3_key_id:     "REPLACE"
 restic_s3_key_secret: "REPLACE"
 restic_include_mongodump: true
+# URI с учёткой админа mongo (роль `mongo` включает authorization).
+# Должен совпадать с mongo_admin_user / mongo_admin_password выше.
+restic_mongo_uri: "mongodb://mspshield_admin:REPLACE@127.0.0.1:27017/?authSource=admin"

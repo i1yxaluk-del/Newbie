@@ -8,5 +8,9 @@ restic_paths:
   - /home
   - /var/log
 restic_include_mongodump: false
+# URI MongoDB для mongodump. Требуется если restic_include_mongodump=true
+# и на хосте включена auth (см. роль `mongo` → security.authorization: enabled).
+# Пример: "mongodb://mspshield_admin:PWD@127.0.0.1:27017/?authSource=admin"
+restic_mongo_uri: ""
 restic_schedule: "*-*-* 02:30:00"
 restic_randomized_delay: "30m"

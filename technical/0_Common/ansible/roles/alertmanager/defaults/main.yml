@@ -1,0 +1,12 @@
+---
+alertmanager_install_mode: apt
+alertmanager_tg_bot_token: ""
+alertmanager_smtp_password: ""
+alertmanager_tg_chat_id_general: ""
+alertmanager_tg_chat_id_p1: ""
+alertmanager_tg_chat_id_backup: ""
+alertmanager_smtp_from: "alerts@mspshield.ru"
+alertmanager_smtp_smarthost: "smtp.yandex.ru:587"
+alertmanager_smtp_user: "alerts@mspshield.ru"
+alertmanager_email_p3_to: "alerts@mspshield.ru"
+alertmanager_resolve_timeout: "5m"

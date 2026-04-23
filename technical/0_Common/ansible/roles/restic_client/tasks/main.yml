@@ -1,0 +1,90 @@
+---
+- name: guard — restic secrets required
+  ansible.builtin.assert:
+    that:
+      - restic_repository | length > 0
+      - restic_password | length > 0
+      - restic_s3_key_id | length > 0
+      - restic_s3_key_secret | length > 0
+    fail_msg: "restic_* vault vars не заданы. См. roles/restic_client/README.md"
+
+- name: install restic
+  ansible.builtin.apt:
+    name: restic
+    state: present
+
+- name: env dir
+  ansible.builtin.file:
+    path: /etc/restic
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: restic env file
+  ansible.builtin.copy:
+    dest: /etc/restic/env
+    owner: root
+    group: root
+    mode: "0600"
+    content: |
+      RESTIC_REPOSITORY={{ restic_repository }}
+      RESTIC_PASSWORD={{ restic_password }}
+      AWS_ACCESS_KEY_ID={{ restic_s3_key_id }}
+      AWS_SECRET_ACCESS_KEY={{ restic_s3_key_secret }}
+  no_log: true
+
+- name: install mongo-tools if включён mongodump
+  ansible.builtin.apt:
+    name: mongodb-database-tools
+    state: present
+  when: restic_include_mongodump | bool
+
+- name: backup script
+  ansible.builtin.template:
+    src: mspshield-backup.sh.j2
+    dest: /usr/local/bin/mspshield-backup.sh
+    mode: "0750"
+
+- name: systemd service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/mspshield-backup.service
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=MSPShield backup (restic)
+      [Service]
+      Type=oneshot
+      EnvironmentFile=/etc/restic/env
+      ExecStart=/usr/local/bin/mspshield-backup.sh
+
+- name: systemd timer
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/mspshield-backup.timer
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=MSPShield daily backup timer
+      [Timer]
+      OnCalendar={{ restic_schedule }}
+      RandomizedDelaySec={{ restic_randomized_delay }}
+      Persistent=true
+      [Install]
+      WantedBy=timers.target
+
+- name: enable timer
+  ansible.builtin.systemd:
+    name: mspshield-backup.timer
+    enabled: true
+    daemon_reload: true
+    state: started
+
+- name: restic init (idempotent — init возвращает non-zero если уже init'ан)
+  ansible.builtin.shell: |
+    set -o allexport; source /etc/restic/env; set +o allexport
+    restic snapshots >/dev/null 2>&1 || restic init
+  args:
+    executable: /bin/bash
+  register: restic_init
+  changed_when: "'created restic repository' in restic_init.stdout"
+  no_log: true

@@ -1,0 +1,6 @@
+---
+- name: restart fastapi
+  ansible.builtin.systemd:
+    name: mspshield-backend
+    state: restarted
+    daemon_reload: true

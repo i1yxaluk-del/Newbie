@@ -1,0 +1,5 @@
+---
+ad_realm: ""
+ad_admin_user: administrator
+ad_textfile_dir: /var/lib/node_exporter/textfile
+ad_schedule: "hourly"

@@ -1,0 +1,12 @@
+---
+restic_repository: ""
+restic_password: ""
+restic_s3_key_id: ""
+restic_s3_key_secret: ""
+restic_paths:
+  - /etc
+  - /home
+  - /var/log
+restic_include_mongodump: false
+restic_schedule: "*-*-* 02:30:00"
+restic_randomized_delay: "30m"

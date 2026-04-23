@@ -1,0 +1,16 @@
+[Interface]
+Address = {{ wg_hub_address }}
+ListenPort = {{ wg_hub_listen_port }}
+PrivateKey = {{ wg_hub_private_key }}
+
+# NAT: tenant → external via eth0
+PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -A FORWARD -o wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+PostDown = iptables -D FORWARD -i wg0 -j ACCEPT; iptables -D FORWARD -o wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+
+{% for peer in wg_hub_peers %}
+# ── peer: {{ peer.name }} ──
+[Peer]
+PublicKey = {{ peer.public_key }}
+AllowedIPs = {{ peer.allowed_ips }}
+
+{% endfor %}

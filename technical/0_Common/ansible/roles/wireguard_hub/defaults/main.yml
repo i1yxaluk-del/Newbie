@@ -1,0 +1,9 @@
+---
+wg_hub_listen_port: 51820
+wg_hub_address: "10.10.0.1/24"
+wg_hub_private_key: ""
+wg_hub_peers: []
+# Пример элемента wg_hub_peers:
+# - name: acme
+#   public_key: "AAAA...="
+#   allowed_ips: "10.20.10.0/24, 10.10.0.10/32"

@@ -1,0 +1,19 @@
+---
+baseline_timezone: Europe/Moscow
+baseline_admin_user: ubuntu
+baseline_ufw_allowed_ports:
+  - 22
+baseline_ufw_extra_ports: []
+baseline_base_packages:
+  - curl
+  - git
+  - htop
+  - tmux
+  - ufw
+  - fail2ban
+  - jq
+  - dnsutils
+  - net-tools
+  - unattended-upgrades
+  - auditd
+  - chrony

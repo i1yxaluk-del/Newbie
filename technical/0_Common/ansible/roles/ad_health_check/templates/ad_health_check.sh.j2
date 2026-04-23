@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# AD health probe (read-only). Пишет метрики в node_exporter textfile collector.
+set -uo pipefail
+
+REALM="{{ ad_realm }}"
+OUT="{{ ad_textfile_dir }}/ad_health.prom"
+TS=$(date +%s)
+ERR=0
+
+# 1) DNS: _ldap._tcp.<realm> должен резолвиться
+if ! dig +short _ldap._tcp."$REALM" SRV | grep -q .; then
+  ERR=$((ERR+1))
+fi
+
+# 2) LDAP-port 389 доступен (ldapsearch -x -H ldap://<realm>)
+if ! ldapsearch -x -H "ldap://$REALM" -s base -LLL '(objectClass=*)' 1>/dev/null 2>&1; then
+  ERR=$((ERR+1))
+fi
+
+# 3) Clock skew относительно Kerberos PDC (ntpdate -q)
+if command -v ntpdate >/dev/null 2>&1; then
+  SKEW=$(ntpdate -q "$REALM" 2>/dev/null | awk '/offset/ {print $6}' | head -1 || echo 0)
+  if awk -v s="${SKEW:-0}" 'BEGIN { exit (s>300 || s<-300) ? 0 : 1 }'; then
+    ERR=$((ERR+1))
+  fi
+fi
+
+cat > "$OUT.tmp" <<EOF
+# HELP ad_health_errors_count количество провалившихся проверок в последнем run
+# TYPE ad_health_errors_count gauge
+ad_health_errors_count{realm="$REALM"} $ERR
+# HELP ad_health_last_check_ts unix-time последней проверки
+# TYPE ad_health_last_check_ts gauge
+ad_health_last_check_ts{realm="$REALM"} $TS
+EOF
+mv "$OUT.tmp" "$OUT"

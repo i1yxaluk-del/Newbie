@@ -1,0 +1,72 @@
+---
+- name: install node_exporter
+  ansible.builtin.apt:
+    name: prometheus-node-exporter
+    state: present
+
+- name: node_exporter bind to all (default in Debian pkg)
+  ansible.builtin.systemd:
+    name: prometheus-node-exporter
+    enabled: true
+    state: started
+
+- name: allow 9100 only from scraper CIDRs
+  community.general.ufw:
+    rule: allow
+    from_ip: "{{ item }}"
+    to_port: "9100"
+    proto: tcp
+  loop: "{{ monitoring_agent_scraper_cidrs }}"
+
+- name: promtail — download
+  ansible.builtin.get_url:
+    url: "https://github.com/grafana/loki/releases/download/v{{ monitoring_agent_promtail_version }}/promtail-linux-amd64.zip"
+    dest: "/tmp/promtail-{{ monitoring_agent_promtail_version }}.zip"
+    mode: "0644"
+
+- name: promtail — ensure unzip
+  ansible.builtin.apt:
+    name: unzip
+    state: present
+
+- name: promtail — unpack
+  ansible.builtin.unarchive:
+    src: "/tmp/promtail-{{ monitoring_agent_promtail_version }}.zip"
+    dest: /usr/local/bin/
+    remote_src: true
+    creates: /usr/local/bin/promtail-linux-amd64
+
+- name: promtail — link to canonical name
+  ansible.builtin.file:
+    src: /usr/local/bin/promtail-linux-amd64
+    dest: /usr/local/bin/promtail
+    state: link
+
+- name: promtail config
+  ansible.builtin.template:
+    src: promtail.yml.j2
+    dest: /etc/promtail.yml
+    mode: "0644"
+  notify: restart promtail
+
+- name: promtail systemd unit
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/promtail.service
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=Promtail log shipper
+      After=network-online.target
+      [Service]
+      ExecStart=/usr/local/bin/promtail -config.file=/etc/promtail.yml
+      Restart=on-failure
+      [Install]
+      WantedBy=multi-user.target
+  notify: restart promtail
+
+- name: promtail enabled + started
+  ansible.builtin.systemd:
+    name: promtail
+    enabled: true
+    daemon_reload: true
+    state: started

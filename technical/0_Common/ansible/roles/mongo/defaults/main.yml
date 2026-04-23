@@ -1,0 +1,5 @@
+---
+mongo_admin_user: mspshield_admin
+mongo_admin_password: ""
+mongo_version: "7.0"
+mongo_bind_ip: "127.0.0.1"

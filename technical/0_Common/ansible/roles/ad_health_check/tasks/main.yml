@@ -1,0 +1,59 @@
+---
+- name: guard — ad_realm required
+  ansible.builtin.assert:
+    that: ad_realm | length > 0
+    fail_msg: "ad_realm пусто. Укажи в host_vars тенанта."
+
+- name: install samba-tool + krb5 utils
+  ansible.builtin.apt:
+    name:
+      - samba-common-bin
+      - krb5-user
+      - ldap-utils
+      - dnsutils
+    state: present
+
+- name: textfile collector dir
+  ansible.builtin.file:
+    path: "{{ ad_textfile_dir }}"
+    state: directory
+    owner: prometheus
+    group: prometheus
+    mode: "0755"
+
+- name: ad_health_check script
+  ansible.builtin.template:
+    src: ad_health_check.sh.j2
+    dest: /usr/local/bin/ad_health_check.sh
+    mode: "0755"
+
+- name: systemd service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/ad-health-check.service
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=AD health check (DC-less probe)
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/local/bin/ad_health_check.sh
+
+- name: systemd timer
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/ad-health-check.timer
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=AD health check hourly
+      [Timer]
+      OnCalendar={{ ad_schedule }}
+      Persistent=true
+      [Install]
+      WantedBy=timers.target
+
+- name: enable ad-health-check timer
+  ansible.builtin.systemd:
+    name: ad-health-check.timer
+    enabled: true
+    daemon_reload: true
+    state: started

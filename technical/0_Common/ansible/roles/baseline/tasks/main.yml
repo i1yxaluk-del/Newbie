@@ -1,0 +1,75 @@
+---
+- name: apt cache update
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: install base packages
+  ansible.builtin.apt:
+    name: "{{ baseline_base_packages }}"
+    state: present
+
+- name: set timezone
+  community.general.timezone:
+    name: "{{ baseline_timezone }}"
+
+- name: enable unattended-upgrades
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+      APT::Periodic::AutocleanInterval "7";
+    mode: "0644"
+
+- name: SSH hardening
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    state: present
+    validate: "sshd -t -f %s"
+  loop:
+    - { regexp: '^#?PermitRootLogin',        line: 'PermitRootLogin no' }
+    - { regexp: '^#?PasswordAuthentication', line: 'PasswordAuthentication no' }
+    - { regexp: '^#?PubkeyAuthentication',   line: 'PubkeyAuthentication yes' }
+    - { regexp: '^#?X11Forwarding',          line: 'X11Forwarding no' }
+    - { regexp: '^#?AllowUsers',             line: "AllowUsers {{ baseline_admin_user }}" }
+  notify: restart ssh
+
+- name: ufw default policies
+  community.general.ufw:
+    direction: "{{ item.direction }}"
+    policy: "{{ item.policy }}"
+  loop:
+    - { direction: incoming, policy: deny }
+    - { direction: outgoing, policy: allow }
+
+- name: ufw allow base ports
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop: "{{ baseline_ufw_allowed_ports + baseline_ufw_extra_ports }}"
+
+- name: ufw enable
+  community.general.ufw:
+    state: enabled
+
+- name: fail2ban enabled + started
+  ansible.builtin.systemd:
+    name: fail2ban
+    enabled: true
+    state: started
+
+- name: auditd enabled + started
+  ansible.builtin.systemd:
+    name: auditd
+    enabled: true
+    state: started
+
+- name: chrony enabled + started
+  ansible.builtin.systemd:
+    name: chrony
+    enabled: true
+    state: started

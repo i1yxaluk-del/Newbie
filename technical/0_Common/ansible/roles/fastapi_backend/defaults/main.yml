@@ -1,0 +1,7 @@
+---
+fastapi_repo_url: "https://github.com/i1yxaluk-del/Newbie.git"
+fastapi_repo_ref: main
+fastapi_install_dir: /opt/mspshield
+fastapi_system_user: mspshield
+fastapi_port: 8001
+fastapi_env_content: ""

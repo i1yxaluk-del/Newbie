@@ -1,0 +1,60 @@
+---
+- name: guard — vault vars required
+  ansible.builtin.assert:
+    that:
+      - alertmanager_tg_bot_token | length > 0
+      - alertmanager_smtp_password | length > 0
+      - alertmanager_tg_chat_id_general | length > 0
+      - alertmanager_tg_chat_id_p1 | length > 0
+      - alertmanager_tg_chat_id_backup | length > 0
+    fail_msg: "alertmanager_* vault vars пусты. См. roles/alertmanager/README.md"
+
+- name: install alertmanager (apt)
+  ansible.builtin.apt:
+    name: prometheus-alertmanager
+    state: present
+  when: alertmanager_install_mode == "apt"
+
+- name: etc dir
+  ansible.builtin.file:
+    path: /etc/alertmanager
+    state: directory
+    owner: alertmanager
+    group: alertmanager
+    mode: "0750"
+
+- name: tg bot token file
+  ansible.builtin.copy:
+    dest: /etc/alertmanager/tg_bot_token
+    content: "{{ alertmanager_tg_bot_token }}"
+    owner: alertmanager
+    group: alertmanager
+    mode: "0600"
+  no_log: true
+  notify: reload alertmanager
+
+- name: smtp password file
+  ansible.builtin.copy:
+    dest: /etc/alertmanager/smtp_password
+    content: "{{ alertmanager_smtp_password }}"
+    owner: alertmanager
+    group: alertmanager
+    mode: "0600"
+  no_log: true
+  notify: reload alertmanager
+
+- name: alertmanager.yml from template
+  ansible.builtin.template:
+    src: alertmanager.yml.j2
+    dest: /etc/alertmanager/alertmanager.yml
+    owner: alertmanager
+    group: alertmanager
+    mode: "0640"
+    validate: "amtool check-config %s"
+  notify: reload alertmanager
+
+- name: enabled + started
+  ansible.builtin.systemd:
+    name: prometheus-alertmanager
+    enabled: true
+    state: started

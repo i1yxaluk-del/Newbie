@@ -1,0 +1,45 @@
+---
+# ══════════════════════════════════════════════════════════════════════
+# group_vars/landing/vault.example.yml — EXAMPLE (plaintext, без реальных значений)
+# ══════════════════════════════════════════════════════════════════════
+# Как использовать:
+#   1. cp vault.example.yml vault.yml
+#   2. Заполнить реальными значениями из Vaultwarden (см. docs/deployment/secrets_management.md)
+#   3. ansible-vault encrypt vault.yml
+#   4. Для apply: ansible-playbook site.yml --ask-vault-pass (или --vault-password-file)
+#
+# В git коммитим только ЗАШИФРОВАННЫЙ vault.yml.
+# Этот example — для структуры, чтобы новичок знал какие переменные нужны.
+# ══════════════════════════════════════════════════════════════════════
+
+# ── nginx ──
+nginx_certbot_email: "admin@mspshield.ru"
+
+# ── fastapi_backend ──
+fastapi_env_content: |
+  MONGO_URL=mongodb://mspshield_admin:REPLACE@127.0.0.1:27017/mspshield?authSource=admin
+  DB_NAME=mspshield
+  ADMIN_TOKEN=REPLACE
+  TG_BOT_TOKEN=REPLACE
+  TG_CHAT_ID=REPLACE
+  CORS_ORIGINS=https://mspshield.ru
+  RATE_LIMIT_WINDOW_SECONDS=3600
+  RATE_LIMIT_MAX=5
+  SMARTCAPTCHA_SERVER_KEY=REPLACE
+
+# ── mongo ──
+mongo_admin_password: "REPLACE"
+
+# ── alertmanager (K2) ──
+alertmanager_tg_bot_token: "REPLACE"
+alertmanager_smtp_password: "REPLACE"
+alertmanager_tg_chat_id_general: "-1001234567890"
+alertmanager_tg_chat_id_p1:      "-1001234567891"
+alertmanager_tg_chat_id_backup:  "-1001234567892"
+
+# ── restic_client ──
+restic_repository:    "s3:storage.yandexcloud.net/mspshield-backups/landing"
+restic_password:      "REPLACE"
+restic_s3_key_id:     "REPLACE"
+restic_s3_key_secret: "REPLACE"
+restic_include_mongodump: true

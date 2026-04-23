@@ -27,16 +27,17 @@ technical/
 ├── 2_Silver/                  ← тариф Silver (= Bronze + автоматизация + AD/DNS/GPO + логи)
 ├── 3_Gold/                    ← тариф Gold (= Silver + SIEM + EDR + ticketing)
 │
-└── Junior/                    ← обучение и операционные материалы
-    ├── ONBOARDING.md          ← первые 14 дней junior
-    ├── junior_training.md     ← программа L1/L2/L3 (многомесячная)
-    ├── TROUBLESHOOTING.md     ← индексированная библиотека runbook'ов
-    ├── CHECKLISTS.md          ← чек-листы регулярных операций
-    ├── vault_guide.md         ← работа с Bitwarden/Vault
-    ├── l1_bronze/tasks.md     ← практические задания уровня L1
-    ├── l2_silver/tasks.md     ← L2
-    └── l3_gold/tasks.md       ← L3
 ```
+
+> **Junior-материалы.** Старый каталог `technical/Junior/` удалён при v4.3-cleanup:
+> соло-оператор не нанимает джуна на старте. Когда появится первый наёмный инженер
+> (trigger: MRR ≥ 150k + 3 клиента, см. `docs/roadmap/etape_4_sprints.md` спринт 11),
+> для него актуальны:
+> - [`docs/training/README.md`](../docs/training/README.md) — текущая программа обучения
+> - [`docs/runbooks/`](../docs/runbooks/) — R-01..R-11 (реактивные сценарии)
+> - [`docs/checklists/weekly.md`](../docs/checklists/weekly.md), [`monthly.md`](../docs/checklists/monthly.md), [`quarterly.md`](../docs/checklists/quarterly.md) — регулярные чек-листы
+> - [`docs/deployment/troubleshooting.md`](../docs/deployment/troubleshooting.md) — типовые ошибки развёртывания
+> - [`docs/deployment/secrets_management.md`](../docs/deployment/secrets_management.md) — Vaultwarden вместо старого `vault_guide`
 
 ---
 
@@ -53,21 +54,21 @@ technical/
 1. [`BUSINESS_MODEL.md`](./BUSINESS_MODEL.md) — тарифы и скоуп
 2. [`ADDONS.md`](./ADDONS.md) — что предлагать после первой продажи
 3. [`0_Common/SERVICES/`](./0_Common/SERVICES/) — чтобы понимать, «что клиенту можно и нельзя обещать»
-4. [`Junior/CHECKLISTS.md`](./Junior/CHECKLISTS.md) — «приём нового клиента» (передаём инженерам)
+4. [`../docs/onboarding/pre_onboarding_checklist.md`](../docs/onboarding/pre_onboarding_checklist.md) — «приём нового клиента»
 
 ### 👨‍💻 Senior инженер
 1. Мастер-гайды тарифов (Bronze/Silver/Gold)
 2. Все SOP для EXECUTOR
 3. [`0_Common/SERVICES/`](./0_Common/SERVICES/) — экспертно
-4. [`Junior/TROUBLESHOOTING.md`](./Junior/TROUBLESHOOTING.md) — ссылается на все runbook'и
-5. Ведёт и обновляет [`Junior/CHECKLISTS.md`](./Junior/CHECKLISTS.md)
+4. [`../docs/runbooks/`](../docs/runbooks/) — R-01..R-11 на каждый алерт
+5. Ведёт и обновляет [`../docs/checklists/weekly.md`](../docs/checklists/weekly.md)
 
-### 🎓 Junior (новый)
-1. [`Junior/ONBOARDING.md`](./Junior/ONBOARDING.md) — первые 14 дней
-2. [`Junior/junior_training.md`](./Junior/junior_training.md) — программа на месяцы 2–6
-3. [`0_Common/SERVICES/README.md`](./0_Common/SERVICES/README.md) — каталог сервисов
-4. [`Junior/CHECKLISTS.md`](./Junior/CHECKLISTS.md) — чек-листы
-5. [`Junior/TROUBLESHOOTING.md`](./Junior/TROUBLESHOOTING.md) — при инциденте
+### 🎓 Junior (появится после MRR ≥ 150k · спринт 11 Этапа 4)
+1. [`../docs/training/README.md`](../docs/training/README.md) — программа с нуля
+2. [`0_Common/SERVICES/README.md`](./0_Common/SERVICES/README.md) — каталог сервисов
+3. [`../docs/runbooks/`](../docs/runbooks/) — при инциденте
+4. [`../docs/deployment/troubleshooting.md`](../docs/deployment/troubleshooting.md) — типовые ошибки
+5. [`../docs/deployment/secrets_management.md`](../docs/deployment/secrets_management.md) — Vaultwarden
 
 ### 👤 Клиент (runbook-копии, которые можно делиться)
 - `1_Bronze/CLIENT/SOP_client_bronze.md` (версия «что клиент сам делает»)
@@ -82,14 +83,14 @@ technical/
 | Задача | Куда идти |
 |---|---|
 | Понять, что входит в тариф клиента | [`BUSINESS_MODEL.md`](./BUSINESS_MODEL.md) → «Матрица услуг» |
-| Принять нового клиента | [`Junior/CHECKLISTS.md#приём-нового-клиента--bronze`](./Junior/CHECKLISTS.md) |
+| Принять нового клиента | [`../docs/onboarding/pre_onboarding_checklist.md`](../docs/onboarding/pre_onboarding_checklist.md) + [`../docs/onboarding/welcome_package.md`](../docs/onboarding/welcome_package.md) |
 | Поднять Prometheus-стек у нас | [`1_Bronze/EXECUTOR/SOP_executor_bronze.md`](./1_Bronze/EXECUTOR/SOP_executor_bronze.md) |
 | Настроить 1С-мониторинг | [`0_Common/SERVICES/1c_server.md`](./0_Common/SERVICES/1c_server.md) |
 | Добавить AD в мониторинг | [`0_Common/SERVICES/ad_domain.md`](./0_Common/SERVICES/ad_domain.md) |
 | Добавить FreeIPA | [`0_Common/SERVICES/freeipa_domain.md`](./0_Common/SERVICES/freeipa_domain.md) |
 | Развернуть Loki | [`2_Silver/EXECUTOR/SOP_executor_silver.md`](./2_Silver/EXECUTOR/SOP_executor_silver.md) |
 | Запустить Wazuh SIEM | [`3_Gold/EXECUTOR/SOP_executor_gold.md`](./3_Gold/EXECUTOR/SOP_executor_gold.md) |
-| Алерт пришёл — что делать | [`Junior/TROUBLESHOOTING.md`](./Junior/TROUBLESHOOTING.md) |
+| Алерт пришёл — что делать | [`../docs/runbooks/`](../docs/runbooks/) (R-01..R-11) |
 | Продать upsell | [`ADDONS.md`](./ADDONS.md) |
 | Растём — что менять | [`SCALING.md`](./SCALING.md) |
 
@@ -146,5 +147,5 @@ technical/
 
 ---
 
-**Начни здесь** если ты новый:
-→ [`Junior/ONBOARDING.md`](./Junior/ONBOARDING.md)
+**Начни здесь** если ты новый junior:
+→ [`../docs/training/README.md`](../docs/training/README.md)

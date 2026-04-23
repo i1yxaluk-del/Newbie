@@ -82,9 +82,9 @@ Clients: 7 Bronze + 6 Silver + 3 Gold = **16 активных**.
 
 | Статья | ₽/мес | Комментарий |
 |---|---:|---|
-| Bastion shared (Yandex Cloud) | 6 000 | постоянно |
+| Bastion shared (Yandex Cloud) | 6 000 | постоянно; на нём же крутится Vaultwarden |
 | Мониторинг-стек MSP | 3 000 | постоянно |
-| Vaultwarden | 500 | постоянно |
+| Vaultwarden (self-hosted, AGPLv3) | 0 | лицензия бесплатная; хостинг уже учтён в bastion выше |
 | Kaiten Business (3 пользователя) | 5 500 | с M2 |
 | Яндекс 360 (email + docs) | 800 | с M1 |
 | Домен + SSL | 300 | усреднённо |

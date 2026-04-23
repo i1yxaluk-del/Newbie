@@ -161,7 +161,7 @@ docker run -d --name sql-exporter \
 
 **ВАЖНО:** ежемесячно восстанавливаем бэкап в тестовую базу и делаем
 функциональную проверку (клиент открывает — «всё на месте?»). См.
-`../Junior/CHECKLISTS.md` → «Monthly restore drill».
+`../../../docs/checklists/monthly.md` → «Monthly restore drill».
 
 ---
 

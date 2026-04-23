@@ -183,9 +183,9 @@ Newbie/ (MSPShield v4.1)
 │   ├── ltv_model.md                LTV 36mo, churn, NRR
 │   ├── finmodel_m1_m24.md          финмодель M1–M24 + break-even
 │   ├── icp_profiles.md             3 ICP + анти-ICP + скоринг
-│   ├── addon_catalog.md            каталог разовых работ
+│   ├── addon_catalog.md            каталог разовых работ (общие + tier-specific)
 │   ├── discount_policy.md          политика скидок (max 10%)
-│   └── market_analysis.md          (наследие из v3) — общий рынок РФ
+│   └── market_analysis.md          анализ рынка MSP в РФ (редакция 2026)
 │
 ├── docs/
 │   ├── burnout_guard.md            лимиты собственника
@@ -229,9 +229,7 @@ Newbie/ (MSPShield v4.1)
 │   ├── training/
 │   │   ├── README.md               12-недельная программа
 │   │   └── week_01.md … week_12.md
-│   ├── DEPLOYMENT.md               (наследие)
-│   ├── OPERATIONS.md               (наследие)
-│   └── COMPLIANCE.md               (наследие)
+│   └── COMPLIANCE.md               152-ФЗ, импортозамещение, статус оператора ПДн
 │
 ├── contracts/                      договоры клиент/MSP
 │   ├── contract_bronze.html
@@ -265,8 +263,7 @@ Newbie/ (MSPShield v4.1)
 │   │   └── docker/…
 │   ├── 1_Bronze/                   (1–5 серверов)
 │   ├── 2_Silver/                   AD/GPO + Loki + Puppet (80–300 сотр.)
-│   ├── 3_Gold/                     Wazuh + KSC + compliance
-│   └── Junior/                     (наследие; новая программа — в docs/training/)
+│   └── 3_Gold/                     Wazuh + KSC + compliance
 │
 └── infra/terraform/                Yandex Cloud baseline (landing + bastion)
 ```
@@ -362,7 +359,7 @@ Newbie/ (MSPShield v4.1)
 |---|---|---|---|
 | **собственник** (принимаю решения) | [README](README.md) → [unit_economics](analysis/unit_economics.md) | [finmodel](analysis/finmodel_m1_m24.md), [burnout_guard](docs/burnout_guard.md) | [BUSINESS_MODEL](technical/BUSINESS_MODEL.md), [SCALING](technical/SCALING.md) |
 | **будущий клиент** (оцениваю услугу) | [privacy.html](frontend/public/docs/privacy.html), [offer.html](frontend/public/docs/offer.html), [sla.html](frontend/public/docs/sla.html) | [contract_bronze.html](contracts/contract_bronze.html), [welcome_package](docs/onboarding/welcome_package.md) | [COMPLIANCE](docs/COMPLIANCE.md) |
-| **junior engineer** (нанят или обучается) | [training/README](docs/training/README.md), [week_01](docs/training/week_01.md) | [runbooks/README](docs/runbooks/README.md), [checklists/weekly](docs/checklists/weekly.md) | [technical/Junior/TROUBLESHOOTING](technical/Junior/TROUBLESHOOTING.md) |
+| **junior engineer** (нанят или обучается) | [training/README](docs/training/README.md), [week_01](docs/training/week_01.md) | [runbooks/README](docs/runbooks/README.md), [checklists/weekly](docs/checklists/weekly.md) | [deployment/troubleshooting](docs/deployment/troubleshooting.md) |
 | **senior/owner on duty** | [runbooks/README](docs/runbooks/README.md), [post_mortem_template](docs/post_mortem_template.md) | Targeted R-01…R-11 | [monthly_report.py](technical/0_Common/scripts/monthly_report.py), [dr_drill.sh](technical/0_Common/scripts/dr_drill.sh) |
 | **dev / DevOps** | [deploy/docker-compose](deploy/docker-compose.yml), [infra/terraform/README](infra/terraform/README.md) | [ansible/playbooks](technical/0_Common/ansible/playbooks/), [monitoring/prometheus.yml](technical/0_Common/monitoring/prometheus.yml) | [nginx/mspshield.conf](deploy/nginx/mspshield.conf) |
 | **юрист / compliance** | [privacy](frontend/public/docs/privacy.html), [offer](frontend/public/docs/offer.html) | [contracts/](contracts/), [COMPLIANCE](docs/COMPLIANCE.md) | [offer_and_ndca](docs/hiring/offer_and_ndca.md) |

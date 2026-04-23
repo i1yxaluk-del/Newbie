@@ -115,4 +115,4 @@ Object Storage (~300 ГБ):                ~300 ₽/мес
 | Wazuh ossec.conf | `3_Gold/EXECUTOR/wazuh/wazuh_manager_ossec.conf` |
 | KSC setup guide | `3_Gold/EXECUTOR/ksc/ksc_setup_guide.md` |
 | osTicket compose | `3_Gold/EXECUTOR/osticket/docker-compose.yml` |
-| Junior L3 Gold | `Junior/l3_gold/` |
+| Training Gold-уровень | [`../../docs/training/`](../../docs/training/) (week_03/04) |

@@ -8,6 +8,12 @@
       - restic_s3_key_secret | length > 0
     fail_msg: "restic_* vault vars не заданы. См. roles/restic_client/README.md"
 
+- name: guard — mongo uri required if mongodump enabled
+  ansible.builtin.assert:
+    that: restic_mongo_uri | length > 0
+    fail_msg: "restic_include_mongodump=true, но restic_mongo_uri пуст. Укажи URI с auth (роль mongo включает authorization)."
+  when: restic_include_mongodump | bool
+
 - name: install restic
   ansible.builtin.apt:
     name: restic
@@ -32,6 +38,9 @@
       RESTIC_PASSWORD={{ restic_password }}
       AWS_ACCESS_KEY_ID={{ restic_s3_key_id }}
       AWS_SECRET_ACCESS_KEY={{ restic_s3_key_secret }}
+      {% if restic_include_mongodump %}
+      MONGO_URI={{ restic_mongo_uri }}
+      {% endif %}
   no_log: true
 
 - name: install mongo-tools if включён mongodump

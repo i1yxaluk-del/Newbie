@@ -3,9 +3,11 @@
 set -euo pipefail
 
 {% if restic_include_mongodump %}
+# MONGO_URI приходит из /etc/restic/env (EnvironmentFile в systemd-unit),
+# в нём hardcoded mongo_admin_user/pwd из vault — mongo role требует authorization.
 DUMP_DIR=/var/backups/mongodump-$(date +%F)
 mkdir -p "$DUMP_DIR"
-mongodump --out "$DUMP_DIR" --quiet
+mongodump --uri="${MONGO_URI}" --out "$DUMP_DIR" --quiet
 {% endif %}
 
 restic backup \

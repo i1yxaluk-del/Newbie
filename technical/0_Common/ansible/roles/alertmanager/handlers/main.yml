@@ -1,0 +1,5 @@
+---
+- name: reload alertmanager
+  ansible.builtin.systemd:
+    name: prometheus-alertmanager
+    state: reloaded

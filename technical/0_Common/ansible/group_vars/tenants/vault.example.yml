@@ -1,0 +1,15 @@
+---
+# ══════════════════════════════════════════════════════════════════════
+# group_vars/tenants/vault.example.yml — EXAMPLE (plaintext)
+# ══════════════════════════════════════════════════════════════════════
+# Общие секреты для всех тенантов. Per-тенант переопределения — в host_vars/<tenant>/vault.yml
+# ══════════════════════════════════════════════════════════════════════
+
+# ── restic_client (общие creds; путь репо обычно per-tenant) ──
+restic_password:      "REPLACE"
+restic_s3_key_id:     "REPLACE"
+restic_s3_key_secret: "REPLACE"
+
+# ── пример host_vars/<tenant>.yml (per-tenant override) ──
+# restic_repository: "s3:storage.yandexcloud.net/mspshield-backups/acme"
+# ad_realm: "corp.acme.ru"       # только для Silver+ с AD

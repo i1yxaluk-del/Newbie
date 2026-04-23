@@ -1,0 +1,65 @@
+---
+- name: guard — admin password required
+  ansible.builtin.assert:
+    that: mongo_admin_password | length > 0
+    fail_msg: "mongo_admin_password is empty. Set from ansible-vault."
+
+- name: mongodb GPG key
+  ansible.builtin.apt_key:
+    url: "https://pgp.mongodb.com/server-{{ mongo_version }}.asc"
+    state: present
+
+- name: mongodb apt repo
+  ansible.builtin.apt_repository:
+    repo: "deb [arch=amd64] https://repo.mongodb.org/apt/ubuntu {{ ansible_distribution_release }}/mongodb-org/{{ mongo_version }} multiverse"
+    filename: "mongodb-org-{{ mongo_version }}"
+    state: present
+
+- name: install mongodb-org
+  ansible.builtin.apt:
+    name: mongodb-org
+    state: present
+    update_cache: true
+
+- name: mongod.conf — bind + auth
+  ansible.builtin.copy:
+    dest: /etc/mongod.conf
+    mode: "0644"
+    content: |
+      storage:
+        dbPath: /var/lib/mongodb
+      systemLog:
+        destination: file
+        logAppend: true
+        path: /var/log/mongodb/mongod.log
+      net:
+        port: 27017
+        bindIp: {{ mongo_bind_ip }}
+      processManagement:
+        timeZoneInfo: /usr/share/zoneinfo
+      security:
+        authorization: enabled
+  notify: restart mongod
+
+- name: systemd enabled + started
+  ansible.builtin.systemd:
+    name: mongod
+    enabled: true
+    state: started
+
+- name: create admin user (idempotent via createUser | try/ignore if exists)
+  ansible.builtin.shell: |
+    mongosh --quiet --eval '
+      db = db.getSiblingDB("admin");
+      if (!db.getUser("{{ mongo_admin_user }}")) {
+        db.createUser({
+          user: "{{ mongo_admin_user }}",
+          pwd:  "{{ mongo_admin_password }}",
+          roles: [ { role: "root", db: "admin" } ]
+        });
+        print("created");
+      } else { print("exists"); }
+    '
+  register: mongo_admin_create
+  changed_when: "'created' in mongo_admin_create.stdout"
+  no_log: true

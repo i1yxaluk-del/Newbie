@@ -1,0 +1,6 @@
+---
+monitoring_agent_scraper_cidrs:
+  - "10.10.0.0/24"
+monitoring_agent_loki_url: "http://10.10.0.20:3100/loki/api/v1/push"
+monitoring_agent_extra_logs: []
+monitoring_agent_promtail_version: "2.9.4"

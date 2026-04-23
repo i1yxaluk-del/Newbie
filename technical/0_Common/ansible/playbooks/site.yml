@@ -35,6 +35,7 @@
     - nginx
     - fastapi_backend
     - mongo
+    - alertmanager
 
 - name: Bastion
   hosts: bastion

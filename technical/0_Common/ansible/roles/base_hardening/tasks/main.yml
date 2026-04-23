@@ -1,0 +1,43 @@
+---
+- name: disable and mask unused services (ignore_errors — могут отсутствовать)
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: false
+    state: stopped
+    masked: true
+  loop: "{{ base_hardening_disable_services }}"
+  failed_when: false
+  changed_when: false
+
+- name: sysctl hardening values
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: true
+    sysctl_file: /etc/sysctl.d/99-mspshield.conf
+  loop: "{{ base_hardening_sysctl | dict2items }}"
+
+- name: login.defs password policy
+  ansible.builtin.lineinfile:
+    path: /etc/login.defs
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  loop:
+    - { regexp: '^PASS_MAX_DAYS', line: 'PASS_MAX_DAYS 90' }
+    - { regexp: '^PASS_MIN_DAYS', line: 'PASS_MIN_DAYS 1' }
+    - { regexp: '^PASS_WARN_AGE', line: 'PASS_WARN_AGE 14' }
+
+- name: audit rules (PCI-like identity/privileged)
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/99-mspshield.rules
+    mode: "0640"
+    content: |
+      -w /etc/passwd -p wa -k identity
+      -w /etc/shadow -p wa -k identity
+      -w /etc/group -p wa -k identity
+      -w /etc/sudoers -p wa -k scope
+      -w /etc/sudoers.d/ -p wa -k scope
+      -a always,exit -F arch=b64 -S execve -F euid=0 -k root_exec
+      -a always,exit -F arch=b32 -S execve -F euid=0 -k root_exec
+  notify: restart auditd

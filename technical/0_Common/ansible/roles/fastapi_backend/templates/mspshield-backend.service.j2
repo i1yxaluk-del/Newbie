@@ -1,0 +1,21 @@
+[Unit]
+Description=MSPShield FastAPI backend (uvicorn)
+After=network-online.target mongod.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ fastapi_system_user }}
+Group={{ fastapi_system_user }}
+WorkingDirectory={{ fastapi_install_dir }}/backend
+EnvironmentFile=/etc/mspshield/backend.env
+ExecStart={{ fastapi_install_dir }}/.venv/bin/uvicorn server:app --host 127.0.0.1 --port {{ fastapi_port }} --workers 2
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

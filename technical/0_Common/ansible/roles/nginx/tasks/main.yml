@@ -1,0 +1,57 @@
+---
+- name: guard — nginx_certbot_email must be set
+  ansible.builtin.assert:
+    that: nginx_certbot_email | length > 0
+    fail_msg: "nginx_certbot_email is empty. Set it in host_vars or --extra-vars."
+
+- name: install nginx + certbot
+  ansible.builtin.apt:
+    name:
+      - nginx-core
+      - certbot
+      - python3-certbot-nginx
+    state: present
+
+- name: deploy nginx site config (templated)
+  ansible.builtin.template:
+    src: mspshield.conf.j2
+    dest: /etc/nginx/sites-available/mspshield.conf
+    mode: "0644"
+  notify: reload nginx
+
+- name: enable site
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/mspshield.conf
+    dest: /etc/nginx/sites-enabled/mspshield.conf
+    state: link
+  notify: reload nginx
+
+- name: disable default site
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: reload nginx
+
+- name: static root exists
+  ansible.builtin.file:
+    path: "{{ nginx_static_root }}"
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: "0755"
+
+- name: obtain LE cert (certbot --nginx; idempotent)
+  ansible.builtin.command: >
+    certbot --nginx --non-interactive --agree-tos
+    --email {{ nginx_certbot_email }}
+    --domains {{ nginx_server_name }}
+    --redirect
+  args:
+    creates: "/etc/letsencrypt/live/{{ nginx_server_name }}/fullchain.pem"
+  notify: reload nginx
+
+- name: nginx enabled + started
+  ansible.builtin.systemd:
+    name: nginx
+    enabled: true
+    state: started

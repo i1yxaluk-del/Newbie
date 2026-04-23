@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# MSPShield daily backup — restic → Yandex Object Storage
+set -euo pipefail
+
+{% if restic_include_mongodump %}
+DUMP_DIR=/var/backups/mongodump-$(date +%F)
+mkdir -p "$DUMP_DIR"
+mongodump --out "$DUMP_DIR" --quiet
+{% endif %}
+
+restic backup \
+{% for p in restic_paths %}
+  "{{ p }}" \
+{% endfor %}
+{% if restic_include_mongodump %}
+  /var/backups \
+{% endif %}
+  --tag daily --tag $(hostname -s)
+
+restic forget --prune \
+  --keep-daily   14 \
+  --keep-weekly  4 \
+  --keep-monthly 6
+
+{% if restic_include_mongodump %}
+# keep на диске только последние 3 дампа (restic уже унёс в репу)
+find /var/backups -maxdepth 1 -type d -name 'mongodump-*' -mtime +3 -print0 | xargs -0 -r rm -rf
+{% endif %}
+
+# лог итога в syslog
+logger -t mspshield-backup "restic snapshot OK ($(hostname))"

@@ -175,9 +175,9 @@ curl -X POST https://mspshield.ru/api/leads \
 
 # 4. Заявка пришла в Telegram? (проверить чат глазами)
 
-# 5. Админка — список заявок:
+# 5. Админка — список заявок (в браузере — https://mspshield.ru/admin/leads):
 curl -H "X-Admin-Token: $(grep ADMIN_TOKEN backend/.env | cut -d= -f2)" \
-     https://mspshield.ru/api/admin/leads | jq .
+     https://mspshield.ru/api/leads | jq .
 ```
 
 Если все 5 прошли — **лендинг в проде**.
@@ -202,7 +202,7 @@ curl -H "X-Admin-Token: $(grep ADMIN_TOKEN backend/.env | cut -d= -f2)" \
 
 ```bash
 ssh ubuntu@10.10.0.2
-curl -H "X-Admin-Token: $ADMIN_TOKEN" http://localhost:8001/api/admin/leads | jq .
+curl -H "X-Admin-Token: $ADMIN_TOKEN" http://localhost:8001/api/leads | jq .
 ```
 
 Способ Б — через `mongosh` (для нестандартных выборок):
@@ -217,7 +217,16 @@ docker exec -it deploy-mongo-1 mongosh mspshield
 > db.leads.aggregate([{$group: {_id: "$tariff", count: {$sum: 1}}}])
 ```
 
-Способ В — **простая админка** (в планах Этапа 4, спринт 3): https://mspshield.ru/admin — логин `admin` + `ADMIN_TOKEN`. Пока не реализована, используй A/Б.
+Способ В — **веб-админка**: https://mspshield.ru/admin/leads — в форму вводишь `ADMIN_TOKEN` из `backend/.env`. Таблица заявок + смена статуса в drop-down.
+
+Если вход не работает:
+| Симптом | Что случилось | Что делать |
+|---|---|---|
+| "Неверный токен" (401) | Токен не совпадает с ADMIN_TOKEN в `backend/.env` на сервере | `grep ADMIN_TOKEN backend/.env` → скопировать значение без кавычек |
+| "ADMIN_TOKEN не настроен" (503) | В `backend/.env` переменная пустая | `ADMIN_TOKEN=$(openssl rand -hex 32)` в .env, `systemctl restart mspshield-backend` |
+| "Нет связи с API" | `REACT_APP_BACKEND_URL` не вкомпилен в build или nginx не проксирует /api/ | Проверь `frontend/.env` перед `yarn build`; в nginx `location /api/ { proxy_pass http://127.0.0.1:8001; }` |
+
+Админка покажет диагностику под полем ввода — внимательно читай текст.
 
 #### Где их анализировать
 
@@ -228,7 +237,7 @@ docker exec -it deploy-mongo-1 mongosh mspshield
 | «Сколько конверсия из заявки → звонок?» | Статус поле `status` (`new`, `called`, `booked`, `won`, `lost`) | После каждого ответа |
 | «График заявок по дням» | Grafana dashboard «MSPShield leads» (если Prometheus стоит) | Ежедневно |
 
-Поле `status` меняется вручную через `PATCH /api/admin/leads/{id}/status` — удобнее через Postman или простой скрипт.
+Поле `status` меняется вручную через веб-админку (drop-down) или `PATCH /api/leads/{id}/status?new_status=...` (возможные: `new`, `contacted`, `qualified`, `won`, `lost`).
 
 ### 2.2 Мониторинг — что именно смотреть
 

@@ -3,7 +3,10 @@ import axios from "axios";
 import { toast } from "sonner";
 import { CheckCircle2, ArrowRight } from "lucide-react";
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+// Fallback to same-origin `/api` when REACT_APP_BACKEND_URL is not set at build time.
+// Prod (nginx reverse-proxy): same-origin. CRA dev: value from frontend/.env.
+const BACKEND = (process.env.REACT_APP_BACKEND_URL || "").replace(/\/$/, "");
+const API = `${BACKEND}/api`;
 const SMARTCAPTCHA_SITE_KEY = process.env.REACT_APP_SMARTCAPTCHA_SITE_KEY || "";
 
 const SERVERS = [

@@ -3,7 +3,10 @@ import axios from "axios";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+// Fallback to same-origin `/api` when REACT_APP_BACKEND_URL is not baked into build.
+// On prod (nginx reverse-proxy) this is the correct behavior; CRA dev sets the var via .env.
+const BACKEND = (process.env.REACT_APP_BACKEND_URL || "").replace(/\/$/, "");
+const API = `${BACKEND}/api`;
 
 const STATUS_LABELS = {
   new: "Новая",
@@ -19,9 +22,11 @@ export default function AdminLeads() {
   const [leads, setLeads] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [diagnostic, setDiagnostic] = useState(null);
 
   const load = async (tkn) => {
     setLoading(true);
+    setDiagnostic(null);
     try {
       const headers = { "X-Admin-Token": tkn };
       const [lr, sr] = await Promise.all([
@@ -33,7 +38,25 @@ export default function AdminLeads() {
       setAuthed(true);
       sessionStorage.setItem("msp_admin_token", tkn);
     } catch (err) {
-      toast.error(err?.response?.status === 401 ? "Неверный токен" : "Ошибка загрузки");
+      const status = err?.response?.status;
+      const detail = err?.response?.data?.detail;
+      if (status === 401) {
+        toast.error("Неверный токен");
+        setDiagnostic("Сервер ответил 401: токен не совпадает с ADMIN_TOKEN в backend/.env.");
+      } else if (status === 503 || detail === "Admin access not configured") {
+        toast.error("ADMIN_TOKEN не настроен на сервере");
+        setDiagnostic(
+          "На сервере пустой ADMIN_TOKEN (503). В backend/.env задай ADMIN_TOKEN=$(openssl rand -hex 32), перезапусти backend, повтори вход.",
+        );
+      } else if (!status) {
+        toast.error("Нет связи с API");
+        setDiagnostic(
+          `API недоступен: ${API}. Проверь REACT_APP_BACKEND_URL в frontend/.env или nginx проксирование /api/.`,
+        );
+      } else {
+        toast.error(`Ошибка загрузки (${status})`);
+        setDiagnostic(`HTTP ${status}${detail ? `: ${detail}` : ""}`);
+      }
       setAuthed(false);
     } finally {
       setLoading(false);
@@ -87,6 +110,23 @@ export default function AdminLeads() {
           <p style={{ fontSize: 14, color: "var(--stone)", marginBottom: 22 }}>
             Введите токен администратора (ADMIN_TOKEN из backend/.env).
           </p>
+          {diagnostic && (
+            <div
+              data-testid="admin-diagnostic"
+              style={{
+                background: "#fff5f0",
+                border: "1px solid #f0cdbc",
+                borderRadius: 4,
+                padding: "10px 12px",
+                fontSize: 12.5,
+                color: "#8a4a2a",
+                marginBottom: 14,
+                lineHeight: 1.5,
+              }}
+            >
+              {diagnostic}
+            </div>
+          )}
           <input
             data-testid="admin-token-input"
             className="mspinput"

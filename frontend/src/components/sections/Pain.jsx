@@ -12,16 +12,26 @@ const PAIN_POINTS = [
 
 const fmt = (n) => Math.round(n).toLocaleString("ru-RU") + " ₽";
 
+// Accept digits only; forbid leading zeros so users never see a "hanging 0" in the field.
+const sanitizeDigits = (raw) => {
+  const onlyDigits = (raw || "").replace(/\D/g, "");
+  return onlyDigits.replace(/^0+(?=\d)/, "");
+};
+
 export default function Pain() {
-  const [revenue, setRevenue] = useState(3_000_000);
-  const [days, setDays] = useState(22);
-  const [hours, setHours] = useState(9);
+  // Stored as strings so the input can be empty while editing — no forced "0".
+  const [revenue, setRevenue] = useState("3000000");
+  const [days, setDays] = useState("22");
+  const [hours, setHours] = useState("9");
   const [downtime, setDowntime] = useState(8);
   const [incidents, setIncidents] = useState(4);
 
   const calc = useMemo(() => {
-    const workHours = Math.max(1, days * hours);
-    const hourCost = revenue / workHours;
+    const revenueN = Number(revenue) || 0;
+    const daysN = Number(days) || 22;
+    const hoursN = Number(hours) || 9;
+    const workHours = Math.max(1, daysN * hoursN);
+    const hourCost = revenueN / workHours;
     const perIncident = hourCost * downtime;
     const yearLoss = perIncident * incidents;
     const serviceYear = 240_000; // Bronze annual
@@ -36,6 +46,10 @@ export default function Pain() {
     }
     return { hourCost, perIncident, yearLoss, serviceYear, verdict };
   }, [revenue, days, hours, downtime, incidents]);
+
+  const handleBlur = (setter, fallback) => (e) => {
+    if (!e.target.value) setter(String(fallback));
+  };
 
   return (
     <section
@@ -139,11 +153,13 @@ export default function Pain() {
             <CalcField label="Ежемесячная выручка (₽)">
               <input
                 data-testid="calc-revenue"
-                type="number"
-                min={100000}
-                step={100000}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={revenue}
-                onChange={(e) => setRevenue(Number(e.target.value) || 0)}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setRevenue(sanitizeDigits(e.target.value))}
+                onBlur={handleBlur(setRevenue, 3000000)}
                 className="calc-input"
               />
             </CalcField>
@@ -152,22 +168,26 @@ export default function Pain() {
               <CalcField label="Рабочих дней в месяце">
                 <input
                   data-testid="calc-days"
-                  type="number"
-                  min={15}
-                  max={26}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={days}
-                  onChange={(e) => setDays(Number(e.target.value) || 22)}
+                  onFocus={(e) => e.target.select()}
+                  onChange={(e) => setDays(sanitizeDigits(e.target.value))}
+                  onBlur={handleBlur(setDays, 22)}
                   className="calc-input"
                 />
               </CalcField>
               <CalcField label="Часов в рабочем дне">
                 <input
                   data-testid="calc-hours"
-                  type="number"
-                  min={4}
-                  max={24}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={hours}
-                  onChange={(e) => setHours(Number(e.target.value) || 9)}
+                  onFocus={(e) => e.target.select()}
+                  onChange={(e) => setHours(sanitizeDigits(e.target.value))}
+                  onBlur={handleBlur(setHours, 9)}
                   className="calc-input"
                 />
               </CalcField>

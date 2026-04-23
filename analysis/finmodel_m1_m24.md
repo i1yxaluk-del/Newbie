@@ -91,7 +91,7 @@ Clients: 7 Bronze + 6 Silver + 3 Gold = **16 активных**.
 | Маркетинг (бюджет) | 2 000 (M1–6) → 10 000 (M7–12) → 20 000 (M13+) | — |
 | **Fixed costs** | **~18 000 (M1–6)** · **~26 000 (M7–12)** · **~36 000 (M13+)** | — |
 
-**Variable costs** — см. `unit_economics.md` (Bronze 1 550 ₽, Silver 4 250,
+**Variable costs** — см. `unit_economics.md` (Bronze 1 500 ₽, Silver 4 200,
 Gold 17 000 «прямых без времени»).
 
 **Доход от Setup fees** (помесячно, зависит от привлечения новых):

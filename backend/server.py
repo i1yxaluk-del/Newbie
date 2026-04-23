@@ -283,7 +283,7 @@ async def send_telegram(lead: dict) -> None:
 # ───────────────────────────────────────────────────────────
 @api_router.get("/")
 async def root():
-    return {"service": "MSPShield API", "version": "4.1.0"}
+    return {"service": "MSPShield API", "version": app.version}
 
 
 @api_router.get("/health")

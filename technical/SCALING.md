@@ -25,11 +25,11 @@
 - У вас 5+ клиентов — каждый weekly-check по 2 часа = уже 40 ч/мес
 
 ### Что готовим к приходу junior
-- [ ] Разделение ролей L1/L2/L3 (см. `Junior/junior_training.md`)
+- [ ] Разделение ролей L1/L2/L3 (см. [`../docs/training/README.md`](../docs/training/README.md))
 - [ ] Все плейбуки написаны и актуальны
 - [ ] Bitwarden с ролевыми shared коллекциями (Bronze / Silver / Gold)
 - [ ] Notion-шаблон клиентской страницы
-- [ ] Регламент онбординга junior ([`Junior/ONBOARDING.md`](./Junior/ONBOARDING.md))
+- [ ] Регламент онбординга junior ([`../docs/training/week_01.md`](../docs/training/week_01.md))
 
 ---
 

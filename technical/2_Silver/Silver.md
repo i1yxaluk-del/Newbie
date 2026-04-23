@@ -112,4 +112,4 @@ Object Storage (~200 ГБ):                ~200 ₽/мес
 | Bronze мастер-гайд | `1_Bronze/Bronze.md` |
 | Puppet manifests | `0_Common/Puppet_Manifests/` |
 | Общий Docker Compose | `0_Common/docker/docker-compose.yml` |
-| Junior L2 Silver | `Junior/l2_silver/` |
+| Training Silver-уровень | [`../../docs/training/`](../../docs/training/) (week_02/03/04) |

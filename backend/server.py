@@ -67,7 +67,7 @@ SMARTCAPTCHA_VERIFY_URL = os.environ.get(
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
 
-app = FastAPI(title="MSPShield API", version="4.1.0")
+app = FastAPI(title="MSPShield API", version="4.2.0")
 api_router = APIRouter(prefix="/api")
 
 logging.basicConfig(

@@ -158,7 +158,7 @@ Internet   ─UDP:51820─→│  │  Bastion VM  │  WG mesh     │
 
 ## 9. Где искать дальше
 
-- 🧑‍💻 **Junior начинает:** [`../Junior/ONBOARDING.md`](../Junior/ONBOARDING.md) → L1 задачи → экзамен L1
+- 🧑‍💻 **Junior начинает** (появится после MRR ≥ 150k): [`../../docs/training/README.md`](../../docs/training/README.md) → L1/L2/L3 задачи
 - 🛠 **Инженер:** `EXECUTOR/SOP_executor_bronze.md` + все скрипты в `EXECUTOR/`
-- 📑 **Все runbook'и алертов Bronze:** [`../Junior/TROUBLESHOOTING.md`](../Junior/TROUBLESHOOTING.md)
+- 📑 **Runbook'и алертов:** [`../../docs/runbooks/`](../../docs/runbooks/) (R-01..R-11)
 - 💰 **Владельцу:** [`../BUSINESS_MODEL.md`](../BUSINESS_MODEL.md)

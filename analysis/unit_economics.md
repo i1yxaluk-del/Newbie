@@ -31,7 +31,7 @@
 | S3-бэкапы (Yandex S3, ~200 GB) | 400 | 2 ₽/GB × 200 GB |
 | Мониторинг-стек на стороне MSP (shared) | 300 | 1/10 от 3 000 ₽ VM |
 | Alert notifications (Telegram — free) | 0 | — |
-| Vaultwarden shared | 50 | 1/10 от 500 ₽ |
+| Vaultwarden shared | 0 | self-hosted (AGPLv3) на bastion; лицензия 0 ₽, хостинг уже в bastion-allocation |
 | Резерв на мелочи (DNS, сертификаты) | 200 | — |
 | **Прямые переменные** | **1 550** | — |
 | Opportunity cost владельца (1 ч/нед × 2 500 ₽) | 1 200 | 4.8 ч/мес × 250 ₽ = «эффективная ставка поддержки» |
@@ -51,7 +51,7 @@
 | Мониторинг-стек | 600 | больше метрик, больше retention |
 | Loki-логи (shared) | 400 | — |
 | Puppet-мастер (shared, 1/5) | 200 | — |
-| Vaultwarden shared | 50 | — |
+| Vaultwarden shared | 0 | self-hosted (AGPLv3) на bastion; лицензия 0 ₽ |
 | Резерв | 400 | — |
 | **Прямые переменные** | **4 250** | — |
 | Opportunity cost владельца (3 ч/нед × 2 500) | 2 250 | 9 ч/мес × 250 |

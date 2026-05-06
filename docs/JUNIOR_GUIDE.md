@@ -74,6 +74,41 @@ yarn start
 - [ ] В `localhost:3000/admin` вошёл по `ADMIN_TOKEN` → твоя заявка в списке
 - [ ] Сменил статус через выпадашку → перезагрузил → статус сохранился
 
+### 2.1. Типовые ошибки локального запуска
+
+**«Не удалось отправить. Попробуйте ещё раз.» + в логах backend `Connection refused`**
+
+В логах увидишь:
+```
+mspshield - WARNING - failed to ensure indexes: localhost:27017 [Errno 111] Connection refused
+```
+Это значит, что backend стартовал, но Mongo не запущена.
+Причина: ты не поднял Mongo, или контейнер остановился после ребута.
+Решение:
+```bash
+# одной командой:
+docker run -d --name mspshield-mongo --restart=always -p 27017:27017 mongo:7
+# или, если контейнер уже создан:
+docker start mspshield-mongo
+```
+
+**В консоли браузера: `POST http://localhost:3000/api/leads 404` или `GET http://192.168.x.x:3000/api/health 404`**
+
+Frontend стучится сам в себя (на `:3000`), а не в backend (на `:8001`).
+Причина: пустой/отсутствующий `frontend/.env` с переменной `REACT_APP_BACKEND_URL`.
+Решение:
+```bash
+cd frontend
+echo "REACT_APP_BACKEND_URL=http://localhost:8001" > .env  # или http://192.168.x.x:8001 если открываешь не с localhost
+# CRA читает .env только при старте — обязательно перезапусти:
+yarn start
+```
+Ещё нюанс: если открываешь сайт с другой машины в локалке (`http://192.168.x.x:3000`), backend подними на `0.0.0.0` и в `backend/.env` пропиши:
+```
+CORS_ORIGINS=*  # только для dev! в проде — конкретный домен
+```
+И запусти backend как `uvicorn server:app --host 0.0.0.0 --port 8001 --reload`.
+
 ---
 
 ## 3. Production-развёртывание (Yandex Cloud, базовая конфигурация)

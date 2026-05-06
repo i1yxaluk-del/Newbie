@@ -28,18 +28,7 @@ export default function Process() {
       }}
     >
       <div className="wrap">
-        <div
-          className="reveal"
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 60,
-            alignItems: "end",
-            marginBottom: 56,
-            paddingBottom: 40,
-            borderBottom: "1px solid var(--rule)",
-          }}
-        >
+        <div className="reveal section-header">
           <div>
             <div className="tag-dot" style={{ marginBottom: 18 }}>
               Процесс подключения

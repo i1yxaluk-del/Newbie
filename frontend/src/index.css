@@ -345,3 +345,99 @@ h2.h-section em {
 body.bg-cream {
     background: var(--cream);
 }
+
+/* ───────────────────────────────────────────────────────────────
+   Responsive grid utilities (v4.5.1)
+   Заменяют inline gridTemplateColumns: "1fr 1fr" в секциях, которые
+   на мобилке вылезали за вьюпорт. min-width: 0 нужен Grid-айтемам,
+   чтобы длинный текст не растягивал колонку шире трека.
+   ─────────────────────────────────────────────────────────────── */
+.grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 60px;
+    align-items: end;
+}
+.grid-2 > * {
+    min-width: 0;
+}
+.grid-2-tight {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+.grid-2-tight > * {
+    min-width: 0;
+}
+.grid-asym {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 460px;
+    gap: 80px;
+    align-items: start;
+}
+.grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0;
+}
+
+@media (max-width: 920px) {
+    .grid-2,
+    .grid-2-tight,
+    .grid-asym {
+        grid-template-columns: 1fr;
+        gap: 32px;
+    }
+    .grid-3 {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+@media (max-width: 560px) {
+    .grid-3 {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ── Section-header pattern (общий хедер у Pricing/Process/Pain/Compliance) ── */
+.section-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 60px;
+    align-items: end;
+    margin-bottom: 56px;
+    padding-bottom: 40px;
+    border-bottom: 1px solid var(--rule);
+}
+.section-header > * {
+    min-width: 0;
+}
+@media (max-width: 920px) {
+    .section-header {
+        grid-template-columns: 1fr;
+        gap: 24px;
+        margin-bottom: 40px;
+        padding-bottom: 28px;
+    }
+}
+
+/* Адаптация секционных типографий к мобильному */
+@media (max-width: 640px) {
+    h1.hero-h1 {
+        font-size: clamp(34px, 9vw, 48px);
+        line-height: 1.08;
+    }
+    h2.h-section {
+        font-size: clamp(28px, 7.5vw, 36px);
+        line-height: 1.12;
+    }
+    .section-lead {
+        font-size: 15px;
+        line-height: 1.65;
+    }
+    /* Базовые отступы у любых стилей-секций становятся теснее. */
+    section {
+        padding-top: 56px !important;
+        padding-bottom: 56px !important;
+    }
+}
+

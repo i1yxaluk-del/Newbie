@@ -178,3 +178,105 @@ class TestAdmin:
             timeout=15,
         )
         assert r.status_code == 404
+
+
+# JWT login flow + CSV + integrations status (новые эндпоинты v4.5)
+class TestAdminLoginJWT:
+    def test_login_wrong_password(self, api):
+        r = api.post(
+            f"{BASE_URL}/api/admin/login",
+            json={"password": "definitely-wrong"},
+            timeout=15,
+        )
+        assert r.status_code == 401
+
+    def test_login_correct(self, api):
+        r = api.post(
+            f"{BASE_URL}/api/admin/login",
+            json={"password": ADMIN_TOKEN},
+            timeout=15,
+        )
+        assert r.status_code == 200, r.text
+        data = r.json()
+        assert isinstance(data.get("token"), str) and len(data["token"]) > 20
+        assert isinstance(data.get("expires_at"), int)
+        pytest.test_admin_jwt = data["token"]
+
+    def test_whoami_with_jwt(self, api):
+        jwt = getattr(pytest, "test_admin_jwt", None)
+        assert jwt, "need jwt from previous test"
+        r = api.get(
+            f"{BASE_URL}/api/admin/whoami",
+            headers={"Authorization": f"Bearer {jwt}"},
+            timeout=15,
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["role"] == "admin"
+
+    def test_whoami_without_token(self, api):
+        r = api.get(f"{BASE_URL}/api/admin/whoami", timeout=15)
+        assert r.status_code == 401
+
+    def test_leads_via_jwt(self, api):
+        jwt = getattr(pytest, "test_admin_jwt", None)
+        assert jwt
+        r = api.get(
+            f"{BASE_URL}/api/leads",
+            headers={"Authorization": f"Bearer {jwt}"},
+            timeout=15,
+        )
+        assert r.status_code == 200
+        assert isinstance(r.json(), list)
+
+
+class TestCSVExport:
+    def test_export_requires_auth(self, api):
+        r = api.get(f"{BASE_URL}/api/leads.csv", timeout=15)
+        assert r.status_code == 401
+
+    def test_export_csv_ok(self, admin_api):
+        r = admin_api.get(f"{BASE_URL}/api/leads.csv", timeout=15)
+        assert r.status_code == 200, r.text
+        assert "text/csv" in r.headers.get("content-type", "")
+        text = r.text
+        # Заголовок CSV
+        assert text.startswith("id,") or "id," in text.splitlines()[0]
+        assert "company" in text
+
+
+class TestIntegrationsStatus:
+    def test_integrations_public(self, api):
+        r = api.get(f"{BASE_URL}/api/integrations/status", timeout=15)
+        assert r.status_code == 200
+        data = r.json()
+        for k in ("kaiten", "telegram", "webhook", "smartcaptcha"):
+            assert k in data and isinstance(data[k], bool)
+
+
+class TestHoneypot:
+    def test_honeypot_silently_accepts(self, api):
+        """website не пустой → 201 OK (как обычно), но id — заглушка."""
+        payload = {
+            "name": "TEST_BotTrap",
+            "company": "TEST_Co",
+            "contact": "bot@example.com",
+            "servers": "1-3",
+            "website": "http://spam.example.com",
+        }
+        r = api.post(f"{BASE_URL}/api/leads", json=payload, timeout=15)
+        assert r.status_code == 201
+        assert r.json()["id"] == "00000000-0000-0000-0000-000000000000"
+
+
+class TestConsent:
+    def test_consent_explicit_false_rejected(self, api):
+        payload = {
+            "name": "TEST_NoConsent",
+            "company": "TEST_Co",
+            "contact": "contact",
+            "servers": "1-3",
+            "consent": False,
+        }
+        r = api.post(f"{BASE_URL}/api/leads", json=payload, timeout=15)
+        assert r.status_code == 400
+        assert "consent" in r.text.lower()

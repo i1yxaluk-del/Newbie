@@ -1,9 +1,13 @@
 import "@/App.css";
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
 import Landing from "@/pages/Landing";
-import AdminLeads from "@/pages/AdminLeads";
 import NotFound from "@/pages/NotFound";
+
+// Админка тяжёлая и не нужна публичному посетителю — отдаём отдельным
+// чанком, чтобы лендинг не платил за её bundle (~30-40 KB gzip).
+const AdminLeads = lazy(() => import("@/pages/AdminLeads"));
 
 function App() {
   return (
@@ -22,10 +26,44 @@ function App() {
         />
         <Routes>
           <Route path="/" element={<Landing />} />
-          <Route path="/admin/leads" element={<AdminLeads />} />
+          <Route
+            path="/admin/leads"
+            element={
+              <Suspense fallback={<AdminFallback />}>
+                <AdminLeads />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <Suspense fallback={<AdminFallback />}>
+                <AdminLeads />
+              </Suspense>
+            }
+          />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
+    </div>
+  );
+}
+
+function AdminFallback() {
+  return (
+    <div
+      data-testid="admin-fallback"
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color: "var(--stone)",
+        fontFamily: "var(--fb)",
+        fontSize: 14,
+      }}
+    >
+      Загрузка админки…
     </div>
   );
 }

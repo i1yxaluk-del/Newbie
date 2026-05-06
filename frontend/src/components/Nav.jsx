@@ -68,12 +68,12 @@ export default function Nav() {
           }}
         >
           <a
-            href="#how"
-            data-testid="nav-how"
+            href="#calc"
+            data-testid="nav-calc"
             className="hidden md:inline"
             style={{ fontSize: 14, color: "var(--stone)", textDecoration: "none" }}
           >
-            Как работает
+            Калькулятор
           </a>
           <a
             href="#pricing"
@@ -84,12 +84,12 @@ export default function Nav() {
             Тарифы
           </a>
           <a
-            href="#compliance"
-            data-testid="nav-compliance"
+            href="#process"
+            data-testid="nav-process"
             className="hidden md:inline"
             style={{ fontSize: 14, color: "var(--stone)", textDecoration: "none" }}
           >
-            152-ФЗ
+            Процесс
           </a>
           <a
             href="#faq"

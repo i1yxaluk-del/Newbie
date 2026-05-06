@@ -1,7 +1,22 @@
-# MSPShield v4.1
+# MSPShield v4.5
 
 > **Managed IT Services для СМБ в РФ · 2026.**
 > Мониторинг 24/7 · Автоматические бэкапы · Реакция по SLA · 152-ФЗ · Импортозамещение.
+
+> 📘 **Новый? Начни с [`docs/JUNIOR_GUIDE.md`](docs/JUNIOR_GUIDE.md)** — инструкция
+> для junior-инженера: локальный запуск, прод, админка, CRM Kaiten, тестовые
+> заявки, типовые проблемы.
+
+**Что нового в v4.5:**
+- Минималистичный лендинг — 6 секций вместо 9 (`Hero · Pain · Pricing · Process · FAQ · CTAForm`).
+- Админка переписана: вход по паролю → JWT (24 ч) в localStorage. `X-Admin-Token` сохранён для CLI/curl. Фильтры по статусу/тарифу + экспорт CSV.
+- Связь формы с CRM **Kaiten** через REST API (карточка создаётся в фоне, идемпотентно по `lead_id`).
+- Универсальный `CRM_WEBHOOK_URL` (n8n / Make / Zapier / Bitrix24 inbound).
+- Скрипт `scripts/kaiten_bootstrap.py` — создаёт Space + Board + 6 колонок воронки одной командой.
+- Скрипт `scripts/seed_test_lead.py` — три тестовые заявки для проверки сквозной интеграции.
+- Lazy-load админки: главный bundle лендинга — **126 KB gzip**.
+- Mongo-индексы (`status`, `tariff`, `created_at`) создаются на старте.
+- nginx: gzip + immutable cache для `/static/`, no-store для `index.html`.
 
 Полный пакет для запуска MSP-бизнеса с нуля до первых клиентов:
 **продукт** (React 19 + FastAPI + MongoDB), **playbook развёртывания**

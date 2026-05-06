@@ -2,27 +2,31 @@
 MSPShield Backend API
 =====================
 
-RU: Это backend лендинга и админки MSPShield. Отвечает за:
-  1. POST /api/leads       — приём заявки с лендинга (rate-limit,
-                             honeypot, consent 152-ФЗ, SmartCaptcha).
-  2. GET  /api/leads       — список заявок для админки (X-Admin-Token).
-  3. PATCH /api/leads/{id}/status — смена статуса (новый → связались → …).
-  4. GET  /api/stats       — агрегаты для дашборда.
-  5. GET  /metrics         — Prometheus scrape-эндпоинт.
-  6. GET  /api/health      — liveness probe.
+Лендинг + админка для MSPShield (FastAPI + Motor/MongoDB).
 
-Секреты и конфиг — через .env (см. backend/.env.example).
-База — MongoDB через Motor (async).
+Эндпоинты:
+- POST /api/leads               — приём заявки с лендинга (rate-limit, honeypot,
+                                  consent 152-ФЗ, опциональная SmartCaptcha).
+- POST /api/admin/login         — обмен ADMIN_TOKEN на JWT (24 ч).
+- GET  /api/leads               — список заявок (X-Admin-Token ИЛИ Bearer JWT).
+- PATCH /api/leads/{id}/status  — смена статуса.
+- GET  /api/stats               — агрегаты для дашборда.
+- GET  /api/leads.csv           — выгрузка в CSV.
+- GET  /api/health              — liveness + DB-проба.
+- GET  /metrics                 — Prometheus.
 
-v4.1 security additions:
-- Per-IP rate limiting on POST /api/leads
-- Honeypot field `website` (bot trap)
-- Required PD-consent (152-ФЗ)
-- Optional Yandex SmartCaptcha verification
-- Prometheus /metrics (requires prometheus_client)
+Интеграции CRM:
+- backend/integrations/kaiten.py    — Kaiten REST API (Bearer-токен).
+- backend/integrations/webhook.py   — универсальный outbound webhook.
+- backend/integrations/telegram.py  — Telegram-нотификации (как канал).
+
+Интеграции вызываются через `BackgroundTasks` — пользователь получает 201
+сразу, не дожидаясь сетевых вызовов.
 """
 from __future__ import annotations
 
+import csv
+import io
 import logging
 import os
 import re
@@ -31,33 +35,45 @@ import uuid
 from collections import defaultdict, deque
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Deque, Dict, List, Optional
+from typing import Any, Deque, Dict, List, Optional
 
 import httpx
 from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Request, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    FastAPI,
+    HTTPException,
+    Query,
+    Request,
+    status,
+)
+from fastapi.responses import StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 from starlette.responses import PlainTextResponse, Response
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
 
-# ───────────────────────────────────────────────────────────
-# Config
-# ───────────────────────────────────────────────────────────
+# Импорт интеграций ПОСЛЕ load_dotenv — они читают env на module level.
+from auth import (  # noqa: E402
+    AdminDep,
+    JWT_TTL_SECONDS,
+    _admin_token,
+    issue_admin_jwt,
+)
+from integrations import kaiten, telegram, webhook  # noqa: E402
+
+# ─── Config ────────────────────────────────────────────────
 MONGO_URL = os.environ["MONGO_URL"]
 DB_NAME = os.environ["DB_NAME"]
-ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "")
-TG_BOT_TOKEN = os.environ.get("TG_BOT_TOKEN", "")
-TG_CHAT_ID = os.environ.get("TG_CHAT_ID", "")
 
-# Rate limit: default 10 lead-submissions per IP per 60s window.
 RATE_LIMIT_PER_MIN = int(os.environ.get("RATE_LIMIT_PER_MIN", "10"))
 RATE_LIMIT_WINDOW_SEC = int(os.environ.get("RATE_LIMIT_WINDOW_SEC", "60"))
 
-# Optional: Yandex SmartCaptcha server-side verification.
 SMARTCAPTCHA_SERVER_KEY = os.environ.get("SMARTCAPTCHA_SERVER_KEY", "")
 SMARTCAPTCHA_VERIFY_URL = os.environ.get(
     "SMARTCAPTCHA_VERIFY_URL",
@@ -67,7 +83,7 @@ SMARTCAPTCHA_VERIFY_URL = os.environ.get(
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
 
-app = FastAPI(title="MSPShield API", version="4.2.0")
+app = FastAPI(title="MSPShield API", version="4.5.0")
 api_router = APIRouter(prefix="/api")
 
 logging.basicConfig(
@@ -76,11 +92,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger("mspshield")
 
-# ───────────────────────────────────────────────────────────
-# Models
-# ───────────────────────────────────────────────────────────
+# ─── Models ────────────────────────────────────────────────
 SERVERS_OPTIONS = {"1-3", "4-10", "11-30", "30+"}
 TARIFF_OPTIONS = {"bronze", "silver", "gold", "undecided"}
+STATUS_OPTIONS = {"new", "contacted", "qualified", "won", "lost"}
 
 
 class LeadCreate(BaseModel):
@@ -94,9 +109,8 @@ class LeadCreate(BaseModel):
     tariff: Optional[str] = "undecided"
     message: Optional[str] = Field(default="", max_length=1500)
     source: Optional[str] = Field(default="landing", max_length=40)
-    downtime_loss: Optional[str] = None  # calculator result for CRM context
-    # v4.1 additions
-    consent: Optional[bool] = None  # PD consent (152-ФЗ). Required when non-legacy.
+    downtime_loss: Optional[str] = None
+    consent: Optional[bool] = None
     website: Optional[str] = Field(default=None, max_length=200)  # honeypot
     smartcaptcha_token: Optional[str] = Field(default=None, max_length=2048)
 
@@ -138,6 +152,8 @@ class Lead(BaseModel):
     downtime_loss: Optional[str] = None
     created_at: str
     status: str = "new"
+    kaiten_card_id: Optional[int] = None
+    kaiten_card_url: Optional[str] = None
 
 
 class LeadCreatedResponse(BaseModel):
@@ -148,14 +164,29 @@ class LeadCreatedResponse(BaseModel):
 class StatsResponse(BaseModel):
     total_leads: int
     leads_today: int
-    by_tariff: dict
+    by_tariff: Dict[str, int]
+    by_status: Dict[str, int]
 
 
-# ───────────────────────────────────────────────────────────
-# Metrics (Prometheus, optional)
-# ───────────────────────────────────────────────────────────
+class AdminLoginRequest(BaseModel):
+    password: str = Field(min_length=1, max_length=512)
+
+
+class AdminLoginResponse(BaseModel):
+    token: str
+    expires_at: int
+
+
+class IntegrationsStatus(BaseModel):
+    kaiten: bool
+    telegram: bool
+    webhook: bool
+    smartcaptcha: bool
+
+
+# ─── Metrics (Prometheus, optional) ────────────────────────
 try:
-    from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
+    from prometheus_client import CONTENT_TYPE_LATEST, Counter, generate_latest
 
     _METRICS_ENABLED = True
     LEADS_TOTAL = Counter(
@@ -166,18 +197,15 @@ try:
     LEADS_REJECTED = Counter(
         "mspshield_leads_rejected_total",
         "Leads rejected before persistence",
-        ("reason",),  # honeypot | consent | rate_limit | captcha
+        ("reason",),
     )
-    API_LATENCY = Histogram(
-        "mspshield_api_latency_seconds",
-        "API latency by path",
-        ("path", "method", "status"),
+    CRM_DELIVERIES = Counter(
+        "mspshield_crm_deliveries_total",
+        "CRM delivery attempts",
+        ("integration", "result"),
     )
 except Exception:  # noqa: BLE001
     _METRICS_ENABLED = False
-
-    def _rejected(_reason: str) -> None:
-        return None
 
 
 def inc_rejected(reason: str) -> None:
@@ -190,9 +218,12 @@ def inc_lead_accepted(tariff: str, source: str) -> None:
         LEADS_TOTAL.labels(tariff=tariff, source=source).inc()
 
 
-# ───────────────────────────────────────────────────────────
-# Rate limit (in-memory, per-IP sliding window)
-# ───────────────────────────────────────────────────────────
+def inc_crm(integration: str, result: str) -> None:
+    if _METRICS_ENABLED:
+        CRM_DELIVERIES.labels(integration=integration, result=result).inc()
+
+
+# ─── Rate limit (in-memory, per-IP sliding window) ─────────
 _rate_buckets: Dict[str, Deque[float]] = defaultdict(deque)
 
 
@@ -204,7 +235,6 @@ def _client_ip(request: Request) -> str:
 
 
 def rate_limit_check(request: Request) -> None:
-    """Raise 429 if this IP exceeded the window. In-memory, per-process."""
     ip = _client_ip(request)
     now = time.monotonic()
     bucket = _rate_buckets[ip]
@@ -221,18 +251,8 @@ def rate_limit_check(request: Request) -> None:
     bucket.append(now)
 
 
-# ───────────────────────────────────────────────────────────
-# Helpers
-# ───────────────────────────────────────────────────────────
-def require_admin(x_admin_token: Optional[str] = Header(default=None)) -> None:
-    if not ADMIN_TOKEN:
-        raise HTTPException(status_code=503, detail="Admin access not configured")
-    if x_admin_token != ADMIN_TOKEN:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-
-
+# ─── Helpers ───────────────────────────────────────────────
 async def verify_smartcaptcha(token: Optional[str], client_ip: str) -> bool:
-    """Return True if captcha is disabled OR token is valid. False only on explicit rejection."""
     if not SMARTCAPTCHA_SERVER_KEY:
         return True
     if not token:
@@ -247,40 +267,41 @@ async def verify_smartcaptcha(token: Optional[str], client_ip: str) -> bool:
             return data.get("status") == "ok"
     except Exception as exc:  # noqa: BLE001
         logger.warning("smartcaptcha verify failed: %s", exc)
-        # Fail-open on upstream error to avoid blocking legit users when Yandex is down.
-        return True
+        return True  # fail-open on upstream error
 
 
-async def send_telegram(lead: dict) -> None:
-    if not (TG_BOT_TOKEN and TG_CHAT_ID):
-        return
-    lines = [
-        "<b>🛡 Новая заявка MSPShield</b>",
-        f"<b>Имя:</b> {lead['name']}",
-        f"<b>Компания:</b> {lead['company']}",
-        f"<b>Контакт:</b> {lead['contact']}",
-        f"<b>Email:</b> {lead.get('email') or '—'}",
-        f"<b>Серверы:</b> {lead['servers']}",
-        f"<b>Тариф:</b> {lead['tariff']}",
-        f"<b>Потери/год:</b> {lead.get('downtime_loss') or '—'}",
-        f"<b>Сообщение:</b> {lead.get('message') or '—'}",
-        f"<b>Источник:</b> {lead.get('source')}",
-    ]
-    text = "\n".join(lines)
-    url = f"https://api.telegram.org/bot{TG_BOT_TOKEN}/sendMessage"
-    try:
-        async with httpx.AsyncClient(timeout=8.0) as http:
-            await http.post(
-                url,
-                json={"chat_id": TG_CHAT_ID, "text": text, "parse_mode": "HTML"},
+async def deliver_to_crm(lead_doc: Dict[str, Any]) -> None:
+    """Background task: пробуем все настроенные каналы доставки лида."""
+    if telegram.is_enabled():
+        try:
+            await telegram.send(lead_doc)
+            inc_crm("telegram", "ok")
+        except Exception:  # noqa: BLE001
+            inc_crm("telegram", "error")
+
+    if webhook.is_enabled():
+        code = await webhook.send(lead_doc)
+        inc_crm("webhook", "ok" if code and 200 <= code < 300 else "error")
+
+    if kaiten.is_enabled():
+        card = await kaiten.create_card(lead_doc)
+        if card and card.get("id"):
+            inc_crm("kaiten", "ok")
+            card_url = None
+            domain = kaiten.KAITEN_DOMAIN
+            if domain:
+                if "://" not in domain:
+                    domain = f"https://{domain}"
+                card_url = f"{domain.rstrip('/')}/space/{card.get('space_id', '')}/card/{card['id']}"
+            await db.leads.update_one(
+                {"id": lead_doc["id"]},
+                {"$set": {"kaiten_card_id": card["id"], "kaiten_card_url": card_url}},
             )
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("telegram notify failed: %s", exc)
+        else:
+            inc_crm("kaiten", "error")
 
 
-# ───────────────────────────────────────────────────────────
-# Routes
-# ───────────────────────────────────────────────────────────
+# ─── Routes ────────────────────────────────────────────────
 @api_router.get("/")
 async def root():
     return {"service": "MSPShield API", "version": app.version}
@@ -295,24 +316,36 @@ async def health():
         raise HTTPException(status_code=503, detail=f"db: {exc}") from exc
 
 
+@api_router.get("/integrations/status", response_model=IntegrationsStatus)
+async def integrations_status():
+    """Безопасный для лендинга статус интеграций (только bool, без секретов)."""
+    return IntegrationsStatus(
+        kaiten=kaiten.is_enabled(),
+        telegram=telegram.is_enabled(),
+        webhook=webhook.is_enabled(),
+        smartcaptcha=bool(SMARTCAPTCHA_SERVER_KEY),
+    )
+
+
 @api_router.post(
     "/leads",
     response_model=LeadCreatedResponse,
     status_code=status.HTTP_201_CREATED,
 )
-async def create_lead(payload: LeadCreate, request: Request):
-    # 1) Rate limit per IP.
+async def create_lead(
+    payload: LeadCreate,
+    request: Request,
+    background: BackgroundTasks,
+):
     rate_limit_check(request)
 
-    # 2) Honeypot — should be empty. If filled, accept silently (200) to not tip off bots,
-    #    but don't persist.
+    # Honeypot — silent 200 (чтобы боты не подсказывали себе по reject'у).
     if payload.website:
         inc_rejected("honeypot")
         logger.info("honeypot triggered from %s", _client_ip(request))
         return LeadCreatedResponse(ok=True, id="00000000-0000-0000-0000-000000000000")
 
-    # 3) Consent (152-ФЗ). Accept absence for legacy clients (older landing versions),
-    #    but reject explicit false.
+    # 152-ФЗ consent: явный false → reject.
     if payload.consent is False:
         inc_rejected("consent")
         raise HTTPException(
@@ -320,7 +353,6 @@ async def create_lead(payload: LeadCreate, request: Request):
             detail="consent_required",
         )
 
-    # 4) SmartCaptcha (optional).
     if SMARTCAPTCHA_SERVER_KEY:
         ok = await verify_smartcaptcha(payload.smartcaptcha_token, _client_ip(request))
         if not ok:
@@ -332,7 +364,6 @@ async def create_lead(payload: LeadCreate, request: Request):
 
     lead_id = str(uuid.uuid4())
     data = payload.model_dump()
-    # Never persist sensitive transient fields.
     data.pop("smartcaptcha_token", None)
     data.pop("website", None)
     doc = {
@@ -344,35 +375,128 @@ async def create_lead(payload: LeadCreate, request: Request):
     await db.leads.insert_one(doc)
     logger.info("lead created: %s · %s · %s", doc["id"], doc["company"], doc["tariff"])
     inc_lead_accepted(doc["tariff"], doc.get("source") or "landing")
-    await send_telegram(doc)
+
+    # Фоновая доставка во все включённые CRM-каналы.
+    doc.pop("_id", None)
+    background.add_task(deliver_to_crm, doc)
+
     return LeadCreatedResponse(ok=True, id=lead_id)
 
 
+@api_router.post("/admin/login", response_model=AdminLoginResponse)
+async def admin_login(payload: AdminLoginRequest):
+    admin_token = _admin_token()
+    if not admin_token:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Admin access not configured",
+        )
+    if payload.password != admin_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid password")
+    token, exp = issue_admin_jwt()
+    logger.info("admin jwt issued ttl=%ds", JWT_TTL_SECONDS)
+    return AdminLoginResponse(token=token, expires_at=exp)
+
+
+@api_router.get("/admin/whoami")
+async def admin_whoami(_: None = AdminDep):
+    return {"role": "admin", "ok": True}
+
+
 @api_router.get("/leads", response_model=List[Lead])
-async def list_leads(_: None = Depends(require_admin), limit: int = 200):
-    limit = max(1, min(limit, 500))
-    items = await db.leads.find({}, {"_id": 0}).sort("created_at", -1).to_list(limit)
+async def list_leads(
+    _: None = AdminDep,
+    limit: int = Query(200, ge=1, le=500),
+    status_filter: Optional[str] = Query(None, alias="status"),
+    tariff: Optional[str] = None,
+):
+    query: Dict[str, Any] = {}
+    if status_filter and status_filter in STATUS_OPTIONS:
+        query["status"] = status_filter
+    if tariff and tariff in TARIFF_OPTIONS:
+        query["tariff"] = tariff
+    items = await db.leads.find(query, {"_id": 0}).sort("created_at", -1).to_list(limit)
     return items
 
 
+@api_router.get("/leads.csv")
+async def export_leads_csv(_: None = AdminDep):
+    items = await db.leads.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
+    buf = io.StringIO()
+    writer = csv.writer(buf, dialect="excel")
+    writer.writerow(
+        [
+            "id",
+            "created_at",
+            "status",
+            "tariff",
+            "company",
+            "name",
+            "contact",
+            "email",
+            "servers",
+            "source",
+            "downtime_loss",
+            "message",
+            "kaiten_card_id",
+        ]
+    )
+    for it in items:
+        writer.writerow(
+            [
+                it.get("id", ""),
+                it.get("created_at", ""),
+                it.get("status", ""),
+                it.get("tariff", ""),
+                it.get("company", ""),
+                it.get("name", ""),
+                it.get("contact", ""),
+                it.get("email") or "",
+                it.get("servers", ""),
+                it.get("source", ""),
+                it.get("downtime_loss") or "",
+                (it.get("message") or "").replace("\n", " "),
+                it.get("kaiten_card_id") or "",
+            ]
+        )
+    buf.seek(0)
+    headers = {"Content-Disposition": 'attachment; filename="mspshield-leads.csv"'}
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="text/csv; charset=utf-8",
+        headers=headers,
+    )
+
+
 @api_router.get("/stats", response_model=StatsResponse)
-async def stats(_: None = Depends(require_admin)):
+async def stats(_: None = AdminDep):
     total = await db.leads.count_documents({})
     today = datetime.now(timezone.utc).date().isoformat()
     today_count = await db.leads.count_documents({"created_at": {"$regex": f"^{today}"}})
+
     pipeline = [{"$group": {"_id": "$tariff", "n": {"$sum": 1}}}]
     by_tariff_raw = await db.leads.aggregate(pipeline).to_list(20)
     by_tariff = {row["_id"] or "undecided": row["n"] for row in by_tariff_raw}
-    return StatsResponse(total_leads=total, leads_today=today_count, by_tariff=by_tariff)
+
+    status_pipeline = [{"$group": {"_id": "$status", "n": {"$sum": 1}}}]
+    by_status_raw = await db.leads.aggregate(status_pipeline).to_list(20)
+    by_status = {row["_id"] or "new": row["n"] for row in by_status_raw}
+
+    return StatsResponse(
+        total_leads=total,
+        leads_today=today_count,
+        by_tariff=by_tariff,
+        by_status=by_status,
+    )
 
 
 @api_router.patch("/leads/{lead_id}/status")
 async def update_lead_status(
     lead_id: str,
     new_status: str,
-    _: None = Depends(require_admin),
+    _: None = AdminDep,
 ):
-    if new_status not in {"new", "contacted", "qualified", "won", "lost"}:
+    if new_status not in STATUS_OPTIONS:
         raise HTTPException(status_code=400, detail="bad status")
     res = await db.leads.update_one({"id": lead_id}, {"$set": {"status": new_status}})
     if res.matched_count == 0:
@@ -380,9 +504,7 @@ async def update_lead_status(
     return {"ok": True}
 
 
-# ───────────────────────────────────────────────────────────
-# Metrics endpoint
-# ───────────────────────────────────────────────────────────
+# ─── Metrics endpoint ──────────────────────────────────────
 @app.get("/metrics", include_in_schema=False)
 async def metrics() -> Response:
     if not _METRICS_ENABLED:
@@ -390,11 +512,10 @@ async def metrics() -> Response:
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
-# ───────────────────────────────────────────────────────────
-# App wiring
-# ───────────────────────────────────────────────────────────
+# ─── App wiring ────────────────────────────────────────────
 app.include_router(api_router)
 
+app.add_middleware(GZipMiddleware, minimum_size=512)
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -402,6 +523,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+async def _on_startup() -> None:
+    """Создаём индексы Mongo при старте — идемпотентно."""
+    try:
+        await db.leads.create_index("created_at")
+        await db.leads.create_index("status")
+        await db.leads.create_index("tariff")
+        await db.leads.create_index([("status", 1), ("created_at", -1)])
+        await db.leads.create_index("id", unique=True)
+        logger.info("mongo indexes ensured")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("failed to ensure indexes: %s", exc)
 
 
 @app.on_event("shutdown")

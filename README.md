@@ -91,6 +91,17 @@ go-to-market**.
 
 ## Быстрый старт (dev-окружение)
 
+### 0. MongoDB (контейнером)
+
+```bash
+# Один раз создаём контейнер (переживёт ребут благодаря --restart=always):
+docker run -d --name mspshield-mongo --restart=always -p 27017:27017 mongo:7
+# Если уже создавали — просто:
+docker start mspshield-mongo
+```
+Без этого backend стартует, но падает с `Connection refused: localhost:27017`,
+а форма на лендинге отдаёт «Не удалось отправить».
+
 ### 1. Backend (FastAPI + MongoDB)
 
 ```bash
@@ -122,11 +133,16 @@ uvicorn server:app --host 0.0.0.0 --port 8001 --reload
 
 ```bash
 cd frontend
+cp .env.example .env  # содержит REACT_APP_BACKEND_URL=http://localhost:8001
 yarn install
-# REACT_APP_BACKEND_URL в frontend/.env указывает на backend
-# REACT_APP_SMARTCAPTCHA_SITE_KEY — опционально для клиентского виджета
-yarn start   # http://localhost:3000
+yarn start            # http://localhost:3000
 ```
+
+**Важно:** `frontend/.env` читается CRA **только при старте**. После любых
+правок переменных — перезапускай `yarn start`, иначе они не подхватятся.
+Если открываешь сайт с другой машины (`http://192.168.x.x:3000`) —
+поправь `REACT_APP_BACKEND_URL=http://192.168.x.x:8001` и подними
+backend как `--host 0.0.0.0`.
 
 ### 3. Проверка API
 

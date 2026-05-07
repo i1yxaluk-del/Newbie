@@ -46,33 +46,17 @@ export default function Process() {
           </p>
         </div>
 
-        <div style={{ position: "relative" }}>
-          <div
-            style={{
-              position: "absolute",
-              left: 78,
-              top: 6,
-              bottom: 6,
-              width: 1,
-              background: "var(--rule)",
-            }}
-            aria-hidden
-          />
+        <div className="process-steps">
           {STEPS.map((s, i) => (
             <div
               key={s.d}
               data-testid={`process-step-${i}`}
-              className={`reveal ${i > 0 ? `reveal-d${i % 3}` : ""}`}
+              className={`reveal process-step ${i > 0 ? `reveal-d${i % 3}` : ""}`}
               style={{
-                display: "grid",
-                gridTemplateColumns: "160px 1fr",
-                gap: 32,
-                padding: "28px 0",
                 borderBottom: i === STEPS.length - 1 ? "none" : "1px solid var(--rule-lt)",
-                alignItems: "start",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div className="process-step-date">
                 <span
                   className="font-display"
                   style={{
@@ -113,6 +97,32 @@ export default function Process() {
           ))}
         </div>
       </div>
+
+      <style>{`
+        .process-steps { position: relative; }
+        .process-step {
+          display: grid;
+          grid-template-columns: 200px minmax(0, 1fr);
+          gap: 40px;
+          padding: 28px 0;
+          align-items: start;
+        }
+        .process-step > * { min-width: 0; }
+        .process-step-date {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          color: var(--stone);
+        }
+        @media (max-width: 720px) {
+          .process-step {
+            grid-template-columns: 1fr;
+            gap: 8px;
+            padding: 24px 0;
+          }
+          .process-step-date span { font-size: 16px !important; color: var(--stone); }
+        }
+      `}</style>
     </section>
   );
 }

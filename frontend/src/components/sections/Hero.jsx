@@ -91,7 +91,7 @@ export default function Hero() {
             <a href="#audit" className="btn-core btn-primary" data-testid="hero-cta-primary">
               Получить бесплатный аудит →
             </a>
-            <a href="#pricing" className="btn-core btn-ghost" data-testid="hero-cta-secondary">
+            <a href="#pricing" className="btn-core btn-secondary" data-testid="hero-cta-secondary">
               Смотреть тарифы
             </a>
           </div>

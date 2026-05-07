@@ -470,12 +470,17 @@ export default function Capabilities() {
           className="section-lead"
           style={{ maxWidth: 620, margin: 0 }}
         >
-          Четыре пилона сервиса. Свайп / стрелки / клик по табу.
+          Четыре пилона сервиса.
+          <span className="cap-hint" aria-hidden="true">
+            <span className="cap-hint-key">←</span>
+            <span className="cap-hint-key">→</span>
+            <span>табы · свайп</span>
+          </span>
         </p>
       </div>
 
-      {/* Tabs */}
-      <div className="wrap" style={{ marginBottom: 18 }}>
+      {/* Tabs — segmented pill control */}
+      <div className="wrap" style={{ marginBottom: 22 }}>
         <div
           role="tablist"
           aria-label="Возможности"
@@ -527,47 +532,62 @@ export default function Capabilities() {
       </div>
 
       <style>{`
+        /* Segmented pill control. Active tab = filled forest with cream label.
+           Inactive = clearly readable on cream-deep track. */
         .cap-tabs {
-          display: flex;
-          gap: 4px;
+          display: inline-flex;
+          gap: 0;
+          padding: 5px;
+          background: var(--cream-deep);
+          border: 1px solid var(--rule);
+          border-radius: 999px;
           overflow-x: auto;
           scrollbar-width: none;
           -ms-overflow-style: none;
-          padding-bottom: 8px;
+          margin-bottom: 14px;
+          max-width: 100%;
         }
         .cap-tabs::-webkit-scrollbar { display: none; }
         .cap-tab {
           flex: 0 0 auto;
           background: transparent;
           border: 0;
-          border-bottom: 1px solid transparent;
-          padding: 10px 14px;
-          font-family: var(--fm);
-          font-size: 12px;
-          color: var(--stone-lt);
-          letter-spacing: .04em;
-          text-transform: uppercase;
+          border-radius: 999px;
+          padding: 10px 18px;
+          font-family: var(--fb);
+          font-size: 13.5px;
+          font-weight: 500;
+          color: var(--ink-2);
+          letter-spacing: .005em;
           cursor: pointer;
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          transition: color .2s, border-color .2s;
+          line-height: 1;
+          transition: background .18s ease, color .18s ease, transform .18s ease;
         }
-        .cap-tab:hover { color: var(--ink); }
+        .cap-tab:hover { background: rgba(26, 24, 21, 0.06); }
         .cap-tab.is-active {
-          color: var(--ink);
-          border-bottom-color: var(--forest);
+          background: var(--ink);
+          color: var(--cream);
+          box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset, 0 1px 2px rgba(0,0,0,0.12);
         }
+        .cap-tab.is-active:hover { background: var(--ink-2); }
         .cap-tab-num {
-          font-size: 10px;
-          opacity: .55;
+          font-family: var(--fm);
+          font-size: 11px;
+          opacity: .65;
           font-feature-settings: "tnum";
+          font-weight: 500;
+          letter-spacing: .02em;
         }
+        .cap-tab.is-active .cap-tab-num { opacity: .8; }
         .cap-progress {
-          height: 1px;
-          background: var(--rule-lt);
+          height: 2px;
+          background: var(--rule);
           position: relative;
           overflow: hidden;
+          border-radius: 2px;
         }
         .cap-progress-bar {
           position: absolute;
@@ -576,6 +596,38 @@ export default function Capabilities() {
           transform-origin: left center;
           transform: scaleX(0);
           transition: transform .25s ease;
+          border-radius: 2px;
+        }
+        /* Hint with arrow keys */
+        .cap-hint {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          margin-left: 16px;
+          font-family: var(--fm);
+          font-size: 11px;
+          letter-spacing: .04em;
+          text-transform: uppercase;
+          color: var(--stone);
+          vertical-align: middle;
+        }
+        .cap-hint-key {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 22px;
+          height: 22px;
+          padding: 0 6px;
+          border: 1px solid var(--rule);
+          border-radius: 5px;
+          background: #fff;
+          color: var(--ink-2);
+          font-family: var(--fm);
+          font-size: 12px;
+          line-height: 1;
+        }
+        @media (max-width: 720px) {
+          .cap-hint { display: none; }
         }
 
         .cap-track {
@@ -641,7 +693,8 @@ export default function Capabilities() {
           .cap-stack-cols {
             grid-template-columns: 1fr !important;
           }
-          .cap-tab { padding: 8px 10px; font-size: 11px; }
+          .cap-tab { padding: 9px 14px; font-size: 12.5px; gap: 6px; }
+          .cap-tab-num { font-size: 10px; }
         }
       `}</style>
     </section>

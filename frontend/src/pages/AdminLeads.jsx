@@ -455,8 +455,22 @@ function LeadRow({ l, updateStatus }) {
       <td style={{ ...adminTd, fontSize: 12, color: "var(--stone)" }}>
         {l.source || "landing"}
       </td>
-      <td style={{ ...adminTd, maxWidth: 260, color: "var(--stone)", fontSize: 12.5 }}>
-        {l.message || "—"}
+      <td style={{ ...adminTd, color: "var(--stone)", fontSize: 12.5 }}>
+        <div
+          title={l.message || ""}
+          style={{
+            maxWidth: 260,
+            display: "-webkit-box",
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+            wordBreak: "break-word",
+            overflowWrap: "anywhere",
+            lineHeight: 1.4,
+          }}
+        >
+          {l.message || "—"}
+        </div>
       </td>
       <td style={adminTd}>
         {l.kaiten_card_url ? (

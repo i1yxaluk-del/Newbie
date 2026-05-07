@@ -516,13 +516,61 @@ async def metrics() -> Response:
 app.include_router(api_router)
 
 app.add_middleware(GZipMiddleware, minimum_size=512)
-app.add_middleware(
-    CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=os.environ.get("CORS_ORIGINS", "*").split(","),
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
+
+def _configure_cors() -> None:
+    """
+    Три режима, по приоритету:
+    1. CORS_ALLOW_ORIGIN_REGEX задан → используем regex (удобно для LAN-dev).
+    2. CORS_ORIGINS=* → wildcard БЕЗ credentials (по спецификации credentials
+       несовместимы с '*'; иначе браузер режет preflight молча).
+    3. CORS_ORIGINS=список через запятую → точный allow-list + credentials.
+    """
+    cors_regex = os.environ.get("CORS_ALLOW_ORIGIN_REGEX", "").strip()
+    cors_origins_raw = os.environ.get("CORS_ORIGINS", "").strip()
+
+    if cors_regex:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origin_regex=cors_regex,
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+        logger.info("CORS: regex mode (%s)", cors_regex)
+        return
+
+    if cors_origins_raw == "*":
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_credentials=False,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+        logger.warning(
+            "CORS: wildcard '*' включает all-origins без credentials. "
+            "Для prod укажи конкретный список или regex."
+        )
+        return
+
+    origins_default = "http://localhost:3000,http://127.0.0.1:3000"
+    origins = [
+        o.strip()
+        for o in (cors_origins_raw or origins_default).split(",")
+        if o.strip()
+    ]
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    logger.info("CORS: explicit origins (%s)", origins)
+
+
+_configure_cors()
 
 
 @app.on_event("startup")

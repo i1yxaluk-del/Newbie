@@ -4,10 +4,7 @@ import Footer from "@/components/Footer";
 import BackToTop from "@/components/BackToTop";
 import Hero from "@/components/sections/Hero";
 import TrustStrip from "@/components/sections/TrustStrip";
-import Visibility from "@/components/sections/Visibility";
-import Alerts from "@/components/sections/Alerts";
-import Backups from "@/components/sections/Backups";
-import Stack from "@/components/sections/Stack";
+import Capabilities from "@/components/sections/Capabilities";
 import Pain from "@/components/sections/Pain";
 import Pricing from "@/components/sections/Pricing";
 import Process from "@/components/sections/Process";
@@ -15,14 +12,11 @@ import FAQ from "@/components/sections/FAQ";
 import CTAForm from "@/components/sections/CTAForm";
 import FinalCta from "@/components/sections/FinalCta";
 
-// v6.0 — Antimetal-style:
-//   Hero (DashboardWide) → Trust (services + tools)
-//   → Visibility (Latency dashboard) — light
-//   → Alerts (Telegram + Wazuh)      — DARK
-//   → Backups (BackupHealth + SLA)
-//   → Stack (services + OSS + RU)
+// v6.2 — горизонтальный pane:
+//   Hero → Trust
+//   → Capabilities (Видим · Реагируем · Сохраняем · Стек) — горизонтальная карусель
 //   → Pricing → Process → Pain+Calc → FAQ → CTAForm
-//   → FinalCta — DARK
+//   → FinalCta
 export default function Landing() {
   const containerRef = useReveal();
   return (
@@ -30,10 +24,7 @@ export default function Landing() {
       <Nav />
       <Hero />
       <TrustStrip />
-      <Visibility />
-      <Alerts />
-      <Backups />
-      <Stack />
+      <Capabilities />
       <Pricing />
       <Process />
       <Pain />

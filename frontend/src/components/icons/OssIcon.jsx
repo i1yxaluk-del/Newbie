@@ -30,6 +30,10 @@ const PATHS = {
   samba: "M3 5h4l2 2h13v12H3V5zm2 2v10h14V9H8L6 7H5z",
   // PostgreSQL (elephant simplified)
   postgresql: "M17.13 3c-2.06 0-3.6.92-4.32 2.46-.7-.34-1.36-.46-1.91-.46-1.07 0-2.04.41-2.7 1.13-.66.72-1 1.7-1 2.87 0 .92.11 2.06.34 3.18.21 1.13.51 2.27.85 3.21.34.94.74 1.7 1.16 2.27.41.57.86.92 1.41 1.04.55.13 1.13-.04 1.6-.43.5-.41 1.04-1.07 1.65-2 .55-.83 1.04-1.85 1.46-3.04.21-.6.4-1.21.55-1.83.16.62.34 1.23.55 1.83.41 1.19.92 2.21 1.46 3.04.6.92 1.16 1.59 1.65 2 .47.39 1.04.55 1.6.43.55-.13 1-.47 1.41-1.04.41-.57.83-1.34 1.16-2.27.34-.94.64-2.08.85-3.21.21-1.13.34-2.27.34-3.18 0-1.16-.34-2.16-1-2.87-.66-.72-1.62-1.13-2.7-1.13-.55 0-1.21.13-1.91.46C20.73 3.92 19.18 3 17.13 3z",
+  // FreeIPA (custom — IPA)
+  freeipa: "M4 6h6v3H7v9H4V6zm8 0h3v12h-3V6zm5 0h3v12h-3V6z",
+  // Zabbix (custom Z)
+  zabbix: "M4 5h16v2.5L8 16.5h12V19H4v-2.5L16 7.5H4V5z",
 };
 
 export default function OssIcon({ name, size = 24, color = "currentColor", style }) {
@@ -53,16 +57,18 @@ export default function OssIcon({ name, size = 24, color = "currentColor", style
 }
 
 export const OSS_TOOLS = [
-  { name: "linux", label: "Linux", desc: "Серверная ОС, ядро всего стека" },
-  { name: "prometheus", label: "Prometheus", desc: "Метрики и time-series" },
-  { name: "grafana", label: "Grafana", desc: "Дашборды и визуализация" },
-  { name: "loki", label: "Loki", desc: "Централизованные логи" },
+  { name: "linux", label: "Linux", desc: "Серверная ОС: Debian, RHEL, ALT" },
+  { name: "prometheus", label: "Prometheus", desc: "Метрики, time-series, alerts" },
+  { name: "grafana", label: "Grafana", desc: "Дашборды для клиента и для нас" },
+  { name: "loki", label: "Loki", desc: "Централизованные логи (Silver+)" },
   { name: "wazuh", label: "Wazuh", desc: "SIEM, IDS, FIM (Gold)" },
-  { name: "ansible", label: "Ansible", desc: "IaC, конфигурация серверов" },
-  { name: "puppet", label: "Puppet", desc: "Декларативная автоматизация" },
-  { name: "restic", label: "Restic", desc: "Шифрованные инкрем. бэкапы" },
-  { name: "wireguard", label: "WireGuard", desc: "VPN-mesh между узлами" },
-  { name: "nginx", label: "Nginx", desc: "Reverse-proxy, балансировка" },
+  { name: "ansible", label: "Ansible", desc: "Bootstrap и IaC" },
+  { name: "puppet", label: "Puppet", desc: "Долгоживущие конфиги (Silver+)" },
+  { name: "restic", label: "Restic", desc: "AES-256 инкрем. бэкапы в S3" },
+  { name: "wireguard", label: "WireGuard", desc: "VPN-mesh клиент ↔ executor" },
+  { name: "nginx", label: "Nginx", desc: "Reverse-proxy, TLS, балансировка" },
   { name: "docker", label: "Docker", desc: "Контейнеры приложений" },
-  { name: "postgresql", label: "PostgreSQL", desc: "СУБД (база Postgres Pro)" },
+  { name: "postgresql", label: "PostgreSQL", desc: "СУБД, ядро Postgres Pro" },
+  { name: "samba", label: "Samba", desc: "Файловые шары (SMB)" },
+  { name: "freeipa", label: "FreeIPA", desc: "Linux-альтернатива AD (10% клиентов)" },
 ];

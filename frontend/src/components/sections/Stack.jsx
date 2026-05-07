@@ -1,7 +1,12 @@
-import { OssIcon, OSS_TOOLS, RuIcon, RU_TOOLS } from "@/components/icons";
+import { OssIcon, OSS_TOOLS, RuIcon, RU_TOOLS, ServiceIcon, SERVICE_LIST } from "@/components/icons";
 
-function Column({ title, tag, items, kind }) {
-  const Icon = kind === "oss" ? OssIcon : RuIcon;
+function IconFor({ kind, name, size = 28 }) {
+  if (kind === "oss") return <OssIcon name={name} size={size} />;
+  if (kind === "ru") return <RuIcon name={name} size={size} />;
+  return <ServiceIcon name={name} size={size} />;
+}
+
+function Column({ title, tag, items, kind, accent = "var(--forest)" }) {
   return (
     <div
       data-testid={`stack-column-${kind}`}
@@ -9,7 +14,7 @@ function Column({ title, tag, items, kind }) {
         background: "#fff",
         border: "1px solid var(--rule)",
         borderRadius: 8,
-        padding: "32px 28px",
+        padding: "28px 24px",
       }}
     >
       <div
@@ -17,15 +22,15 @@ function Column({ title, tag, items, kind }) {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          marginBottom: 24,
-          paddingBottom: 16,
+          marginBottom: 20,
+          paddingBottom: 14,
           borderBottom: "1px solid var(--rule-lt)",
         }}
       >
         <h3
           className="font-display"
           style={{
-            fontSize: 24,
+            fontSize: 22,
             fontWeight: 500,
             color: "var(--ink)",
             margin: 0,
@@ -34,52 +39,50 @@ function Column({ title, tag, items, kind }) {
         >
           {title}
         </h3>
-        <span
-          className="tag-dot"
-          style={{ color: kind === "oss" ? "var(--forest)" : "var(--stone)" }}
-        >
+        <span className="tag-dot" style={{ color: accent }}>
           {tag}
         </span>
       </div>
 
-      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 14 }}>
-        {items.map((it) => (
+      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 0 }}>
+        {items.map((it, i) => (
           <li
             key={it.name}
             style={{
               display: "grid",
-              gridTemplateColumns: "32px 1fr",
+              gridTemplateColumns: "28px 1fr",
               gap: 14,
               alignItems: "start",
-              padding: "10px 0",
-              borderTop: "1px solid var(--rule-lt)",
+              padding: "12px 0",
+              borderTop: i === 0 ? "none" : "1px solid var(--rule-lt)",
             }}
           >
             <div
               style={{
-                width: 32,
-                height: 32,
+                width: 28,
+                height: 28,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 color: "var(--ink)",
+                marginTop: 1,
               }}
             >
-              <Icon name={it.name} size={28} />
+              <IconFor kind={kind} name={it.name} size={24} />
             </div>
             <div>
               <div
                 style={{
                   fontFamily: "var(--fb)",
                   fontWeight: 500,
-                  fontSize: 15,
+                  fontSize: 14,
                   color: "var(--ink)",
                   letterSpacing: "-.01em",
                 }}
               >
                 {it.label}
               </div>
-              <div style={{ fontSize: 13, color: "var(--stone)", lineHeight: 1.5, marginTop: 2 }}>
+              <div style={{ fontSize: 12.5, color: "var(--stone)", lineHeight: 1.45, marginTop: 2 }}>
                 {it.desc}
               </div>
             </div>
@@ -112,18 +115,19 @@ export default function Stack() {
         >
           <div>
             <div className="tag-dot" style={{ marginBottom: 18 }}>
-              Технологии
+              Стек
             </div>
             <h2 className="h-section">
-              Открытое ПО плюс <em>российский реестр.</em>
+              Что мы <em>обслуживаем</em>
               <br />
-              Без vendor lock-in.
+              и <em>чем</em> обслуживаем.
             </h2>
           </div>
           <p className="section-lead" style={{ maxWidth: 460 }}>
-            Только проверенные временем инструменты. Открытый код, чтобы вы могли
-            забрать стек целиком и привезти к другому подрядчику. Российские
-            продукты из реестра Минцифры — для 152-ФЗ и приказа Минцифры №486.
+            Слева — типовые сервисы клиента (Windows, Active Directory, 1С, почта,
+            файловые сервера, БД). Справа — наши инструменты: открытый код, чтобы
+            вы могли забрать стек к любому подрядчику, и РФ-реестр для соответствия
+            152-ФЗ.
           </p>
         </div>
 
@@ -131,43 +135,55 @@ export default function Stack() {
           className="stack-cols"
           style={{
             display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 32,
+            gridTemplateColumns: "1fr 1fr 1fr",
+            gap: 24,
             alignItems: "stretch",
           }}
         >
           <Column
-            title="Открытое ПО"
-            tag="Open source"
-            kind="oss"
-            items={OSS_TOOLS}
+            title="Сервисы клиента"
+            tag="Что админим"
+            kind="service"
+            items={SERVICE_LIST}
+            accent="var(--ink)"
           />
           <Column
-            title="РФ ПО"
-            tag="Реестр Минцифры"
+            title="Open source"
+            tag="Чем админим"
+            kind="oss"
+            items={OSS_TOOLS}
+            accent="var(--forest)"
+          />
+          <Column
+            title="Реестр Минцифры"
+            tag="РФ ПО"
             kind="ru"
             items={RU_TOOLS}
+            accent="var(--stone)"
           />
         </div>
 
         <p
           style={{
-            marginTop: 32,
-            fontSize: 13,
+            marginTop: 28,
+            fontSize: 12,
             color: "var(--stone-lt)",
             textAlign: "center",
             fontFamily: "var(--fm)",
             letterSpacing: ".04em",
           }}
         >
-          Конкретный набор зависит от тарифа. Полный перечень — в JUNIOR_GUIDE.
+          Конкретный набор зависит от тарифа · полный перечень — в docs/JUNIOR_GUIDE
         </p>
       </div>
 
       <style>{`
-        @media (max-width: 960px) {
-          .stack-header-grid { grid-template-columns: 1fr !important; gap: 24px !important; }
-          .stack-cols { grid-template-columns: 1fr !important; gap: 20px !important; }
+        @media (max-width: 1080px) {
+          [data-testid="stack-section"] .stack-cols { grid-template-columns: 1fr 1fr !important; }
+        }
+        @media (max-width: 720px) {
+          [data-testid="stack-section"] .stack-header-grid { grid-template-columns: 1fr !important; gap: 24px !important; }
+          [data-testid="stack-section"] .stack-cols { grid-template-columns: 1fr !important; gap: 16px !important; }
         }
       `}</style>
     </section>

@@ -15,8 +15,8 @@ const MARKS = {
   onec: { letter: "1С", shape: "square", small: true },
   // K — Kaspersky (circle with K)
   kaspersky: { letter: "K", shape: "circle" },
-  // Я — Yandex Cloud (rounded square with Я)
-  yandex: { letter: "Я", shape: "rounded" },
+  // О — РФ Облако (распределённое облачное хранилище в РФ)
+  rucloud: { letter: "О", shape: "rounded" },
   // M — MyOffice (rounded square with M)
   myoffice: { letter: "M", shape: "rounded" },
   // O — OnlyOffice (circle with O)
@@ -121,7 +121,7 @@ export const RU_TOOLS = [
   { name: "postgrespro", label: "Postgres Pro", desc: "Российская СУБД, реестр №116" },
   { name: "onec", label: "1С:Предприятие", desc: "ERP, бухгалтерия, документооборот" },
   { name: "kaspersky", label: "Kaspersky Endpoint", desc: "Антивирус и EDR (Gold), реестр №108–115" },
-  { name: "yandex", label: "Yandex Cloud", desc: "ЦОД на территории РФ, 152-ФЗ" },
+  { name: "rucloud", label: "РФ Облако", desc: "Распределённое облачное хранилище, 152-ФЗ" },
   { name: "myoffice", label: "МойОфис", desc: "Офисный пакет, реестр №216" },
   { name: "onlyoffice", label: "ONLYOFFICE", desc: "Российский разработчик, реестр №10399" },
   { name: "bitrix", label: "Bitrix24", desc: "CRM/портал, российская разработка" },

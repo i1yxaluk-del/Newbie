@@ -143,7 +143,7 @@ export default function DashboardWide() {
           title="Backups · последние 24ч"
           value="14/14"
           accent={C.forest}
-          sub="restic · AES-256 · S3"
+          sub="restic · AES-256 · облако"
         />
       </div>
 

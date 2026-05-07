@@ -1,6 +1,7 @@
 import useReveal from "@/hooks/useReveal";
 import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
+import BackToTop from "@/components/BackToTop";
 import Hero from "@/components/sections/Hero";
 import TrustStrip from "@/components/sections/TrustStrip";
 import Visibility from "@/components/sections/Visibility";
@@ -40,6 +41,7 @@ export default function Landing() {
       <CTAForm />
       <FinalCta />
       <Footer />
+      <BackToTop />
     </div>
   );
 }

@@ -32,21 +32,52 @@ export default function Hero() {
             </em>
           </h1>
 
-          <p
-            style={{
-              fontSize: 18,
-              color: "var(--stone)",
-              lineHeight: 1.6,
-              maxWidth: 620,
-              margin: "0 auto 40px",
-              fontWeight: 300,
-            }}
+          <ul
             data-testid="hero-description"
+            className="hero-pillars"
+            style={{
+              listStyle: "none",
+              padding: 0,
+              margin: "0 auto 40px",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 8,
+              fontSize: 17,
+              color: "var(--stone)",
+              fontWeight: 300,
+              lineHeight: 1.4,
+            }}
           >
-            Мониторинг 24/7, реакция по SLA, автоматические бэкапы.
-            <br />
-            Windows, Active Directory, 1С, Linux, PostgreSQL — один контракт.
-          </p>
+            {[
+              "Мониторинг 24/7",
+              "Реакция по SLA",
+              "Автоматические бэкапы",
+              "Защита инфраструктуры",
+              "Восстановление по MTTR",
+            ].map((p) => (
+              <li
+                key={p}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 12,
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    flex: "0 0 auto",
+                    width: 18,
+                    height: 1,
+                    background: "var(--forest)",
+                    opacity: 0.55,
+                  }}
+                />
+                {p}
+              </li>
+            ))}
+          </ul>
 
           <div
             style={{
@@ -87,7 +118,7 @@ export default function Hero() {
             ["24/7", "Мониторинг 365 дней"],
             ["≤ 60 мин", "Реакция P1 (Gold)"],
             ["AES-256", "Шифрование бэкапов"],
-            ["РФ", "Данные в Yandex Cloud"],
+            ["РФ", "Дата-центры в РФ"],
           ].map(([num, label], i) => (
             <div
               key={label}

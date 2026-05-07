@@ -106,6 +106,40 @@ const SERVICES = {
   virt: { kind: "monogram", text: "VM" },
   // IIS — text IIS
   iis: { kind: "monogram", text: "IIS" },
+  // Distributed cloud storage — cloud + nodes
+  cloud: { kind: "shape", render: () => (
+    <>
+      <path
+        d="M7 17h10a4 4 0 0 0 .5-7.97A6 6 0 0 0 6 10 4 4 0 0 0 7 17z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <circle cx="9" cy="14" r="1.1" fill="currentColor" />
+      <circle cx="12" cy="14" r="1.1" fill="currentColor" />
+      <circle cx="15" cy="14" r="1.1" fill="currentColor" />
+    </>
+  ) },
+  // "и другие" — three dots in rounded box
+  more: { kind: "shape", render: () => (
+    <>
+      <rect
+        x="2"
+        y="2"
+        width="20"
+        height="20"
+        rx="4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeDasharray="2 3"
+      />
+      <circle cx="7.5" cy="12" r="1.2" fill="currentColor" />
+      <circle cx="12" cy="12" r="1.2" fill="currentColor" />
+      <circle cx="16.5" cy="12" r="1.2" fill="currentColor" />
+    </>
+  ) },
 };
 
 export default function ServiceIcon({ name, size = 24, color = "currentColor", style }) {

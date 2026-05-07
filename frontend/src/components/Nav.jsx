@@ -55,7 +55,7 @@ export default function Nav() {
           }}
         >
           <ShieldCheck size={18} color="var(--forest)" strokeWidth={2.2} />
-          MSP<em style={{ color: "var(--forest)", fontStyle: "normal" }}>Shield</em>
+          МСП <em style={{ color: "var(--forest)", fontStyle: "normal" }}>Облако</em>
         </Link>
 
         <div

@@ -278,7 +278,7 @@ export default function Pricing() {
               <button
                 data-testid={`plan-${p.id}-cta`}
                 onClick={() => onPick(p.id)}
-                className={p.featured ? "btn-core btn-light" : "btn-core btn-ghost"}
+                className={p.featured ? "btn-core btn-light" : "btn-core btn-secondary"}
                 style={{ width: "100%", padding: 13 }}
               >
                 {p.cta}

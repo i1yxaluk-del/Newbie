@@ -63,8 +63,8 @@ function Row({ label, items, gridCols }) {
               flexDirection: "column",
               alignItems: "center",
               gap: 8,
-              color: "var(--stone)",
-              opacity: 0.9,
+              color: "var(--ink-2)",
+              opacity: 1,
             }}
           >
             <div style={{ height: 28, display: "flex", alignItems: "center" }}>
@@ -73,8 +73,9 @@ function Row({ label, items, gridCols }) {
             <div
               style={{
                 fontFamily: "var(--fm)",
-                fontSize: 10,
-                color: "var(--stone-lt)",
+                fontSize: 10.5,
+                color: "var(--stone)",
+                fontWeight: 500,
                 letterSpacing: ".04em",
                 textAlign: "center",
                 whiteSpace: "nowrap",

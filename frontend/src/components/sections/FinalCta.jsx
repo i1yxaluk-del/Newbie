@@ -98,10 +98,11 @@ export default function FinalCta() {
             className="btn-core"
             style={{
               background: "transparent",
-              color: "rgba(241,237,228,.85)",
-              border: "1px solid rgba(241,237,228,.20)",
+              color: "#f1ede4",
+              border: "1.5px solid rgba(241,237,228,.45)",
               padding: "16px 32px",
               fontSize: 15.5,
+              fontWeight: 500,
             }}
           >
             Сначала тарифы

@@ -47,7 +47,6 @@ export default function Process() {
         </div>
 
         <div className="process-steps">
-          <div className="process-rule" aria-hidden />
           {STEPS.map((s, i) => (
             <div
               key={s.d}
@@ -101,18 +100,10 @@ export default function Process() {
 
       <style>{`
         .process-steps { position: relative; }
-        .process-rule {
-          position: absolute;
-          left: 78px;
-          top: 6px;
-          bottom: 6px;
-          width: 1px;
-          background: var(--rule);
-        }
         .process-step {
           display: grid;
-          grid-template-columns: 160px minmax(0, 1fr);
-          gap: 32px;
+          grid-template-columns: 200px minmax(0, 1fr);
+          gap: 40px;
           padding: 28px 0;
           align-items: start;
         }
@@ -121,15 +112,15 @@ export default function Process() {
           display: flex;
           align-items: center;
           gap: 14px;
+          color: var(--stone);
         }
         @media (max-width: 720px) {
-          .process-rule { display: none; }
           .process-step {
             grid-template-columns: 1fr;
-            gap: 12px;
+            gap: 8px;
             padding: 24px 0;
           }
-          .process-step-date span { font-size: 18px !important; }
+          .process-step-date span { font-size: 16px !important; color: var(--stone); }
         }
       `}</style>
     </section>

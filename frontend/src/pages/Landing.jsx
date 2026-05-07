@@ -2,25 +2,27 @@ import useReveal from "@/hooks/useReveal";
 import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
 import Hero from "@/components/sections/Hero";
+import TrustStrip from "@/components/sections/TrustStrip";
+import Stack from "@/components/sections/Stack";
 import Pain from "@/components/sections/Pain";
 import Pricing from "@/components/sections/Pricing";
 import Process from "@/components/sections/Process";
 import FAQ from "@/components/sections/FAQ";
 import CTAForm from "@/components/sections/CTAForm";
 
-// Минималистичный лендинг (v4.5): 6 секций вместо 9.
-// Удалены ForWhom / Compliance / HowItWorks — их суть осталась
-// в Hero / Pricing / Process в виде компактных band'ов.
+// v5.0 — Antimetal-style: Hero с табами (Видим/Реагируем/Сохраняем) → Trust →
+// Stack (открытое ПО + РФ ПО) → Pricing → Process → Pain+Calc → FAQ → CTA.
 export default function Landing() {
   const containerRef = useReveal();
   return (
     <div ref={containerRef} data-testid="landing-root">
       <Nav />
       <Hero />
-      <hr className="hairline" />
-      <Pain />
+      <TrustStrip />
+      <Stack />
       <Pricing />
       <Process />
+      <Pain />
       <FAQ />
       <CTAForm />
       <Footer />

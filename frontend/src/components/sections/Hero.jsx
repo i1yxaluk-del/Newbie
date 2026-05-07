@@ -1,13 +1,21 @@
-import { CheckCircle2, AlertTriangle, Server } from "lucide-react";
+import { useState } from "react";
+import { GoldenSignals, SlaTimeline, BackupHealth } from "@/components/dashboards";
 
-const MONITORS = [
-  { host: "web-01", role: "Nginx · Ubuntu 22.04", status: "ok", uptime: "99.9%" },
-  { host: "1c-01", role: "1С:Предприятие · Windows", status: "ok", uptime: "99.8%" },
-  { host: "db-01", role: "PostgreSQL · Astra Linux", status: "ok", uptime: "99.7%" },
-  { host: "file-01", role: "Samba · Ubuntu 22.04", status: "warn", uptime: "CPU 82%" },
+const TABS = [
+  { id: "see", label: "Видим", caption: "Мониторинг + логи" },
+  { id: "react", label: "Реагируем", caption: "SLA · on-call" },
+  { id: "save", label: "Сохраняем", caption: "Бэкапы · DR" },
 ];
 
+function TabPanel({ active }) {
+  if (active === "see") return <GoldenSignals />;
+  if (active === "react") return <SlaTimeline />;
+  return <BackupHealth />;
+}
+
 export default function Hero() {
+  const [active, setActive] = useState("see");
+
   return (
     <section
       data-testid="hero-section"
@@ -18,8 +26,8 @@ export default function Hero() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "minmax(0,1fr) 420px",
-            gap: 80,
+            gridTemplateColumns: "minmax(0,1fr) minmax(0, 480px)",
+            gap: 64,
             alignItems: "start",
           }}
           className="hero-grid-md"
@@ -49,23 +57,15 @@ export default function Hero() {
               data-testid="hero-description"
             >
               Мониторинг серверов 24/7, автоматические бэкапы, реакция по SLA.
-              Данные — в России (152-ФЗ), технологии — открытые и проверенные.
-              Без штатного сисадмина и непредсказуемых счетов.
+              Открытый стек (Prometheus · Grafana · Wazuh · Restic), РФ ПО для
+              соответствия 152-ФЗ. Без штатного сисадмина и непредсказуемых счетов.
             </p>
 
             <div style={{ display: "flex", gap: 16, marginBottom: 60, flexWrap: "wrap" }}>
-              <a
-                href="#audit"
-                className="btn-core btn-primary"
-                data-testid="hero-cta-primary"
-              >
+              <a href="#audit" className="btn-core btn-primary" data-testid="hero-cta-primary">
                 Получить бесплатный аудит →
               </a>
-              <a
-                href="#pricing"
-                className="btn-core btn-ghost"
-                data-testid="hero-cta-secondary"
-              >
+              <a href="#pricing" className="btn-core btn-ghost" data-testid="hero-cta-secondary">
                 Смотреть тарифы
               </a>
             </div>
@@ -100,127 +100,78 @@ export default function Hero() {
             </div>
           </div>
 
-          {/* Live dashboard card */}
-          <div className="hero-card-wrap">
+          {/* Tabbed dashboard centerpiece */}
+          <div className="hero-card-wrap" data-testid="hero-dashboard">
             <div
-              data-testid="hero-monitor-card"
               style={{
-                background: "#fff",
-                border: "1px solid var(--rule)",
-                borderRadius: 8,
-                padding: 28,
-                boxShadow: "0 2px 24px rgba(26,24,21,.06), 0 0 0 1px rgba(27,77,62,.04)",
                 position: "sticky",
                 top: 84,
+                background: "rgba(255,255,255,.6)",
+                backdropFilter: "blur(6px)",
+                border: "1px solid var(--rule)",
+                borderRadius: 10,
+                padding: 14,
+                boxShadow:
+                  "0 2px 24px rgba(26,24,21,.06), 0 0 0 1px rgba(27,77,62,.04)",
               }}
             >
+              {/* Tab strip */}
               <div
+                role="tablist"
                 style={{
                   display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  marginBottom: 20,
-                  paddingBottom: 14,
-                  borderBottom: "1px solid var(--rule-lt)",
+                  gap: 4,
+                  padding: 4,
+                  background: "var(--cream)",
+                  borderRadius: 6,
+                  marginBottom: 12,
                 }}
               >
-                <span className="pulse-dot" />
-                <span
-                  className="font-mono"
-                  style={{
-                    fontSize: 10.5,
-                    letterSpacing: ".12em",
-                    textTransform: "uppercase",
-                    color: "var(--stone)",
-                  }}
-                >
-                  Мониторинг · live
-                </span>
-              </div>
-
-              {MONITORS.map((m) => (
-                <div
-                  key={m.host}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "10px 0",
-                    borderBottom: "1px solid var(--rule-lt)",
-                    fontSize: 13.5,
-                  }}
-                >
-                  <div>
-                    <div
+                {TABS.map((t) => {
+                  const isActive = active === t.id;
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={isActive}
+                      data-testid={`hero-tab-${t.id}`}
+                      onClick={() => setActive(t.id)}
                       style={{
-                        color: "var(--ink)",
+                        flex: 1,
+                        border: "none",
+                        background: isActive ? "#fff" : "transparent",
+                        color: isActive ? "var(--ink)" : "var(--stone)",
+                        boxShadow: isActive ? "0 1px 2px rgba(26,24,21,.08)" : "none",
+                        padding: "8px 10px",
+                        borderRadius: 4,
+                        fontFamily: "var(--fb)",
                         fontWeight: 500,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
+                        fontSize: 13,
+                        cursor: "pointer",
+                        textAlign: "left",
+                        transition: "background .15s, color .15s",
                       }}
                     >
-                      <Server size={12} color="var(--stone-lt)" />
-                      {m.host}
-                    </div>
-                    <div style={{ color: "var(--stone-lt)", fontSize: 12, marginTop: 2 }}>
-                      {m.role}
-                    </div>
-                  </div>
-                  <div
-                    className="font-mono"
-                    style={{
-                      fontSize: 11,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 5,
-                      color: m.status === "ok" ? "var(--forest)" : "var(--amber)",
-                    }}
-                  >
-                    {m.status === "ok" ? (
-                      <CheckCircle2 size={12} />
-                    ) : (
-                      <AlertTriangle size={12} />
-                    )}
-                    {m.status === "ok" ? `UP · ${m.uptime}` : m.uptime}
-                  </div>
-                </div>
-              ))}
-
-              <div
-                style={{
-                  marginTop: 18,
-                  padding: "12px 14px",
-                  background: "var(--forest-dim)",
-                  border: "1px solid var(--forest-bdr)",
-                  borderRadius: 4,
-                  fontSize: 13,
-                  color: "var(--forest)",
-                  display: "flex",
-                  justifyContent: "space-between",
-                }}
-              >
-                <span style={{ fontWeight: 500 }}>Все 4 сервера под контролем</span>
-                <span className="font-mono" style={{ fontSize: 12 }}>
-                  обновлено 23с назад
-                </span>
+                      <div>{t.label}</div>
+                      <div
+                        style={{
+                          fontFamily: "var(--fm)",
+                          fontSize: 9.5,
+                          color: isActive ? "var(--stone)" : "var(--stone-lt)",
+                          letterSpacing: ".05em",
+                          textTransform: "uppercase",
+                          marginTop: 2,
+                        }}
+                      >
+                        {t.caption}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
-
-              <div
-                className="font-mono"
-                style={{
-                  marginTop: 10,
-                  padding: "10px 14px",
-                  background: "var(--cream)",
-                  borderRadius: 4,
-                  fontSize: 12,
-                  color: "var(--stone)",
-                  display: "flex",
-                  justifyContent: "space-between",
-                }}
-              >
-                <span>Последний бэкап</span>
-                <span>Сегодня 03:47 · 5.2 ГБ ✓</span>
+              <div role="tabpanel" data-testid={`hero-panel-${active}`}>
+                <TabPanel active={active} />
               </div>
             </div>
           </div>
@@ -230,7 +181,7 @@ export default function Hero() {
       <style>{`
         @media (max-width: 960px) {
           .hero-grid-md { grid-template-columns: 1fr !important; gap: 48px !important; }
-          .hero-card-wrap { display: none; }
+          .hero-card-wrap > div { position: static !important; }
         }
       `}</style>
     </section>

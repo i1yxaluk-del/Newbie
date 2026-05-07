@@ -54,11 +54,11 @@ export default function TelegramAlert() {
             fontWeight: 600,
           }}
         >
-          MS
+          МО
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.2 }}>
-            MSPShield · alerts
+            МСП Облако · alerts
           </div>
           <div style={{ fontSize: 11, color: C.stoneLt, marginTop: 2 }}>
             on-call · сейчас в сети

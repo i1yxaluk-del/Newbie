@@ -22,9 +22,9 @@ export default function Backups() {
             каждую неделю.
           </h2>
           <p className="section-lead" style={{ maxWidth: 620 }}>
-            Restic, AES-256, инкрементально, в Yandex Cloud S3. Автоматический
-            restore-тест 1 раз в неделю — иначе бэкап ≠ бэкап, а просто
-            файл, в котором никто не уверен.
+            Restic, AES-256, инкрементально, в облачном хранилище.
+            Автоматический restore-тест 1 раз в неделю —
+            иначе бэкап ≠ бэкап.
           </p>
         </div>
 

@@ -64,7 +64,7 @@ export const OSS_TOOLS = [
   { name: "wazuh", label: "Wazuh", desc: "SIEM, IDS, FIM (Gold)" },
   { name: "ansible", label: "Ansible", desc: "Bootstrap и IaC" },
   { name: "puppet", label: "Puppet", desc: "Долгоживущие конфиги (Silver+)" },
-  { name: "restic", label: "Restic", desc: "AES-256 инкрем. бэкапы в S3" },
+  { name: "restic", label: "Restic", desc: "AES-256 инкрем. бэкапы в облако" },
   { name: "wireguard", label: "WireGuard", desc: "VPN-mesh клиент ↔ executor" },
   { name: "nginx", label: "Nginx", desc: "Reverse-proxy, TLS, балансировка" },
   { name: "docker", label: "Docker", desc: "Контейнеры приложений" },

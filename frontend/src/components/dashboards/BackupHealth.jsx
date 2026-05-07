@@ -123,7 +123,7 @@ export default function BackupHealth() {
             textTransform: "uppercase",
           }}
         >
-          AES-256 · S3
+          AES-256 · облачное хранилище
         </div>
       </div>
 

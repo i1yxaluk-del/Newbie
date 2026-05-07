@@ -10,6 +10,7 @@ const SERVICES_ROW = [
   { kind: "service", name: "database", label: "PostgreSQL · MS SQL" },
   { kind: "service", name: "web", label: "Сайт · API" },
   { kind: "service", name: "vpn", label: "VPN · периметр" },
+  { kind: "service", name: "more", label: "И другие" },
 ];
 
 const TOOLS_ROW = [
@@ -20,9 +21,10 @@ const TOOLS_ROW = [
   { kind: "oss", name: "grafana", label: "Grafana" },
   { kind: "oss", name: "wazuh", label: "Wazuh" },
   { kind: "ru", name: "kaspersky", label: "Kaspersky" },
-  { kind: "ru", name: "yandex", label: "Yandex Cloud" },
+  { kind: "service", name: "cloud", label: "Распределённое облачное хранилище" },
   { kind: "oss", name: "ansible", label: "Ansible" },
   { kind: "oss", name: "wireguard", label: "WireGuard" },
+  { kind: "service", name: "more", label: "И другие" },
 ];
 
 function iconFor({ kind, name }) {
@@ -108,7 +110,7 @@ export default function TrustStrip() {
           gridCols={SERVICES_ROW.length}
         />
         <Row
-          label="Чем обслуживаем · open source + РФ реестр"
+          label="Чем обслуживаем"
           items={TOOLS_ROW}
           gridCols={TOOLS_ROW.length}
         />

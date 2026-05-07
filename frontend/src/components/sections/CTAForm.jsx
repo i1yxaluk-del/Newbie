@@ -189,9 +189,8 @@ export default function CTAForm() {
                 maxWidth: 460,
               }}
             >
-              Покажем конкретные риски вашей инфраструктуры и подберём
-              оптимальный тариф. Онлайн, без обязательств, без продажи «в лоб» —
-              только факты о вашей системе.
+              Конкретные риски вашей инфраструктуры и подбор тарифа.
+              Онлайн, без обязательств — только факты.
             </p>
 
             <div style={{ marginBottom: 36 }}>
@@ -405,7 +404,7 @@ export default function CTAForm() {
                     </Field>
                   </div>
 
-                  <Field label="Телефон или Telegram *">
+                  <Field label="Телефон или мессенджер *">
                     <input
                       data-testid="f-contact"
                       required

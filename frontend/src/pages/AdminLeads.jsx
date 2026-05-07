@@ -261,7 +261,7 @@ export default function AdminLeads() {
         </div>
 
         <p style={{ fontSize: 12, color: "var(--stone-lt)", marginTop: 24, textAlign: "center" }}>
-          MSPShield Admin · JWT-сессия (24 ч) · X-Admin-Token остаётся для CLI/curl.
+          МСП Облако Admin · JWT-сессия (24 ч) · X-Admin-Token остаётся для CLI/curl.
         </p>
       </div>
     </div>
@@ -292,7 +292,7 @@ function LoginScreen({ password, setPassword, onSubmit, pending, diagnostic, hea
         }}
       >
         <div style={{ fontSize: 22, fontWeight: 600, marginBottom: 4 }}>
-          MSPShield · Admin
+          МСП Облако · Admin
         </div>
         <p style={{ fontSize: 13, color: "var(--stone)", marginBottom: 18, lineHeight: 1.6 }}>
           Введите пароль администратора (значение `ADMIN_TOKEN` из backend/.env).

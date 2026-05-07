@@ -41,9 +41,9 @@ export default function Alerts() {
               fontWeight: 300,
             }}
           >
-            Алерты приходят в Telegram-канал клиента и нашей дежурной смены
-            одновременно. Gold-тариф — плюс SIEM Wazuh с автоматической
-            блокировкой подозрительных IP.
+            Алерты приходят в согласованные каналы связи с клиентом
+            и нашей дежурной смены. Gold — плюс SIEM Wazuh
+            с автоматической блокировкой подозрительных IP.
           </p>
         </div>
 
@@ -64,7 +64,7 @@ export default function Alerts() {
                 fontSize: 10,
               }}
             >
-              Telegram · все тарифы
+              Согласованный канал · все тарифы
             </div>
             <TelegramAlert />
             <p
@@ -76,8 +76,7 @@ export default function Alerts() {
                 fontFamily: "var(--fm)",
               }}
             >
-              alertmanager → t.me/your_team — кнопки ACK, silence, runbook
-              работают прямо из чата.
+              Кнопки ACK, silence, runbook работают прямо из чата.
             </p>
           </div>
 
@@ -102,8 +101,7 @@ export default function Alerts() {
                 fontFamily: "var(--fm)",
               }}
             >
-              brute-force, FIM, GPO change, suspicious PowerShell — реагируем
-              без участия клиента, журналируем для 152-ФЗ.
+              brute-force · FIM · GPO change · PowerShell — журналируем для 152-ФЗ.
             </p>
           </div>
         </div>

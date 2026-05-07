@@ -33,7 +33,7 @@ export default function Footer() {
               }}
             >
               <ShieldCheck size={16} color="var(--forest)" />
-              MSP<em style={{ color: "var(--forest)", fontStyle: "normal" }}>Shield</em>
+              МСП <em style={{ color: "var(--forest)", fontStyle: "normal" }}>Облако</em>
             </div>
             <p
               style={{
@@ -43,7 +43,7 @@ export default function Footer() {
                 marginTop: 10,
               }}
             >
-              © 2026 MSPShield · Управляемый IT-сервис для бизнеса
+              © 2026 МСП Облако · Управляемый IT-сервис для бизнеса
               <br />
               <span style={{ opacity: 0.6 }}>
                 ИП [Фамилия И.О.] · ИНН —— · ОГРНИП ——

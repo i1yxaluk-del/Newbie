@@ -81,21 +81,35 @@ export default function Pricing() {
     <section
       data-testid="pricing-section"
       id="pricing"
-      style={{ padding: "104px 0", borderBottom: "1px solid var(--rule)" }}
+      style={{
+        padding: "120px 0",
+        background: "#0e0c0a",
+        color: "#f5f1e8",
+        borderBottom: "1px solid rgba(255,255,255,.06)",
+      }}
     >
       <div className="wrap">
-        <div className="reveal section-header">
+        <div className="reveal section-header" style={{ color: "#f5f1e8" }}>
           <div>
-            <div className="tag-dot" style={{ marginBottom: 18 }}>
+            <div
+              className="tag-dot"
+              style={{ marginBottom: 18, color: "rgba(255,255,255,.55)" }}
+            >
               Тарифы · цены 2026
             </div>
-            <h2 className="h-section">
+            <h2
+              className="h-section"
+              style={{ color: "#f5f1e8" }}
+            >
               Три уровня
               <br />
-              <em>контроля</em>
+              <em style={{ color: "#5fc9a2", fontStyle: "italic" }}>контроля</em>
             </h2>
           </div>
-          <p className="section-lead">
+          <p
+            className="section-lead"
+            style={{ color: "rgba(241,237,228,.65)" }}
+          >
             Прозрачная фиксированная плата, без скрытых начислений. Все
             тарифы включают мониторинг 24/7, автоматические бэкапы и
             еженедельный отчёт. Оплата — безнал, счёт + акт.

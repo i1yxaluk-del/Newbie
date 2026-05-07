@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { CheckCircle2, ArrowRight } from "lucide-react";
+import { KpiTiles } from "@/components/dashboards";
 
 // Fallback to same-origin `/api` when REACT_APP_BACKEND_URL is not set at build time.
 // Prod (nginx reverse-proxy): same-origin. CRA dev: value from frontend/.env.
@@ -192,6 +193,16 @@ export default function CTAForm() {
               оптимальный тариф. Онлайн, без обязательств, без продажи «в лоб» —
               только факты о вашей системе.
             </p>
+
+            <div style={{ marginBottom: 36 }}>
+              <div
+                className="tag-dot"
+                style={{ marginBottom: 12, color: "var(--stone-lt)" }}
+              >
+                Что вы увидите через неделю
+              </div>
+              <KpiTiles />
+            </div>
 
             <ul
               style={{

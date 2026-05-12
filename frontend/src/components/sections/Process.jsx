@@ -1,22 +1,8 @@
-const STEPS = [
-  {
-    d: "День 0",
-    title: "Бесплатный экспресс-аудит",
-    desc: "30 минут онлайн. Смотрим вашу инфраструктуру под view-доступом: бэкапы, открытые порты, диски, журналы входов. Показываем конкретные риски с цифрами.",
-  },
-  {
-    d: "День 1–3",
-    title: "КП, договор, развёртывание",
-    desc: "В течение 24 часов присылаем персональное КП с обоснованием тарифа. Договор + SLA подписываем через ЭДО. Поднимаем Monitoring VM, Bastion + WireGuard, устанавливаем агенты на ваших серверах.",
-  },
-  {
-    d: "Регулярно",
-    title: "Сервис, отчёты, реакция по SLA",
-    desc: "Еженедельный отчёт в согласованном канале связи. Реакция на инциденты по SLA из договора. Ежеквартальная встреча по стратегии IT.",
-  },
-];
+import { useContent } from "@/content/useContent";
 
 export default function Process() {
+  const c = useContent().process;
+  const STEPS = c.steps;
   return (
     <section
       data-testid="process-section"
@@ -31,24 +17,21 @@ export default function Process() {
         <div className="reveal section-header">
           <div>
             <div className="tag-dot" style={{ marginBottom: 18 }}>
-              Процесс подключения
+              {c.eyebrow}
             </div>
             <h2 className="h-section">
-              От звонка <em>до продакшена</em>
+              {c.headingBefore} <em>{c.headingEm}</em>
               <br />
-              за одну неделю
+              {c.headingAfter}
             </h2>
           </div>
-          <p className="section-lead">
-            Стандартный онбординг — 2–3 дня.
-            Полная автоматизация — до 7 дней.
-          </p>
+          <p className="section-lead">{c.lead}</p>
         </div>
 
         <div className="process-steps">
           {STEPS.map((s, i) => (
             <div
-              key={s.d}
+              key={s.date}
               data-testid={`process-step-${i}`}
               className={`reveal process-step ${i > 0 ? `reveal-d${i % 3}` : ""}`}
               style={{
@@ -65,7 +48,7 @@ export default function Process() {
                     letterSpacing: "-.01em",
                   }}
                 >
-                  {s.d}
+                  {s.date}
                 </span>
               </div>
               <div>

@@ -1,6 +1,10 @@
 import { ShieldCheck } from "lucide-react";
+import { useContent } from "@/content/useContent";
 
 export default function Footer() {
+  const content = useContent();
+  const c = content.footer;
+  const brand = content.meta.brand;
   return (
     <footer
       data-testid="main-footer"
@@ -33,7 +37,8 @@ export default function Footer() {
               }}
             >
               <ShieldCheck size={16} color="var(--forest)" />
-              МСП <em style={{ color: "var(--forest)", fontStyle: "normal" }}>Облако</em>
+              {brand.name}{" "}
+              <em style={{ color: "var(--forest)", fontStyle: "normal" }}>{brand.accent}</em>
             </div>
             <p
               style={{
@@ -43,11 +48,9 @@ export default function Footer() {
                 marginTop: 10,
               }}
             >
-              © 2026 МСП Облако · Управляемый IT-сервис для бизнеса
+              {c.tagline}
               <br />
-              <span style={{ opacity: 0.6 }}>
-                ИП [Фамилия И.О.] · ИНН —— · ОГРНИП ——
-              </span>
+              <span style={{ opacity: 0.6 }}>{c.legal}</span>
             </p>
           </div>
 
@@ -69,29 +72,21 @@ export default function Footer() {
                 marginBottom: 4,
               }}
             >
-              Документы
+              {c.docsLabel}
             </span>
-            <a
-              href="/docs/privacy.html"
-              data-testid="footer-privacy"
-              style={{ color: "var(--stone)", textDecoration: "none" }}
-            >
-              Политика конфиденциальности
-            </a>
-            <a
-              href="/docs/offer.html"
-              data-testid="footer-offer"
-              style={{ color: "var(--stone)", textDecoration: "none" }}
-            >
-              Публичная оферта
-            </a>
-            <a
-              href="/docs/sla.html"
-              data-testid="footer-sla"
-              style={{ color: "var(--stone)", textDecoration: "none" }}
-            >
-              SLA
-            </a>
+            {c.docs.map((d, i) => {
+              const slug = (d.href.match(/([\w-]+)\.html$/) || [])[1] || `doc-${i}`;
+              return (
+                <a
+                  key={d.href}
+                  href={d.href}
+                  data-testid={`footer-${slug}`}
+                  style={{ color: "var(--stone)", textDecoration: "none" }}
+                >
+                  {d.label}
+                </a>
+              );
+            })}
           </div>
 
           <div
@@ -112,21 +107,21 @@ export default function Footer() {
                 marginBottom: 4,
               }}
             >
-              Контакты
+              {c.contactsLabel}
             </span>
             <a
-              href="mailto:hello@mspshield.ru"
+              href={`mailto:${c.email}`}
               data-testid="footer-email"
               style={{ color: "var(--stone)", textDecoration: "none" }}
             >
-              hello@mspshield.ru
+              {c.email}
             </a>
             <a
-              href="https://t.me/mspshield"
+              href={c.telegram.href}
               data-testid="footer-tg"
               style={{ color: "var(--forest)", textDecoration: "none", fontFamily: "var(--fm)" }}
             >
-              @mspshield
+              {c.telegram.label}
             </a>
           </div>
         </div>

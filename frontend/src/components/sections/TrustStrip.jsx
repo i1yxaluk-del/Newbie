@@ -1,36 +1,11 @@
 import { OssIcon, RuIcon, ServiceIcon } from "@/components/icons";
+import { useContent } from "@/content/useContent";
 
-// Two rows: "что админим" (services) + "чем админим" (tools, RU+OSS mix).
-const SERVICES_ROW = [
-  { kind: "service", name: "windows", label: "Windows Server" },
-  { kind: "service", name: "ad", label: "Active Directory" },
-  { kind: "service", name: "onec", label: "1С" },
-  { kind: "service", name: "mail", label: "Почта · DNS" },
-  { kind: "service", name: "fileserver", label: "Файловые шары" },
-  { kind: "service", name: "database", label: "PostgreSQL · MS SQL" },
-  { kind: "service", name: "web", label: "Сайт · API" },
-  { kind: "service", name: "vpn", label: "VPN · периметр" },
-  { kind: "service", name: "more", label: "И другие" },
-];
-
-const TOOLS_ROW = [
-  { kind: "ru", name: "astra", label: "Astra" },
-  { kind: "oss", name: "linux", label: "Linux" },
-  { kind: "ru", name: "postgrespro", label: "Postgres Pro" },
-  { kind: "oss", name: "prometheus", label: "Prometheus" },
-  { kind: "oss", name: "grafana", label: "Grafana" },
-  { kind: "oss", name: "wazuh", label: "Wazuh" },
-  { kind: "ru", name: "kaspersky", label: "Kaspersky" },
-  { kind: "service", name: "cloud", label: "Распределённое облачное хранилище" },
-  { kind: "oss", name: "ansible", label: "Ansible" },
-  { kind: "oss", name: "wireguard", label: "WireGuard" },
-  { kind: "service", name: "more", label: "И другие" },
-];
-
-function iconFor({ kind, name }) {
-  if (kind === "oss") return <OssIcon name={name} size={28} />;
-  if (kind === "ru") return <RuIcon name={name} size={28} />;
-  return <ServiceIcon name={name} size={28} />;
+// Services row defaults: kind="service". Tools row mixes kind=oss/ru/service.
+function iconFor({ kind = "service", icon }) {
+  if (kind === "oss") return <OssIcon name={icon} size={28} />;
+  if (kind === "ru") return <RuIcon name={icon} size={28} />;
+  return <ServiceIcon name={icon} size={28} />;
 }
 
 function Row({ label, items, gridCols }) {
@@ -94,6 +69,8 @@ function Row({ label, items, gridCols }) {
 }
 
 export default function TrustStrip() {
+  const c = useContent().trust;
+  const services = c.services.map((it) => ({ ...it, kind: "service" }));
   return (
     <section
       data-testid="trust-strip"
@@ -105,16 +82,8 @@ export default function TrustStrip() {
       }}
     >
       <div className="wrap">
-        <Row
-          label="Что обслуживаем"
-          items={SERVICES_ROW}
-          gridCols={SERVICES_ROW.length}
-        />
-        <Row
-          label="Чем обслуживаем"
-          items={TOOLS_ROW}
-          gridCols={TOOLS_ROW.length}
-        />
+        <Row label={c.servicesLabel} items={services} gridCols={services.length} />
+        <Row label={c.toolsLabel} items={c.tools} gridCols={c.tools.length} />
       </div>
       <style>{`
         @media (max-width: 1080px) {

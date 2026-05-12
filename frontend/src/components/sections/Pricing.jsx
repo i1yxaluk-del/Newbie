@@ -1,66 +1,10 @@
 import { Check } from "lucide-react";
-
-const PLANS = [
-  {
-    id: "bronze",
-    eyebrow: "Тариф 01",
-    name: "Bronze",
-    tagline: "1–5 серверов · малый бизнес",
-    price: "25 000",
-    setup: "Запуск 15–25 000 ₽",
-    features: [
-      { ok: true, text: "Мониторинг 24/7" },
-      { ok: true, text: "Алерты в согласованных каналах" },
-      { ok: true, text: "Ежедневные бэкапы + автопроверка" },
-      { ok: true, text: "Реакция P1 — до 4 часов" },
-      { ok: true, text: "Bastion VPN-доступ" },
-      { ok: true, text: "Еженедельный отчёт" },
-    ],
-    limit: "1–2 ч ручной работы / мес",
-    cta: "Начать с Bronze",
-    featured: false,
-  },
-  {
-    id: "silver",
-    eyebrow: "Тариф 02 · рекомендуем",
-    name: "Silver",
-    tagline: "Windows + Linux · AD / DNS / GPO",
-    price: "50 000",
-    setup: "Запуск 30–50 000 ₽",
-    features: [
-      { ok: true, text: "Всё из Bronze", bold: true },
-      { ok: true, text: "Автоматизация (Ansible + Puppet)" },
-      { ok: true, text: "Поддержка AD · DNS · GPO" },
-      { ok: true, text: "Централизованные логи (Loki)" },
-      { ok: true, text: "Конфигурации в Git (IaC)" },
-      { ok: true, text: "Реакция P1 — до 2 часов" },
-    ],
-    limit: "до 3 ч ручной работы / мес",
-    cta: "Начать с Silver",
-    featured: true,
-  },
-  {
-    id: "gold",
-    eyebrow: "Тариф 03",
-    name: "Gold",
-    tagline: "Wazuh SIEM + Kaspersky · 152-ФЗ",
-    price: "85 000",
-    setup: "Запуск 45–80 000 ₽",
-    features: [
-      { ok: true, text: "Всё из Silver", bold: true },
-      { ok: true, text: "SIEM Wazuh + Kaspersky Security" },
-      { ok: true, text: "Контроль уязвимостей (CVE-scan)" },
-      { ok: true, text: "SLA-отчёты с метриками" },
-      { ok: true, text: "Реакция P1 — до 1 часа · 24/7", bold: true },
-      { ok: true, text: "Пост-мортем после P1" },
-    ],
-    limit: "до 4–5 ч ручной работы / мес",
-    cta: "Начать с Gold",
-    featured: false,
-  },
-];
+import { useContent } from "@/content/useContent";
 
 export default function Pricing() {
+  const c = useContent().pricing;
+  const PLANS = c.plans;
+
   const onPick = (id) => {
     // Sync tariff to CTA form via custom event (survives React re-renders)
     window.dispatchEvent(new CustomEvent("msp:set-tariff", { detail: id }));
@@ -86,23 +30,19 @@ export default function Pricing() {
               className="tag-dot"
               style={{ marginBottom: 18, color: "rgba(255,255,255,.55)" }}
             >
-              Тарифы · цены 2026
+              {c.eyebrow}
             </div>
             <h2
               className="h-section"
               style={{ color: "#f5f1e8" }}
             >
-              Три уровня
+              {c.headingBefore}
               <br />
-              <em style={{ color: "#5fc9a2", fontStyle: "italic" }}>контроля</em>
+              <em style={{ color: "#5fc9a2", fontStyle: "italic" }}>{c.headingEm}</em>
             </h2>
           </div>
-          <p
-            className="section-lead"
-            style={{ color: "rgba(241,237,228,.65)" }}
-          >
-            Фиксированная плата без скрытых начислений.
-            Безнал · счёт · акт.
+          <p className="section-lead" style={{ color: "rgba(241,237,228,.65)" }}>
+            {c.lead}
           </p>
         </div>
 

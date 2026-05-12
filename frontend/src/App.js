@@ -8,6 +8,7 @@ import NotFound from "@/pages/NotFound";
 // Админка тяжёлая и не нужна публичному посетителю — отдаём отдельным
 // чанком, чтобы лендинг не платил за её bundle (~30-40 KB gzip).
 const AdminLeads = lazy(() => import("@/pages/AdminLeads"));
+const AdminLandingEdit = lazy(() => import("@/pages/AdminLandingEdit"));
 
 function App() {
   return (
@@ -39,6 +40,14 @@ function App() {
             element={
               <Suspense fallback={<AdminFallback />}>
                 <AdminLeads />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/admin/landing-edit"
+            element={
+              <Suspense fallback={<AdminFallback />}>
+                <AdminLandingEdit />
               </Suspense>
             }
           />

@@ -14,13 +14,7 @@ import {
   ServiceIcon,
   SERVICE_LIST,
 } from "@/components/icons";
-
-const PANELS = [
-  { id: "visibility", tag: "Видим", title: "Один дашборд", em: "на всю инфраструктуру" },
-  { id: "alerts", tag: "Реагируем", title: "Когда что-то ломается —", em: "вы узнаёте первыми" },
-  { id: "backups", tag: "Сохраняем", title: "Бэкапы, которые", em: "проверяются каждую неделю" },
-  { id: "stack", tag: "Стек", title: "Что мы обслуживаем", em: "и чем обслуживаем" },
-];
+import { useContent } from "@/content/useContent";
 
 function Bullet({ children }) {
   return (
@@ -84,14 +78,15 @@ function PanelShell({ tag, title, em, children, dark }) {
   );
 }
 
-function VisibilityPanel() {
+function VisibilityPanel({ panel }) {
   return (
-    <PanelShell tag="Видим" title="Один дашборд" em="на всю инфраструктуру">
+    <PanelShell tag={panel.tab} title={panel.title} em={panel.em}>
       {{
         text: (
           <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 12 }}>
-            <Bullet>Метрики, логи, алерты — в одном Grafana-окне</Bullet>
-            <Bullet>Read-only доступ для клиента</Bullet>
+            {panel.bullets.map((b, i) => (
+              <Bullet key={i}>{b}</Bullet>
+            ))}
           </ul>
         ),
         visual: <LatencyChart />,
@@ -100,7 +95,7 @@ function VisibilityPanel() {
   );
 }
 
-function AlertsPanel() {
+function AlertsPanel({ panel }) {
   const bulletStyle = {
     display: "flex",
     gap: 12,
@@ -132,18 +127,16 @@ function AlertsPanel() {
               color: "#f5f1e8",
             }}
           >
-            Когда что-то ломается —{" "}
-            <em style={{ fontStyle: "italic", color: "#5fc9a2" }}>вы узнаёте первыми.</em>
+            {panel.title}{" "}
+            <em style={{ fontStyle: "italic", color: "#5fc9a2" }}>{panel.em}.</em>
           </h3>
           <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 12 }}>
-            <li style={bulletStyle}>
-              <span aria-hidden="true" style={dashStyle} />
-              <span>Алерты в согласованных каналах · ACK · silence · runbook</span>
-            </li>
-            <li style={bulletStyle}>
-              <span aria-hidden="true" style={dashStyle} />
-              <span>Gold — SIEM Wazuh с автоблокировкой</span>
-            </li>
+            {panel.bullets.map((b, i) => (
+              <li key={i} style={bulletStyle}>
+                <span aria-hidden="true" style={dashStyle} />
+                <span>{b}</span>
+              </li>
+            ))}
           </ul>
         </div>
         <div className="cap-visual cap-visual-stack">
@@ -155,14 +148,15 @@ function AlertsPanel() {
   );
 }
 
-function BackupsPanel() {
+function BackupsPanel({ panel }) {
   return (
-    <PanelShell tag="Сохраняем" title="Бэкапы, которые" em="проверяются каждую неделю">
+    <PanelShell tag={panel.tab} title={panel.title} em={panel.em}>
       {{
         text: (
           <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 12 }}>
-            <Bullet>Restic, AES-256, в облачное хранилище</Bullet>
-            <Bullet>Автоматический restore-тест каждую неделю</Bullet>
+            {panel.bullets.map((b, i) => (
+              <Bullet key={i}>{b}</Bullet>
+            ))}
           </ul>
         ),
         visual: (
@@ -274,9 +268,9 @@ function StackColumn({ title, tag, kind, items, max = 6 }) {
   );
 }
 
-function StackPanel() {
+function StackPanel({ panel }) {
   return (
-    <article className="cap-panel" data-panel-id="Стек">
+    <article className="cap-panel" data-panel-id={panel.tab}>
       <div className="cap-inner">
         <div className="cap-text">
           <h3
@@ -288,12 +282,13 @@ function StackPanel() {
               lineHeight: 1.05,
             }}
           >
-            Открытый код.{" "}
-            <em style={{ fontStyle: "italic", color: "var(--forest)" }}>РФ-реестр.</em>
+            {panel.title}{" "}
+            <em style={{ fontStyle: "italic", color: "var(--forest)" }}>{panel.em}</em>
           </h3>
           <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 12 }}>
-            <Bullet>Без vendor lock-in</Bullet>
-            <Bullet>152-ФЗ · реестр Минцифры</Bullet>
+            {panel.bullets.map((b, i) => (
+              <Bullet key={i}>{b}</Bullet>
+            ))}
           </ul>
         </div>
         <div
@@ -330,6 +325,8 @@ function StackPanel() {
 }
 
 export default function Capabilities() {
+  const c = useContent().capabilities;
+  const PANELS = c.panels;
   const trackRef = useRef(null);
   const [active, setActive] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -406,7 +403,7 @@ export default function Capabilities() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [active, goTo]);
+  }, [active, goTo, PANELS.length]);
 
   return (
     <section
@@ -423,7 +420,7 @@ export default function Capabilities() {
           className="h-section"
           style={{ margin: 0, fontSize: "clamp(36px, 4.8vw, 64px)" }}
         >
-          Видим. <em style={{ fontStyle: "italic" }}>Реагируем.</em> Сохраняем.
+          {c.headingFirst} <em style={{ fontStyle: "italic" }}>{c.headingEm}</em> {c.headingLast}
         </h2>
       </div>
 
@@ -452,7 +449,7 @@ export default function Capabilities() {
                 >
                   {String(i + 1).padStart(2, "0")}
                 </span>
-                <span className="cap-tab-label">{p.tag}</span>
+                <span className="cap-tab-label">{p.tab}</span>
               </button>
             );
           })}
@@ -473,10 +470,10 @@ export default function Capabilities() {
         tabIndex={0}
         aria-roledescription="carousel"
       >
-        <VisibilityPanel />
-        <AlertsPanel />
-        <BackupsPanel />
-        <StackPanel />
+        <VisibilityPanel panel={PANELS[0]} />
+        <AlertsPanel panel={PANELS[1]} />
+        <BackupsPanel panel={PANELS[2]} />
+        <StackPanel panel={PANELS[3]} />
       </div>
 
       <style>{`

@@ -1,7 +1,9 @@
 // Dark final CTA, before footer.
 // Antimetal-style: massive heading, single primary action, minimal text.
+import { useContent } from "@/content/useContent";
 
 export default function FinalCta() {
+  const c = useContent().finalCta;
   return (
     <section
       data-testid="final-cta"
@@ -34,7 +36,7 @@ export default function FinalCta() {
           }}
         >
           <span style={{ background: "#5fc9a2" }} />
-          Готовы к старту
+          {c.eyebrow}
         </div>
 
         <h2
@@ -51,10 +53,8 @@ export default function FinalCta() {
             marginRight: "auto",
           }}
         >
-          Бесплатный аудит
-          <br />
-          инфраструктуры за{" "}
-          <em style={{ color: "#5fc9a2", fontStyle: "italic" }}>3 рабочих дня.</em>
+          {c.headingBefore}{" "}
+          <em style={{ color: "#5fc9a2", fontStyle: "italic" }}>{c.headingEm}</em>
         </h2>
 
         <p
@@ -67,9 +67,7 @@ export default function FinalCta() {
             fontWeight: 300,
           }}
         >
-          Отчёт со списком рисков · разбор бэкапов · рекомендация по тарифу.
-          <br />
-          Без обязательств.
+          {c.lead}
         </p>
 
         <div
@@ -81,7 +79,7 @@ export default function FinalCta() {
           }}
         >
           <a
-            href="#audit"
+            href={c.ctaPrimary.href}
             className="btn-core"
             style={{
               background: "#f5f1e8",
@@ -91,10 +89,10 @@ export default function FinalCta() {
               fontSize: 15.5,
             }}
           >
-            Получить аудит →
+            {c.ctaPrimary.label}
           </a>
           <a
-            href="#pricing"
+            href={c.ctaSecondary.href}
             className="btn-core"
             style={{
               background: "transparent",
@@ -105,7 +103,7 @@ export default function FinalCta() {
               fontWeight: 500,
             }}
           >
-            Сначала тарифы
+            {c.ctaSecondary.label}
           </a>
         </div>
 
@@ -125,10 +123,9 @@ export default function FinalCta() {
             textTransform: "uppercase",
           }}
         >
-          <span>152-ФЗ ✓</span>
-          <span>Реестр Минцифры ✓</span>
-          <span>NDA по умолчанию</span>
-          <span>Договор · оплата по счёту</span>
+          {c.badges.map((b, i) => (
+            <span key={i}>{b}</span>
+          ))}
         </div>
       </div>
     </section>

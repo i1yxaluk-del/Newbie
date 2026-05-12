@@ -1,6 +1,8 @@
 import { DashboardWide } from "@/components/dashboards";
+import { useContent } from "@/content/useContent";
 
 export default function Hero() {
+  const c = useContent().hero;
   return (
     <section
       data-testid="hero-section"
@@ -8,7 +10,6 @@ export default function Hero() {
     >
       <div className="hero-texture" />
       <div className="wrap" style={{ position: "relative" }}>
-        {/* Top: minimal — eyebrow, h1, one-line lead, 2 CTAs */}
         <div style={{ maxWidth: 920, margin: "0 auto 72px", textAlign: "center" }}>
           <h1
             className="hero-h1"
@@ -20,14 +21,7 @@ export default function Hero() {
               lineHeight: 1.02,
             }}
           >
-            Ваша инфраструктура
-            <br />
-            работает.{" "}
-            <em>
-              Без
-              <br />
-              вашего участия.
-            </em>
+            {c.h1Before} <em>{c.h1Em}</em>
           </h1>
 
           <p
@@ -43,8 +37,7 @@ export default function Hero() {
               fontWeight: 400,
             }}
           >
-            Управляемый IT-сервис для российского бизнеса. Мониторинг, реакция по&nbsp;SLA,
-            автоматические бэкапы — в&nbsp;одном договоре.
+            {c.lead}
           </p>
 
           <div
@@ -55,16 +48,23 @@ export default function Hero() {
               justifyContent: "center",
             }}
           >
-            <a href="#audit" className="btn-core btn-primary" data-testid="hero-cta-primary">
-              Получить бесплатный аудит →
+            <a
+              href={c.ctaPrimary.href}
+              className="btn-core btn-primary"
+              data-testid="hero-cta-primary"
+            >
+              {c.ctaPrimary.label}
             </a>
-            <a href="#pricing" className="btn-core btn-secondary" data-testid="hero-cta-secondary">
-              Смотреть тарифы
+            <a
+              href={c.ctaSecondary.href}
+              className="btn-core btn-secondary"
+              data-testid="hero-cta-secondary"
+            >
+              {c.ctaSecondary.label}
             </a>
           </div>
         </div>
 
-        {/* Big dashboard preview — visual is the proof, no KPI duplicate below */}
         <div data-testid="hero-dashboard" style={{ maxWidth: 1180, margin: "0 auto" }}>
           <DashboardWide />
         </div>

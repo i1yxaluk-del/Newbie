@@ -1,8 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ShieldCheck } from "lucide-react";
+import { useContent } from "@/content/useContent";
 
 export default function Nav() {
+  const content = useContent();
+  const c = content.nav;
+  const brand = content.meta.brand;
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -55,7 +59,8 @@ export default function Nav() {
           }}
         >
           <ShieldCheck size={18} color="var(--forest)" strokeWidth={2.2} />
-          МСП <em style={{ color: "var(--forest)", fontStyle: "normal" }}>Облако</em>
+          {brand.name}{" "}
+          <em style={{ color: "var(--forest)", fontStyle: "normal" }}>{brand.accent}</em>
         </Link>
 
         <div
@@ -67,45 +72,27 @@ export default function Nav() {
             marginLeft: "auto",
           }}
         >
+          {c.links.map((l) => {
+            const testid = `nav-${l.href.replace(/^#/, "")}`;
+            return (
+              <a
+                key={l.href + l.label}
+                href={l.href}
+                data-testid={testid}
+                className="hidden md:inline"
+                style={{ fontSize: 14, color: "var(--stone)", textDecoration: "none" }}
+              >
+                {l.label}
+              </a>
+            );
+          })}
           <a
-            href="#calc"
-            data-testid="nav-calc"
-            className="hidden md:inline"
-            style={{ fontSize: 14, color: "var(--stone)", textDecoration: "none" }}
-          >
-            Калькулятор
-          </a>
-          <a
-            href="#pricing"
-            data-testid="nav-pricing"
-            className="hidden md:inline"
-            style={{ fontSize: 14, color: "var(--stone)", textDecoration: "none" }}
-          >
-            Тарифы
-          </a>
-          <a
-            href="#process"
-            data-testid="nav-process"
-            className="hidden md:inline"
-            style={{ fontSize: 14, color: "var(--stone)", textDecoration: "none" }}
-          >
-            Процесс
-          </a>
-          <a
-            href="#faq"
-            data-testid="nav-faq"
-            className="hidden md:inline"
-            style={{ fontSize: 14, color: "var(--stone)", textDecoration: "none" }}
-          >
-            Вопросы
-          </a>
-          <a
-            href="#audit"
+            href={c.cta.href}
             data-testid="nav-cta-btn"
             className="btn-core btn-primary"
             style={{ padding: "9px 18px", fontSize: 13.5 }}
           >
-            Бесплатный аудит
+            {c.cta.label}
           </a>
         </div>
       </div>

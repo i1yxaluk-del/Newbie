@@ -1,11 +1,6 @@
 import { useState, useMemo } from "react";
 import { ArrowUpRight } from "lucide-react";
-
-const PAIN_POINTS = [
-  "О падении сервера узнаёте от сотрудников, не от системы",
-  "Бэкапы делаются «примерно», рестор никто не проверял",
-  "Непредсказуемые счета «по вызову», без гарантий",
-];
+import { useContent } from "@/content/useContent";
 
 const fmt = (n) => Math.round(n).toLocaleString("ru-RU") + " ₽";
 
@@ -16,6 +11,8 @@ const sanitizeDigits = (raw) => {
 };
 
 export default function Pain() {
+  const c = useContent().pain;
+  const PAIN_POINTS = c.points;
   // Stored as strings so the input can be empty while editing — no forced "0".
   const [revenue, setRevenue] = useState("3000000");
   const [days, setDays] = useState("22");
@@ -31,7 +28,7 @@ export default function Pain() {
     const hourCost = revenueN / workHours;
     const perIncident = hourCost * downtime;
     const yearLoss = perIncident * incidents;
-    const serviceYear = 240_000; // Bronze annual
+    const serviceYear = Number(c.bronzeAnnualPrice) || 240_000;
     const ratio = yearLoss / serviceYear;
     let verdict;
     if (ratio >= 5) {
@@ -42,7 +39,7 @@ export default function Pain() {
       verdict = `Даже при консервативных оценках окупаемость достигается при первом же предотвращённом инциденте.`;
     }
     return { hourCost, perIncident, yearLoss, serviceYear, verdict };
-  }, [revenue, days, hours, downtime, incidents]);
+  }, [revenue, days, hours, downtime, incidents, c.bronzeAnnualPrice]);
 
   const handleBlur = (setter, fallback) => (e) => {
     if (!e.target.value) setter(String(fallback));
@@ -69,7 +66,7 @@ export default function Pain() {
               className="tag-dot"
               style={{ color: "rgba(255,255,255,.5)", marginBottom: 20 }}
             >
-              Почему это важно
+              {c.eyebrow}
             </div>
             <h2
               className="font-display"
@@ -82,10 +79,10 @@ export default function Pain() {
                 marginBottom: 20,
               }}
             >
-              «Всё работает» —
+              {c.headingBefore}
               <br />
               <em style={{ fontStyle: "italic", color: "rgba(255,255,255,.45)" }}>
-                пока не перестаёт
+                {c.headingEm}
               </em>
             </h2>
             <p
@@ -98,7 +95,7 @@ export default function Pain() {
                 maxWidth: 460,
               }}
             >
-              Посчитайте, сколько стоит час простоя.
+              {c.lead}
             </p>
             <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
               {PAIN_POINTS.map((p) => (
@@ -139,10 +136,10 @@ export default function Pain() {
               className="font-display"
               style={{ fontSize: 24, color: "#fff", marginBottom: 6 }}
             >
-              Калькулятор стоимости простоя
+              {c.calcTitle}
             </div>
             <div style={{ fontSize: 13, color: "rgba(255,255,255,.45)", marginBottom: 26 }}>
-              Введите параметры — расчёт обновится автоматически
+              {c.calcLead}
             </div>
 
             <CalcField label="Ежемесячная выручка (₽)">

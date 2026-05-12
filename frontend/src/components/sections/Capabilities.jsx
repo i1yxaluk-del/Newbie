@@ -56,25 +56,17 @@ function PanelShell({ tag, title, em, children, dark }) {
     >
       <div className="cap-inner">
         <div className="cap-text">
-          <div
-            className="tag-dot"
-            style={{
-              marginBottom: 18,
-              color: dark ? "rgba(255,255,255,.65)" : undefined,
-            }}
-          >
-            {tag}
-          </div>
           <h3
             className="h-section cap-title"
             style={{
-              marginBottom: 16,
-              fontSize: "clamp(28px, 3.6vw, 44px)",
+              margin: 0,
+              marginBottom: 18,
+              fontSize: "clamp(32px, 4vw, 52px)",
+              lineHeight: 1.05,
               color: dark ? "#f5f1e8" : "var(--ink)",
             }}
           >
-            {title}
-            <br />
+            {title}{" "}
             <em
               style={{
                 fontStyle: "italic",
@@ -98,9 +90,8 @@ function VisibilityPanel() {
       {{
         text: (
           <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 12 }}>
-            <Bullet>Метрики, логи, алерты и SLA — в одном Grafana-окне</Bullet>
-            <Bullet>Prometheus + Loki + Grafana, опрос каждые 15 с</Bullet>
-            <Bullet>Read-only доступ для клиента, отдельный логин</Bullet>
+            <Bullet>Метрики, логи, алерты — в одном Grafana-окне</Bullet>
+            <Bullet>Read-only доступ для клиента</Bullet>
           </ul>
         ),
         visual: <LatencyChart />,
@@ -110,6 +101,20 @@ function VisibilityPanel() {
 }
 
 function AlertsPanel() {
+  const bulletStyle = {
+    display: "flex",
+    gap: 12,
+    fontSize: 14.5,
+    color: "rgba(241,237,228,.78)",
+    lineHeight: 1.5,
+  };
+  const dashStyle = {
+    flex: "0 0 auto",
+    width: 16,
+    height: 1,
+    background: "#5fc9a2",
+    marginTop: 11,
+  };
   return (
     <article
       className="cap-panel cap-panel-dark"
@@ -117,87 +122,27 @@ function AlertsPanel() {
     >
       <div className="cap-inner">
         <div className="cap-text">
-          <div
-            className="tag-dot"
-            style={{ marginBottom: 18, color: "rgba(255,255,255,.65)" }}
-          >
-            Реагируем
-          </div>
           <h3
             className="h-section cap-title"
             style={{
-              marginBottom: 16,
-              fontSize: "clamp(28px, 3.6vw, 44px)",
+              margin: 0,
+              marginBottom: 18,
+              fontSize: "clamp(32px, 4vw, 52px)",
+              lineHeight: 1.05,
               color: "#f5f1e8",
             }}
           >
-            Когда что-то ломается —
-            <br />
+            Когда что-то ломается —{" "}
             <em style={{ fontStyle: "italic", color: "#5fc9a2" }}>вы узнаёте первыми.</em>
           </h3>
           <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 12 }}>
-            <li
-              style={{
-                display: "flex",
-                gap: 12,
-                fontSize: 14.5,
-                color: "rgba(241,237,228,.75)",
-                lineHeight: 1.5,
-              }}
-            >
-              <span
-                aria-hidden="true"
-                style={{
-                  flex: "0 0 auto",
-                  width: 16,
-                  height: 1,
-                  background: "#5fc9a2",
-                  marginTop: 11,
-                }}
-              />
-              <span>Алерты в согласованных каналах связи и у дежурной смены</span>
+            <li style={bulletStyle}>
+              <span aria-hidden="true" style={dashStyle} />
+              <span>Алерты в согласованных каналах · ACK · silence · runbook</span>
             </li>
-            <li
-              style={{
-                display: "flex",
-                gap: 12,
-                fontSize: 14.5,
-                color: "rgba(241,237,228,.75)",
-                lineHeight: 1.5,
-              }}
-            >
-              <span
-                aria-hidden="true"
-                style={{
-                  flex: "0 0 auto",
-                  width: 16,
-                  height: 1,
-                  background: "#5fc9a2",
-                  marginTop: 11,
-                }}
-              />
-              <span>ACK · silence · runbook прямо из чата</span>
-            </li>
-            <li
-              style={{
-                display: "flex",
-                gap: 12,
-                fontSize: 14.5,
-                color: "rgba(241,237,228,.75)",
-                lineHeight: 1.5,
-              }}
-            >
-              <span
-                aria-hidden="true"
-                style={{
-                  flex: "0 0 auto",
-                  width: 16,
-                  height: 1,
-                  background: "#5fc9a2",
-                  marginTop: 11,
-                }}
-              />
-              <span>Gold — SIEM Wazuh с автоблокировкой подозрительных IP</span>
+            <li style={bulletStyle}>
+              <span aria-hidden="true" style={dashStyle} />
+              <span>Gold — SIEM Wazuh с автоблокировкой</span>
             </li>
           </ul>
         </div>
@@ -216,9 +161,8 @@ function BackupsPanel() {
       {{
         text: (
           <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 12 }}>
-            <Bullet>Restic, AES-256, инкрементально, в облачное хранилище</Bullet>
-            <Bullet>Автоматический restore-тест 1 раз в неделю</Bullet>
-            <Bullet>SLA-таймлайн каждого инцидента — MTTR прозрачно</Bullet>
+            <Bullet>Restic, AES-256, в облачное хранилище</Bullet>
+            <Bullet>Автоматический restore-тест каждую неделю</Bullet>
           </ul>
         ),
         visual: (
@@ -335,24 +279,21 @@ function StackPanel() {
     <article className="cap-panel" data-panel-id="Стек">
       <div className="cap-inner">
         <div className="cap-text">
-          <div className="tag-dot" style={{ marginBottom: 18 }}>
-            Стек
-          </div>
           <h3
             className="h-section cap-title"
             style={{
-              marginBottom: 16,
-              fontSize: "clamp(28px, 3.6vw, 44px)",
+              margin: 0,
+              marginBottom: 18,
+              fontSize: "clamp(32px, 4vw, 52px)",
+              lineHeight: 1.05,
             }}
           >
-            Что мы <em style={{ fontStyle: "italic", color: "var(--forest)" }}>обслуживаем</em>
-            <br />
-            и <em style={{ fontStyle: "italic", color: "var(--forest)" }}>чем</em> обслуживаем.
+            Открытый код.{" "}
+            <em style={{ fontStyle: "italic", color: "var(--forest)" }}>РФ-реестр.</em>
           </h3>
           <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 12 }}>
-            <Bullet>Слева — типовые сервисы клиента</Bullet>
-            <Bullet>Открытый код — без vendor lock-in</Bullet>
-            <Bullet>РФ-реестр Минцифры — для 152-ФЗ</Bullet>
+            <Bullet>Без vendor lock-in</Bullet>
+            <Bullet>152-ФЗ · реестр Минцифры</Bullet>
           </ul>
         </div>
         <div
@@ -423,6 +364,27 @@ export default function Capabilities() {
     track.scrollTo({ left: i * track.clientWidth, behavior: "smooth" });
   }, []);
 
+  // Match track height to active panel — eliminates empty space below short panels
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    const sync = () => {
+      const panel = track.children[active];
+      if (!panel) return;
+      // Use the panel's content height — track collapses to active panel size.
+      // height (not min-height) overrides the grid row max-height behavior.
+      track.style.height = panel.offsetHeight + "px";
+    };
+    sync();
+    const ro = new ResizeObserver(sync);
+    Array.from(track.children).forEach((c) => ro.observe(c));
+    window.addEventListener("resize", sync);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", sync);
+    };
+  }, [active]);
+
   // Keyboard arrows when section in viewport
   useEffect(() => {
     const onKey = (e) => {
@@ -456,27 +418,13 @@ export default function Capabilities() {
         borderTop: "1px solid var(--rule-lt)",
       }}
     >
-      <div className="wrap" style={{ marginBottom: 28 }}>
-        <div className="tag-dot" style={{ marginBottom: 14 }}>
-          Что мы делаем
-        </div>
+      <div className="wrap" style={{ marginBottom: 36 }}>
         <h2
           className="h-section"
-          style={{ marginBottom: 8, fontSize: "clamp(32px, 4.2vw, 56px)" }}
+          style={{ margin: 0, fontSize: "clamp(36px, 4.8vw, 64px)" }}
         >
           Видим. <em style={{ fontStyle: "italic" }}>Реагируем.</em> Сохраняем.
         </h2>
-        <p
-          className="section-lead"
-          style={{ maxWidth: 620, margin: 0 }}
-        >
-          Четыре пилона сервиса.
-          <span className="cap-hint" aria-hidden="true">
-            <span className="cap-hint-key">←</span>
-            <span className="cap-hint-key">→</span>
-            <span>табы · свайп</span>
-          </span>
-        </p>
       </div>
 
       {/* Tabs — segmented pill control */}
@@ -598,42 +546,10 @@ export default function Capabilities() {
           transition: transform .25s ease;
           border-radius: 2px;
         }
-        /* Hint with arrow keys */
-        .cap-hint {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          margin-left: 16px;
-          font-family: var(--fm);
-          font-size: 11px;
-          letter-spacing: .04em;
-          text-transform: uppercase;
-          color: var(--stone);
-          vertical-align: middle;
-        }
-        .cap-hint-key {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          min-width: 22px;
-          height: 22px;
-          padding: 0 6px;
-          border: 1px solid var(--rule);
-          border-radius: 5px;
-          background: #fff;
-          color: var(--ink-2);
-          font-family: var(--fm);
-          font-size: 12px;
-          line-height: 1;
-        }
-        @media (max-width: 720px) {
-          .cap-hint { display: none; }
-        }
-
         .cap-track {
-          display: grid;
-          grid-auto-flow: column;
-          grid-auto-columns: 100%;
+          display: flex;
+          flex-direction: row;
+          align-items: flex-start;
           overflow-x: auto;
           overflow-y: hidden;
           scroll-snap-type: x mandatory;
@@ -641,8 +557,10 @@ export default function Capabilities() {
           -ms-overflow-style: none;
           scroll-behavior: smooth;
           outline: none;
+          transition: height .25s ease;
         }
         .cap-track::-webkit-scrollbar { display: none; }
+        .cap-panel { flex: 0 0 100%; width: 100%; }
         @media (prefers-reduced-motion: reduce) {
           .cap-track { scroll-behavior: auto; }
         }
@@ -650,9 +568,9 @@ export default function Capabilities() {
         .cap-panel {
           scroll-snap-align: start;
           scroll-snap-stop: always;
-          padding: 32px 0 16px;
+          padding: 24px 0 56px;
           content-visibility: auto;
-          contain-intrinsic-size: 1px 600px;
+          contain-intrinsic-size: 1px 540px;
         }
         .cap-panel-dark {
           background: #0f0e0c;
@@ -661,12 +579,12 @@ export default function Capabilities() {
           width: min(1240px, calc(100% - 48px));
           margin: 0 auto;
           display: grid;
-          grid-template-columns: minmax(280px, 1fr) minmax(0, 1.4fr);
-          gap: 56px;
-          align-items: center;
-          padding: 32px 0;
+          grid-template-columns: minmax(260px, 1fr) minmax(0, 1.6fr);
+          gap: 64px;
+          align-items: start;
+          padding: 24px 0;
         }
-        .cap-panel-dark .cap-inner { padding: 56px 24px; border-radius: 8px; }
+        .cap-panel-dark .cap-inner { padding: 40px 32px; border-radius: 8px; }
         .cap-text {
           display: flex;
           flex-direction: column;
@@ -679,9 +597,10 @@ export default function Capabilities() {
         .cap-stack-cols { display: grid; }
 
         @media (max-width: 1080px) {
+          .cap-panel { padding: 16px 0 40px; }
           .cap-inner {
             grid-template-columns: 1fr;
-            gap: 28px;
+            gap: 32px;
             padding: 24px 0;
           }
           .cap-panel-dark .cap-inner { padding: 32px 20px; }

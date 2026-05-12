@@ -1,47 +1,41 @@
-import { Check, Minus } from "lucide-react";
+import { Check } from "lucide-react";
 
 const PLANS = [
   {
     id: "bronze",
     eyebrow: "Тариф 01",
     name: "Bronze",
-    tagline: "Базовая устойчивость\n1–5 серверов · малый бизнес",
+    tagline: "1–5 серверов · малый бизнес",
     price: "25 000",
-    setup: "Запуск: 15 000 – 25 000 ₽ разово",
+    setup: "Запуск 15–25 000 ₽",
     features: [
-      { ok: true, text: "Мониторинг серверов 24/7" },
-      { ok: true, text: "Алерты в согласованных каналах связи" },
+      { ok: true, text: "Мониторинг 24/7" },
+      { ok: true, text: "Алерты в согласованных каналах" },
       { ok: true, text: "Ежедневные бэкапы + автопроверка" },
-      { ok: true, text: "Еженедельный отчёт" },
-      { ok: true, text: "Консультация 1 ч/мес" },
       { ok: true, text: "Реакция P1 — до 4 часов" },
       { ok: true, text: "Bastion VPN-доступ" },
-      { ok: false, text: "Автоматизация Ansible / Puppet" },
-      { ok: false, text: "Поддержка AD / DNS / GPO" },
+      { ok: true, text: "Еженедельный отчёт" },
     ],
-    limit: "⟶ Лимит: 1–2 ч ручной работы / мес",
+    limit: "1–2 ч ручной работы / мес",
     cta: "Начать с Bronze",
     featured: false,
   },
   {
     id: "silver",
-    eyebrow: "Тариф 02 · Рекомендуем",
+    eyebrow: "Тариф 02 · рекомендуем",
     name: "Silver",
-    tagline: "Автоматизированное сопровождение\nWindows + Linux · AD / DNS / GPO",
+    tagline: "Windows + Linux · AD / DNS / GPO",
     price: "50 000",
-    setup: "Запуск: 30 000 – 50 000 ₽ разово",
+    setup: "Запуск 30–50 000 ₽",
     features: [
       { ok: true, text: "Всё из Bronze", bold: true },
       { ok: true, text: "Автоматизация (Ansible + Puppet)" },
-      { ok: true, text: "Поддержка AD, DNS, GPO" },
+      { ok: true, text: "Поддержка AD · DNS · GPO" },
       { ok: true, text: "Централизованные логи (Loki)" },
-      { ok: true, text: "Ежемесячный отчёт с трендами" },
-      { ok: true, text: "2–3 ч работ / консультаций" },
       { ok: true, text: "Конфигурации в Git (IaC)" },
       { ok: true, text: "Реакция P1 — до 2 часов" },
-      { ok: false, text: "SIEM / Security мониторинг" },
     ],
-    limit: "⟶ Лимит: до 3 ч ручной работы / мес",
+    limit: "до 3 ч ручной работы / мес",
     cta: "Начать с Silver",
     featured: true,
   },
@@ -49,21 +43,18 @@ const PLANS = [
     id: "gold",
     eyebrow: "Тариф 03",
     name: "Gold",
-    tagline: "Безопасность · SLA · Compliance\nWazuh SIEM + Kaspersky",
+    tagline: "Wazuh SIEM + Kaspersky · 152-ФЗ",
     price: "85 000",
-    setup: "Запуск: 45 000 – 80 000 ₽ разово",
+    setup: "Запуск 45–80 000 ₽",
     features: [
       { ok: true, text: "Всё из Silver", bold: true },
-      { ok: true, text: "SIEM Wazuh — детектирование угроз" },
+      { ok: true, text: "SIEM Wazuh + Kaspersky Security" },
       { ok: true, text: "Контроль уязвимостей (CVE-scan)" },
       { ok: true, text: "SLA-отчёты с метриками" },
       { ok: true, text: "Реакция P1 — до 1 часа · 24/7", bold: true },
-      { ok: true, text: "Kaspersky Security Center" },
-      { ok: true, text: "Тикет-система (osTicket)" },
-      { ok: true, text: "Стратегическая IT-сессия / мес" },
       { ok: true, text: "Пост-мортем после P1" },
     ],
-    limit: "⟶ Лимит: до 4–5 ч ручной работы / мес",
+    limit: "до 4–5 ч ручной работы / мес",
     cta: "Начать с Gold",
     featured: false,
   },
@@ -143,11 +134,12 @@ export default function Pricing() {
               <div
                 className="font-mono"
                 style={{
-                  fontSize: 10,
+                  fontSize: 10.5,
                   letterSpacing: ".14em",
                   textTransform: "uppercase",
-                  color: p.featured ? "rgba(255,255,255,.5)" : "var(--stone-lt)",
-                  marginBottom: 8,
+                  fontWeight: 500,
+                  color: p.featured ? "rgba(255,255,255,.7)" : "var(--stone)",
+                  marginBottom: 10,
                 }}
               >
                 {p.eyebrow}
@@ -166,10 +158,11 @@ export default function Pricing() {
               </div>
               <div
                 style={{
-                  fontSize: 13,
-                  color: p.featured ? "rgba(255,255,255,.6)" : "var(--stone-lt)",
-                  marginBottom: 26,
-                  lineHeight: 1.5,
+                  fontSize: 14,
+                  color: p.featured ? "rgba(255,255,255,.78)" : "var(--ink-2)",
+                  opacity: p.featured ? 1 : 0.78,
+                  marginBottom: 28,
+                  lineHeight: 1.45,
                   whiteSpace: "pre-line",
                 }}
               >
@@ -186,10 +179,13 @@ export default function Pricing() {
               >
                 <span
                   style={{
-                    fontSize: 12,
-                    color: p.featured ? "rgba(255,255,255,.4)" : "var(--stone-lt)",
+                    fontSize: 11,
+                    fontFamily: "var(--fm)",
+                    letterSpacing: ".08em",
+                    textTransform: "uppercase",
+                    color: p.featured ? "rgba(255,255,255,.6)" : "var(--stone)",
                     display: "block",
-                    marginBottom: 2,
+                    marginBottom: 4,
                   }}
                 >
                   от
@@ -210,8 +206,8 @@ export default function Pricing() {
                 <div
                   style={{
                     fontSize: 14,
-                    color: p.featured ? "rgba(255,255,255,.55)" : "var(--stone)",
-                    marginTop: 4,
+                    color: p.featured ? "rgba(255,255,255,.7)" : "var(--stone)",
+                    marginTop: 6,
                   }}
                 >
                   в месяц
@@ -220,8 +216,8 @@ export default function Pricing() {
                   className="font-mono"
                   style={{
                     fontSize: 11,
-                    color: p.featured ? "rgba(255,255,255,.4)" : "var(--stone-lt)",
-                    marginTop: 6,
+                    color: p.featured ? "rgba(255,255,255,.55)" : "var(--stone)",
+                    marginTop: 8,
                   }}
                 >
                   {p.setup}
@@ -234,29 +230,22 @@ export default function Pricing() {
                     key={idx}
                     style={{
                       display: "flex",
-                      gap: 10,
+                      gap: 12,
                       alignItems: "flex-start",
-                      fontSize: 13.5,
-                      padding: "7px 0",
-                      borderBottom: `1px solid ${p.featured ? "rgba(255,255,255,.08)" : "var(--rule-lt)"}`,
-                      color: p.featured ? "rgba(255,255,255,.75)" : "var(--stone)",
-                      opacity: f.ok ? 1 : 0.55,
+                      fontSize: 14.5,
+                      padding: "10px 0",
+                      borderBottom: `1px solid ${p.featured ? "rgba(255,255,255,.10)" : "var(--rule-lt)"}`,
+                      color: p.featured ? "rgba(255,255,255,.92)" : "var(--ink-2)",
+                      lineHeight: 1.4,
                     }}
                   >
-                    {f.ok ? (
-                      <Check
-                        size={14}
-                        color={p.featured ? "#fff" : "var(--forest)"}
-                        style={{ flexShrink: 0, marginTop: 3 }}
-                      />
-                    ) : (
-                      <Minus
-                        size={14}
-                        color="var(--stone-lt)"
-                        style={{ flexShrink: 0, marginTop: 3 }}
-                      />
-                    )}
-                    <span style={{ fontWeight: f.bold ? 600 : 400 }}>{f.text}</span>
+                    <Check
+                      size={15}
+                      strokeWidth={2.4}
+                      color={p.featured ? "#5fc9a2" : "var(--forest)"}
+                      style={{ flexShrink: 0, marginTop: 2 }}
+                    />
+                    <span style={{ fontWeight: f.bold ? 600 : 450 }}>{f.text}</span>
                   </li>
                 ))}
               </ul>
@@ -265,14 +254,15 @@ export default function Pricing() {
                 className="font-mono"
                 style={{
                   fontSize: 11,
-                  color: p.featured ? "rgba(255,255,255,.55)" : "var(--stone-lt)",
-                  marginBottom: 18,
-                  padding: "8px 12px",
-                  background: p.featured ? "rgba(255,255,255,.08)" : "var(--cream-deep)",
-                  borderRadius: 3,
+                  letterSpacing: ".04em",
+                  color: p.featured ? "rgba(255,255,255,.7)" : "var(--stone)",
+                  marginBottom: 20,
+                  padding: "10px 14px",
+                  background: p.featured ? "rgba(255,255,255,.10)" : "var(--cream-deep)",
+                  borderRadius: 4,
                 }}
               >
-                {p.limit}
+                ⟶ Лимит: {p.limit}
               </div>
 
               <button

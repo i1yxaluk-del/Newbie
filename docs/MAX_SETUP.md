@@ -21,7 +21,7 @@
 7. [Шаг 4. Проверка сценариев](#7-шаг-4-проверка-сценариев)
 8. [Сценарии бота](#8-сценарии-бота)
 9. [Связка с Kaiten CRM](#9-связка-с-kaiten-crm)
-10. [Алерты Wazuh / P1 в MAX](#10-алерты-wazuh--p1-в-max)
+10. [Alertmanager → MAX (и Telegram)](#10-alertmanager--max-и-telegram)
 11. [Локальная разработка без HTTPS](#11-локальная-разработка-без-https)
 12. [Типичные ошибки](#12-типичные-ошибки)
 13. [Что не реализовано (на будущее)](#13-что-не-реализовано-на-будущее)
@@ -254,20 +254,116 @@ await max_int.send_message(
 > На будущее: добавить кнопку «Ответить в MAX» прямо в
 > `/admin/leads` (см. раздел [13](#13-что-не-реализовано-на-будущее)).
 
-## 10. Алерты Wazuh / P1 в MAX
+## 10. Alertmanager → MAX (и Telegram)
 
-Сейчас `max.send()` вызывается только для алертов о новых лидах
-(`deliver_to_crm`). Чтобы переключить **алерты Wazuh / Prometheus
-Alertmanager / runbook’и** на MAX тоже, в дальнейшем Alertmanager
-конфигурируется на webhook → backend → `max.send_message(chat_id=...)`.
-Это **не входит в текущий PR**, но фундамент готов:
+Prometheus Alertmanager умеет шлёт алерты через webhook. У нас есть
+готовый приёмник `POST /api/alerts/alertmanager`, который fan-out
+отправляет алерты в **MAX (markdown) + Telegram (HTML)** одновременно.
 
-- `MAX_ALERT_CHAT_ID` — общий канал для всех типов алертов.
-- В вашем конфиге Alertmanager можно ввести receiver `webhook` с
-  POST на `https://msp-oblako.ru/api/max/alert` — но эндпоинт пока
-  не добавлен, нужен отдельный PR (см. раздел 13).
+### 10.1. Что включить
 
-Пока что выходные алерты на MAX = только новые лиды.
+В `backend/.env`:
+
+```env
+# Канал MAX уже настроен из шагов выше
+MAX_BOT_TOKEN=...
+MAX_ALERT_CHAT_ID=...
+
+# Опционально — отдельный чат для алертов в Telegram
+# (если не задан, шлётся в TG_CHAT_ID)
+TG_ALERT_CHAT_ID=
+
+# Bearer-токен для Alertmanager (генерируется один раз)
+ALERTMANAGER_WEBHOOK_TOKEN=$(openssl rand -hex 32)
+
+# Какие каналы использовать (по умолчанию оба)
+# ALERT_CHANNELS=max,telegram
+
+# Слать ли уведомления о resolved (по умолчанию true)
+# ALERT_RESOLVED_NOTIFY=true
+```
+
+### 10.2. Конфиг Alertmanager
+
+В репозитории лежит готовый пример: `deploy/alertmanager/alertmanager.yml`.
+Главное — receiver с Bearer-авторизацией:
+
+```yaml
+receivers:
+  - name: msp-max-tg
+    webhook_configs:
+      - url: 'https://msp-oblako.ru/api/alerts/alertmanager'
+        send_resolved: true
+        http_config:
+          authorization:
+            type: Bearer
+            credentials: '<ALERTMANAGER_WEBHOOK_TOKEN из .env>'
+```
+
+Routing-tree разделяет severity на P1/P2/P3 с разной частотой
+group_wait/repeat_interval — см. пример полностью.
+
+Пример rule-файла под Prometheus (Host/Disk/HTTP-error/Backup) —
+`deploy/alertmanager/rules.example.yml`.
+
+### 10.3. Что приходит в MAX
+
+Формат сообщения для одного алерта:
+
+```
+🔴 P1 · alert
+**HostDown**
+
+Host web-01 недоступен
+Prometheus не получает метрики от web-01 более 2 минут (job node).
+
+instance: `web-01`
+job: `node`
+env: `prod`
+severity: `critical`
+time: `2026-05-06 03:47:12 UTC`
+
+[runbook](https://docs.msp-oblako.ru/runbooks/R-01-host-down) · [graph](http://prom/...)
+```
+
+Severity mapping:
+
+| Alertmanager severity | Priority | Emoji |
+|---|---|---|
+| `critical`, `page`, `high`, `error` | **P1** | 🔴 |
+| `warning`, `warn` | **P2** | 🟡 |
+| `info`, `notice`, `none`, (пусто) | **P3** | 🔵 |
+| любой `resolved` | resolved | ✅ |
+
+### 10.4. Тест без Prometheus
+
+```bash
+curl -X POST https://msp-oblako.ru/api/alerts/alertmanager \
+  -H "Authorization: Bearer $ALERTMANAGER_WEBHOOK_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "version":"4","status":"firing","receiver":"msp-max-tg",
+    "alerts":[{
+      "status":"firing",
+      "labels":{"alertname":"TestAlert","severity":"critical","instance":"localhost"},
+      "annotations":{"summary":"Тестовый алерт","description":"Проверка интеграции"},
+      "startsAt":"2026-05-06T12:00:00Z",
+      "generatorURL":"http://prom/graph?expr=up"
+    }]
+  }'
+```
+
+Ожидаемо: 200, в течение пары секунд приходит сообщение в MAX и Telegram.
+
+### 10.5. Безопасность
+
+- Bearer-токен в `Authorization` сравнивается constant-comparison
+  (см. `integrations/alertmanager.py::verify_token`).
+- Backend на запрос с неверным токеном вернёт **401** (не 200) —
+  чтобы в логах Alertmanager видеть проблему явно.
+- Webhook должен быть доступен на HTTPS с валидным TLS.
+- Запросы пишутся в обычный application log
+  (`mspshield.alertmanager`) с количеством алертов и receiver.
 
 ## 11. Локальная разработка без HTTPS
 
@@ -309,15 +405,17 @@ backend с поддоменом `staging.msp-oblako.ru` и отдельным MA
 
 1. **`/admin/leads` UI кнопка «Ответить в MAX»** — открывает модалку
    с textarea, POST на новый эндпоинт `/api/admin/max/send`.
-2. **Alertmanager → MAX** — отдельный webhook `/api/max/alert` для
-   Wazuh/Prometheus, чтобы P1/P2/P3 уведомления шли в MAX.
-3. **Long-polling-скрипт для dev** — `scripts/max_dev_poll.py`,
+2. **Long-polling-скрипт для dev** — `scripts/max_dev_poll.py`,
    чтобы тестировать без HTTPS-туннеля.
-4. **Request_contact с проверкой `hash`** — авторизация по номеру
+3. **Request_contact с проверкой `hash`** — авторизация по номеру
    через MAX (см. https://dev.max.ru/docs/chatbots/keyboards#request_contact).
-5. **Мульти-операторская очередь** — когда у нас будет супруга /
+4. **Мульти-операторская очередь** — когда у нас будет супруга /
    младший специалист, разделять входящие чаты между ними. Сейчас все
    идут в один общий поток.
+5. **Wazuh → backend → MAX** (минуя Alertmanager) — отдельный приёмник
+   `/api/alerts/wazuh` под формат Wazuh integration script. Сейчас
+   можно через Alertmanager-prometheus exporter или alternative
+   webhook → Alertmanager.
 
 Файл скоро устареет — обновляйте по мере роста бота. PR-ревью на эту
 доку приветствуется.

@@ -154,6 +154,22 @@ async def send(lead: Dict[str, Any]) -> None:
     await send_message(chat_id=MAX_ALERT_CHAT_ID, text=text)
 
 
+async def send_alert_text(
+    text: str,
+    chat_id: Optional[str | int] = None,
+    fmt: str = "markdown",
+) -> bool:
+    """
+    Отправить произвольный текст в чат (по умолчанию — MAX_ALERT_CHAT_ID).
+    Используется Alertmanager-приёмником.
+    """
+    target = chat_id if chat_id is not None else MAX_ALERT_CHAT_ID
+    if not (MAX_BOT_TOKEN and target):
+        return False
+    result = await send_message(chat_id=target, text=text, fmt=fmt)
+    return result is not None
+
+
 # ─── Webhook helpers ────────────────────────────────────────────
 
 def verify_webhook_secret(received_secret: Optional[str]) -> bool:

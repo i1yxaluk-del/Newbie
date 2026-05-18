@@ -15,10 +15,11 @@ MSPShield Backend API
 - GET  /api/health              — liveness + DB-проба.
 - GET  /metrics                 — Prometheus.
 
-Интеграции CRM:
+Интеграции CRM и мессенджеры:
 - backend/integrations/kaiten.py    — Kaiten REST API (Bearer-токен).
 - backend/integrations/webhook.py   — универсальный outbound webhook.
 - backend/integrations/telegram.py  — Telegram-нотификации (как канал).
+- backend/integrations/max.py       — MAX Bot API (алерты + входящие лиды).
 
 Интеграции вызываются через `BackgroundTasks` — пользователь получает 201
 сразу, не дожидаясь сетевых вызовов.
@@ -65,7 +66,7 @@ from auth import (  # noqa: E402
     _admin_token,
     issue_admin_jwt,
 )
-from integrations import kaiten, telegram, webhook  # noqa: E402
+from integrations import kaiten, max as max_integration, telegram, webhook  # noqa: E402
 
 # ─── Config ────────────────────────────────────────────────
 MONGO_URL = os.environ["MONGO_URL"]
@@ -181,6 +182,9 @@ class IntegrationsStatus(BaseModel):
     kaiten: bool
     telegram: bool
     webhook: bool
+    max: bool
+    max_alert_channel: bool
+    max_bot_username: Optional[str] = None
     smartcaptcha: bool
 
 
@@ -283,6 +287,13 @@ async def deliver_to_crm(lead_doc: Dict[str, Any]) -> None:
         code = await webhook.send(lead_doc)
         inc_crm("webhook", "ok" if code and 200 <= code < 300 else "error")
 
+    if max_integration.is_alert_channel():
+        try:
+            await max_integration.send(lead_doc)
+            inc_crm("max", "ok")
+        except Exception:  # noqa: BLE001
+            inc_crm("max", "error")
+
     if kaiten.is_enabled():
         card = await kaiten.create_card(lead_doc)
         if card and card.get("id"):
@@ -299,6 +310,158 @@ async def deliver_to_crm(lead_doc: Dict[str, Any]) -> None:
             )
         else:
             inc_crm("kaiten", "error")
+
+
+# ─── MAX bot: state + handlers ─────────────────────────────
+async def _max_get_session(user_id: int | str) -> Dict[str, Any]:
+    """Простая state-machine на коллекции max_sessions."""
+    doc = await db.max_sessions.find_one({"user_id": user_id}, {"_id": 0}) or {}
+    return doc
+
+
+async def _max_set_session(user_id: int | str, **fields: Any) -> None:
+    await db.max_sessions.update_one(
+        {"user_id": user_id},
+        {"$set": {"user_id": user_id, "updated_at": datetime.now(timezone.utc).isoformat(), **fields}},
+        upsert=True,
+    )
+
+
+async def _create_lead_from_max(
+    user_id: Optional[int | str],
+    chat_id: Optional[int | str],
+    user_name: Optional[str],
+    text: str,
+    tariff_hint: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Создаёт лид из входящего MAX-сообщения и доставляет его во все каналы."""
+    lead_id = str(uuid.uuid4())
+    doc = {
+        "id": lead_id,
+        "name": user_name or "MAX user",
+        "company": "—",
+        "contact": f"MAX user_id={user_id}",
+        "email": None,
+        "servers": "1-3",
+        "tariff": (tariff_hint or "undecided").lower(),
+        "message": (text or "").strip()[:1500],
+        "source": "max_bot",
+        "downtime_loss": None,
+        "max_chat_id": chat_id,
+        "max_user_id": user_id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "status": "new",
+    }
+    await db.leads.insert_one(doc)
+    logger.info("max bot lead created: %s · user=%s", lead_id, user_id)
+    inc_lead_accepted(doc["tariff"], "max_bot")
+    doc.pop("_id", None)
+    await deliver_to_crm(doc)
+    return doc
+
+
+async def _handle_max_update(update: Dict[str, Any]) -> None:
+    """
+    Главный обработчик входящих событий MAX.
+    Поддерживаемые update_type:
+      - bot_started        → приветствие + меню
+      - message_callback   → нажатие inline-кнопки
+      - message_created    → произвольное входящее сообщение
+    Любые другие — молча игнорируем.
+    """
+    info = max_integration.extract_chat_and_text(update)
+    update_type = info["update_type"]
+    chat_id = info["chat_id"]
+    user_id = info["user_id"]
+    user_name = info["user_name"]
+    text = (info["text"] or "").strip()
+    payload = info["payload"]
+
+    if not (chat_id or user_id):
+        logger.warning("max update without chat_id/user_id: %s", update_type)
+        return
+
+    target = {"chat_id": chat_id} if chat_id else {"user_id": user_id}
+
+    if update_type == "bot_started":
+        await max_integration.send_message(
+            **target,
+            text=max_integration.WELCOME_TEXT,
+            buttons=max_integration.welcome_buttons(),
+        )
+        await _max_set_session(user_id or chat_id, step="welcome", name=user_name)
+        return
+
+    if update_type == "message_callback":
+        if payload == "show_tariffs":
+            await max_integration.send_message(
+                **target,
+                text=max_integration.TARIFFS_TEXT,
+                buttons=max_integration.tariffs_buttons(),
+            )
+            return
+        if payload == "back_to_welcome":
+            await max_integration.send_message(
+                **target,
+                text=max_integration.WELCOME_TEXT,
+                buttons=max_integration.welcome_buttons(),
+            )
+            return
+        if payload in max_integration.TARIFF_DETAILS:
+            await max_integration.send_message(
+                **target,
+                text=max_integration.TARIFF_DETAILS[payload],
+                buttons=[
+                    [{"type": "callback", "text": "📊 Рассчитать стоимость", "payload": "calc_start"}],
+                    [{"type": "callback", "text": "← К списку тарифов", "payload": "show_tariffs"}],
+                ],
+            )
+            await _max_set_session(
+                user_id or chat_id,
+                step="tariff_chosen",
+                tariff_hint=payload.replace("tariff_", ""),
+            )
+            return
+        if payload == "calc_start":
+            await max_integration.send_message(
+                **target,
+                text=max_integration.CALC_TEXT,
+            )
+            await _max_set_session(user_id or chat_id, step="awaiting_calc_data")
+            return
+        # Неизвестный payload — отправляем приветствие.
+        await max_integration.send_message(
+            **target,
+            text=max_integration.WELCOME_TEXT,
+            buttons=max_integration.welcome_buttons(),
+        )
+        return
+
+    if update_type == "message_created":
+        if not text:
+            return
+        session = await _max_get_session(user_id or chat_id)
+        step = session.get("step")
+        tariff_hint = session.get("tariff_hint")
+        if step in {"awaiting_calc_data", "welcome", "tariff_chosen", None}:
+            # Любое содержательное сообщение трактуем как лид.
+            await _create_lead_from_max(
+                user_id=user_id,
+                chat_id=chat_id,
+                user_name=user_name,
+                text=text,
+                tariff_hint=tariff_hint,
+            )
+            await max_integration.send_message(
+                **target,
+                text=(
+                    "Спасибо 🙏 Заявку получил. С вами свяжется наш инженер в "
+                    "ближайшее рабочее окно. Если хотите ускорить — пришлите "
+                    "ваш телефон или Telegram."
+                ),
+            )
+            await _max_set_session(user_id or chat_id, step="lead_submitted")
+            return
 
 
 # ─── Routes ────────────────────────────────────────────────
@@ -323,8 +486,43 @@ async def integrations_status():
         kaiten=kaiten.is_enabled(),
         telegram=telegram.is_enabled(),
         webhook=webhook.is_enabled(),
+        max=max_integration.is_enabled(),
+        max_alert_channel=max_integration.is_alert_channel(),
+        max_bot_username=max_integration.MAX_BOT_USERNAME or None,
         smartcaptcha=bool(SMARTCAPTCHA_SERVER_KEY),
     )
+
+
+@api_router.post("/max/webhook", include_in_schema=False)
+async def max_webhook(request: Request, background: BackgroundTasks):
+    """
+    Webhook-эндпоинт для MAX Bot API.
+
+    MAX отправляет POST с объектом Update; должен вернуть 200 в течение 30 с.
+    Реальная обработка идёт в BackgroundTasks, ответ — сразу.
+    Защита по заголовку `X-Max-Bot-Api-Secret` (env `MAX_WEBHOOK_SECRET`).
+    """
+    if not max_integration.is_enabled():
+        # Интеграция выключена — молча отвечаем 200, чтобы MAX не ретраил.
+        return {"ok": True, "disabled": True}
+
+    received = request.headers.get("X-Max-Bot-Api-Secret")
+    if not max_integration.verify_webhook_secret(received):
+        logger.warning("max webhook: bad secret from %s", _client_ip(request))
+        # 200, чтобы не светить наличие/отсутствие бота наружу.
+        return {"ok": True, "ignored": True}
+
+    try:
+        update = await request.json()
+    except Exception:  # noqa: BLE001
+        return {"ok": True, "ignored": True}
+
+    if not isinstance(update, dict):
+        return {"ok": True, "ignored": True}
+
+    logger.info("max update: %s", update.get("update_type"))
+    background.add_task(_handle_max_update, update)
+    return {"ok": True}
 
 
 @api_router.post(

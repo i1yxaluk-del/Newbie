@@ -123,6 +123,15 @@ export default function Footer() {
             >
               {c.telegram.label}
             </a>
+            {c.max?.href && (
+              <a
+                href={c.max.href}
+                data-testid="footer-max"
+                style={{ color: "var(--forest)", textDecoration: "none", fontFamily: "var(--fm)" }}
+              >
+                {c.max.label}
+              </a>
+            )}
           </div>
         </div>
       </div>

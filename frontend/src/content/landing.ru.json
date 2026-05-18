@@ -251,6 +251,7 @@
     ],
     "contactsLabel": "Контакты",
     "email": "hello@mspshield.ru",
-    "telegram": { "href": "https://t.me/mspshield", "label": "@mspshield" }
+    "telegram": { "href": "https://t.me/mspshield", "label": "@mspshield" },
+    "max": { "href": "https://max.ru/msp_oblako_bot", "label": "MAX · @msp_oblako_bot" }
   }
 }

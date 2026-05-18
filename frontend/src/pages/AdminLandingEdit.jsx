@@ -967,6 +967,18 @@ function Sections({ draft, setDraft }) {
             onChange={(v) => setField("footer.telegram.label", v)}
           />
         </Field>
+        <Field label="MAX · ссылка (https://max.ru/&lt;username&gt;)">
+          <Input
+            value={draft.footer.max?.href || ""}
+            onChange={(v) => setField("footer.max.href", v)}
+          />
+        </Field>
+        <Field label="MAX · подпись">
+          <Input
+            value={draft.footer.max?.label || ""}
+            onChange={(v) => setField("footer.max.label", v)}
+          />
+        </Field>
       </SectionBlock>
     </div>
   );

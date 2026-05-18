@@ -23,6 +23,8 @@ const MARKS = {
   onlyoffice: { letter: "O", shape: "circle" },
   // Б — Bitrix24 (square with Б)
   bitrix: { letter: "Б", shape: "square" },
+  // M — MAX (мессенджер, реестр Минцифры) — rounded square with M
+  max: { letter: "M", shape: "rounded" },
 };
 
 export default function RuIcon({ name, size = 24, color = "currentColor", style }) {
@@ -125,4 +127,5 @@ export const RU_TOOLS = [
   { name: "myoffice", label: "МойОфис", desc: "Офисный пакет, реестр №216" },
   { name: "onlyoffice", label: "ONLYOFFICE", desc: "Российский разработчик, реестр №10399" },
   { name: "bitrix", label: "Bitrix24", desc: "CRM/портал, российская разработка" },
+  { name: "max", label: "MAX мессенджер", desc: "Канал связи и бот для алертов · реестр Минцифры" },
 ];

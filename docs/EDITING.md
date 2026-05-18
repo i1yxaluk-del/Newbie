@@ -255,6 +255,8 @@ StackPanel). Можно менять `tab`, `title`, `em`, `bullets`.
 | `virt`          | Виртуализация |
 | `iis`           | IIS |
 | `cloud`         | Облачное хранилище (облако) |
+| `telegram`      | Telegram (paper-plane, канал связи) |
+| `max`           | MAX (мессенджер, рамка с «M»; есть и в RuIcon) |
 | `more`          | Многоточие «И другие» |
 
 ### `OssIcon` — открытое ПО (символьные mono-glyphs)
@@ -266,7 +268,7 @@ StackPanel). Можно менять `tab`, `title`, `em`, `bullets`.
 ### `RuIcon` — РФ-ПО (кириллические монограммы)
 
 `astra`, `redos`, `alt`, `postgrespro`, `onec`, `kaspersky`, `rucloud`,
-`myoffice`, `onlyoffice`, `bitrix`.
+`myoffice`, `onlyoffice`, `bitrix`, `max`.
 
 ### Как добавить новую иконку
 

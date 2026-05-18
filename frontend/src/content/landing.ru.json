@@ -47,6 +47,8 @@
       { "icon": "cloud", "kind": "service", "label": "Распределённое облачное хранилище" },
       { "icon": "ansible", "kind": "oss", "label": "Ansible" },
       { "icon": "wireguard", "kind": "oss", "label": "WireGuard" },
+      { "icon": "telegram", "kind": "service", "label": "Telegram" },
+      { "icon": "max", "kind": "ru", "label": "MAX" },
       { "icon": "more", "kind": "service", "label": "И другие" }
     ]
   },

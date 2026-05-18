@@ -1,4 +1,28 @@
 import { TelegramAlert, WazuhAlerts } from "@/components/dashboards";
+import { ServiceIcon } from "@/components/icons";
+
+function ChannelBadge({ name, label }) {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "5px 10px 5px 8px",
+        border: "1px solid rgba(255,255,255,.18)",
+        borderRadius: 999,
+        fontSize: 12,
+        fontFamily: "var(--fm)",
+        color: "rgba(241,237,228,.85)",
+        background: "rgba(255,255,255,.04)",
+        lineHeight: 1,
+      }}
+    >
+      <ServiceIcon name={name} size={16} />
+      {label}
+    </span>
+  );
+}
 
 export default function Alerts() {
   return (
@@ -64,7 +88,19 @@ export default function Alerts() {
                 fontSize: 10,
               }}
             >
-              Согласованный канал · все тарифы
+              Согласованные каналы · все тарифы
+            </div>
+            <div
+              data-testid="alerts-channels"
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 8,
+                marginBottom: 14,
+              }}
+            >
+              <ChannelBadge name="telegram" label="Telegram" />
+              <ChannelBadge name="max" label="MAX" />
             </div>
             <TelegramAlert />
             <p
@@ -76,7 +112,7 @@ export default function Alerts() {
                 fontFamily: "var(--fm)",
               }}
             >
-              Кнопки ACK, silence, runbook работают прямо из чата.
+              Кнопки ACK, silence, runbook — прямо из чата. MAX дублирует те же события (РФ-мессенджер, реестр Минцифры).
             </p>
           </div>
 

@@ -140,6 +140,52 @@ function AlertsPanel({ panel }) {
           </ul>
         </div>
         <div className="cap-visual cap-visual-stack">
+          <div
+            data-testid="cap-channels"
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 8,
+              marginBottom: 4,
+            }}
+          >
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "5px 10px 5px 8px",
+                border: "1px solid rgba(255,255,255,.18)",
+                borderRadius: 999,
+                fontSize: 12,
+                fontFamily: "var(--fm)",
+                color: "rgba(241,237,228,.85)",
+                background: "rgba(255,255,255,.04)",
+                lineHeight: 1,
+              }}
+            >
+              <ServiceIcon name="telegram" size={16} />
+              Telegram
+            </span>
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "5px 10px 5px 8px",
+                border: "1px solid rgba(255,255,255,.18)",
+                borderRadius: 999,
+                fontSize: 12,
+                fontFamily: "var(--fm)",
+                color: "rgba(241,237,228,.85)",
+                background: "rgba(255,255,255,.04)",
+                lineHeight: 1,
+              }}
+            >
+              <ServiceIcon name="max" size={16} />
+              MAX
+            </span>
+          </div>
           <TelegramAlert />
           <WazuhAlerts />
         </div>

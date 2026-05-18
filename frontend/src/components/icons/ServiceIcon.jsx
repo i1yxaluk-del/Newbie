@@ -121,6 +121,47 @@ const SERVICES = {
       <circle cx="15" cy="14" r="1.1" fill="currentColor" />
     </>
   ) },
+  // Telegram (paper-plane) — used as channel mark
+  telegram: { kind: "shape", render: () => (
+    <>
+      <path
+        d="M21.5 3.5L2.5 11l6 2.5L17 7l-6.5 8 1 5 3-3 4 3z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </>
+  ) },
+  // MAX (мессенджер) — rounded square + M
+  max: { kind: "shape", render: () => (
+    <>
+      <rect
+        x="2"
+        y="2"
+        width="20"
+        height="20"
+        rx="5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+      <text
+        x="12"
+        y="12"
+        dominantBaseline="central"
+        textAnchor="middle"
+        fontSize="11"
+        fontFamily="var(--fb), system-ui, sans-serif"
+        fontWeight="700"
+        fill="currentColor"
+        letterSpacing="-0.04em"
+      >
+        M
+      </text>
+    </>
+  ) },
   // "и другие" — three dots in rounded box
   more: { kind: "shape", render: () => (
     <>

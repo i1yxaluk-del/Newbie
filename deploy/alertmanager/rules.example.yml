@@ -1,0 +1,71 @@
+# ═══════════════════════════════════════════════════════════════════
+# Пример rules.yml для Prometheus — алерты, которые улетают через
+# Alertmanager → backend → MAX/Telegram.
+#
+# Подключение в prometheus.yml:
+#   rule_files:
+#     - 'rules.example.yml'
+# ═══════════════════════════════════════════════════════════════════
+
+groups:
+  - name: msp.host
+    rules:
+      - alert: HostDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+          env: prod
+        annotations:
+          summary: 'Host {{ $labels.instance }} недоступен'
+          description: 'Prometheus не получает метрики от {{ $labels.instance }} более 2 минут (job {{ $labels.job }}).'
+          runbook: 'https://docs.msp-oblako.ru/runbooks/R-01-host-down'
+
+      - alert: HighCPU
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+        for: 10m
+        labels:
+          severity: warning
+          env: prod
+        annotations:
+          summary: 'CPU > 90% на {{ $labels.instance }}'
+          description: 'CPU load усреднён за 5 минут превысил 90% более 10 минут.'
+
+      - alert: DiskFull
+        expr: 100 - ((node_filesystem_avail_bytes{mountpoint="/"} * 100) / node_filesystem_size_bytes{mountpoint="/"}) > 90
+        for: 5m
+        labels:
+          severity: critical
+          env: prod
+        annotations:
+          summary: 'Диск / > 90% на {{ $labels.instance }}'
+          description: 'Свободного места на корневом разделе менее 10%.'
+          runbook: 'https://docs.msp-oblako.ru/runbooks/R-03-disk-full'
+
+  - name: msp.http
+    rules:
+      - alert: HighErrorRate5xx
+        expr: |
+          (
+            sum(rate(http_requests_total{status=~"5.."}[2m])) by (job)
+            / sum(rate(http_requests_total[2m])) by (job)
+          ) > 0.005
+        for: 2m
+        labels:
+          severity: critical
+          env: prod
+        annotations:
+          summary: '5xx errors > 0.5% на {{ $labels.job }}'
+          description: 'Доля ответов 5xx за 2 минуты превысила 0.5%. Возможна деградация upstream.'
+          runbook: 'https://docs.msp-oblako.ru/runbooks/R-04-5xx-spike'
+
+      - alert: BackupStale
+        expr: time() - restic_last_snapshot_timestamp_seconds > 86400 * 2
+        for: 5m
+        labels:
+          severity: warning
+          env: prod
+        annotations:
+          summary: 'Бэкап старее 48 часов: {{ $labels.repo }}'
+          description: 'Restic snapshot в {{ $labels.repo }} не обновлялся более 48 часов.'
+          runbook: 'https://docs.msp-oblako.ru/runbooks/R-07-backup-stale'

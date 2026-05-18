@@ -1,0 +1,96 @@
+# ═══════════════════════════════════════════════════════════════════
+# Prometheus Alertmanager → МСП Облако backend → MAX + Telegram
+# ═══════════════════════════════════════════════════════════════════
+# Этот пример конфигурации Alertmanager отправляет все алерты в наш
+# backend (POST /api/alerts/alertmanager), который дальше fan-out их
+# в MAX (markdown) и Telegram (HTML) согласно ENV ALERT_CHANNELS.
+#
+# Что нужно подставить:
+#   1. ${BACKEND_HOST}                  — публичный домен с TLS, на котором
+#                                         развёрнут backend (например
+#                                         https://msp-oblako.ru).
+#   2. ${ALERTMANAGER_WEBHOOK_TOKEN}    — токен из backend/.env (тот же
+#                                         что в `ALERTMANAGER_WEBHOOK_TOKEN`).
+#   3. SMTP/PagerDuty receiver-ы НЕ настроены — добавляйте по необходимости.
+#
+# Деплой:
+#   docker run -d \
+#     --name alertmanager \
+#     -p 9093:9093 \
+#     -v $(pwd)/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro \
+#     prom/alertmanager:latest
+#
+# Подключение в prometheus.yml:
+#   alerting:
+#     alertmanagers:
+#       - static_configs:
+#           - targets: ['alertmanager:9093']
+# ═══════════════════════════════════════════════════════════════════
+
+global:
+  resolve_timeout: 5m
+
+route:
+  # Группируем по alertname+severity, чтобы не флудить одинаковыми событиями.
+  group_by: ['alertname', 'severity', 'env']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: msp-max-tg
+
+  # Маршрутизация по severity. P1 уходит на главный канал без задержки,
+  # P3/info — реже и пачкой.
+  routes:
+    - matchers:
+        - severity =~ "critical|page|high|error"
+      receiver: msp-max-tg
+      group_wait: 10s
+      group_interval: 2m
+      repeat_interval: 1h
+      continue: false
+
+    - matchers:
+        - severity =~ "warning|warn"
+      receiver: msp-max-tg
+      group_wait: 1m
+      group_interval: 10m
+      repeat_interval: 4h
+      continue: false
+
+    - matchers:
+        - severity =~ "info|notice|none"
+      receiver: msp-max-tg
+      group_wait: 5m
+      group_interval: 30m
+      repeat_interval: 12h
+      continue: false
+
+receivers:
+  - name: msp-max-tg
+    webhook_configs:
+      - url: 'https://${BACKEND_HOST}/api/alerts/alertmanager'
+        send_resolved: true
+        max_alerts: 0  # 0 = без ограничения, шлём все в группе
+        http_config:
+          authorization:
+            type: Bearer
+            credentials: '${ALERTMANAGER_WEBHOOK_TOKEN}'
+
+# ───────────────────────────────────────────────────────────────────
+# Подавляем низкоуровневые алерты, если уже горит сервис-уровень.
+# Пример: если 'ServiceDown' уже firing, подавляем все 'HighCPU' с
+# того же instance — это шум.
+# ───────────────────────────────────────────────────────────────────
+inhibit_rules:
+  - source_matchers:
+      - severity = critical
+      - alertname = ServiceDown
+    target_matchers:
+      - severity =~ "warning|info"
+    equal: ['instance']
+
+  - source_matchers:
+      - severity = critical
+    target_matchers:
+      - severity =~ "warning|info"
+    equal: ['alertname', 'instance']

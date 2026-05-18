@@ -66,7 +66,13 @@ from auth import (  # noqa: E402
     _admin_token,
     issue_admin_jwt,
 )
-from integrations import kaiten, max as max_integration, telegram, webhook  # noqa: E402
+from integrations import (  # noqa: E402
+    alertmanager,
+    kaiten,
+    max as max_integration,
+    telegram,
+    webhook,
+)
 
 # ─── Config ────────────────────────────────────────────────
 MONGO_URL = os.environ["MONGO_URL"]
@@ -186,6 +192,7 @@ class IntegrationsStatus(BaseModel):
     max_alert_channel: bool
     max_bot_username: Optional[str] = None
     smartcaptcha: bool
+    alertmanager: bool = False
 
 
 # ─── Metrics (Prometheus, optional) ────────────────────────
@@ -490,6 +497,7 @@ async def integrations_status():
         max_alert_channel=max_integration.is_alert_channel(),
         max_bot_username=max_integration.MAX_BOT_USERNAME or None,
         smartcaptcha=bool(SMARTCAPTCHA_SERVER_KEY),
+        alertmanager=alertmanager.is_enabled(),
     )
 
 
@@ -523,6 +531,53 @@ async def max_webhook(request: Request, background: BackgroundTasks):
     logger.info("max update: %s", update.get("update_type"))
     background.add_task(_handle_max_update, update)
     return {"ok": True}
+
+
+@api_router.post("/alerts/alertmanager", include_in_schema=False)
+async def alertmanager_webhook(request: Request, background: BackgroundTasks):
+    """
+    Webhook-приёмник для Prometheus Alertmanager.
+
+    Alertmanager шлёт POST в формате v4 (см. integrations/alertmanager.py).
+    Защита: заголовок `Authorization: Bearer <ALERTMANAGER_WEBHOOK_TOKEN>`.
+    Fan-out: MAX (markdown) + Telegram (HTML), параметры через `ALERT_CHANNELS`.
+
+    Возвращаем 200 быстро, обработку и отправку делаем в BackgroundTasks —
+    Alertmanager ретраит при non-2xx или таймауте >10s.
+    """
+    received = request.headers.get("Authorization") or request.headers.get("X-Alertmanager-Token")
+    if not alertmanager.verify_token(received):
+        logger.warning("alertmanager webhook: bad token from %s", _client_ip(request))
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="bad_token")
+
+    try:
+        payload = await request.json()
+    except Exception:  # noqa: BLE001
+        return {"ok": True, "ignored": True}
+
+    if not isinstance(payload, dict):
+        return {"ok": True, "ignored": True}
+
+    alerts = alertmanager.parse_alertmanager_payload(payload)
+    logger.info(
+        "alertmanager webhook: receiver=%s status=%s alerts=%d",
+        payload.get("receiver"),
+        payload.get("status"),
+        len(alerts),
+    )
+    if not alerts:
+        return {"ok": True, "alerts": 0}
+
+    async def _dispatch_and_count() -> None:
+        stats = await alertmanager.dispatch_alerts(alerts)
+        for short, label in (("max", "max"), ("tg", "telegram")):
+            for _ in range(stats.get(f"{short}_ok", 0)):
+                inc_crm(f"alertmanager_{label}", "ok")
+            for _ in range(stats.get(f"{short}_err", 0)):
+                inc_crm(f"alertmanager_{label}", "error")
+
+    background.add_task(_dispatch_and_count)
+    return {"ok": True, "alerts": len(alerts)}
 
 
 @api_router.post(

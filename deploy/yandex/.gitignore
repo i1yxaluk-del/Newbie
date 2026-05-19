@@ -1,0 +1,5 @@
+# Никогда не коммитить:
+.deploy-state.json    # содержит folder-id, VM-id, public-ip
+.env                  # docker-compose substitution (STALWART_ADMIN_PASSWORD)
+*.log
+*.tar.gz

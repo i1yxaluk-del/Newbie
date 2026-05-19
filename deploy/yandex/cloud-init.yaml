@@ -1,0 +1,137 @@
+#cloud-config
+# ═══════════════════════════════════════════════════════════════════
+# Yandex Cloud · базовый bootstrap ВМ под МСП Облако (mcp-claude.online).
+# Этот файл — только ОС-уровень: установка Docker, Node, Caddy, git.
+# Само приложение (код, .env, билд, запуск контейнеров) выкладывается
+# через SSH из PowerShell-обёртки `deploy.ps1` после готовности VM.
+# ═══════════════════════════════════════════════════════════════════
+
+# Замена SSH-ключа Devin/PowerShell-скрипта: подменяется при рендере
+# из deploy.ps1 на реальный ~/.ssh/id_ed25519_yc.pub.
+users:
+  - name: ubuntu
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - __SSH_PUBKEY__
+
+# Установка пакетов
+package_update: true
+package_upgrade: false  # пропускаем upgrade на старте — ускоряет boot
+packages:
+  - ca-certificates
+  - curl
+  - gnupg
+  - git
+  - jq
+  - ufw
+  - python3-pip
+  - python3-venv
+  - openssl
+
+# Файлы, которые нужны до первого запуска runcmd
+write_files:
+  # Сигнальный маркер "cloud-init начался" — deploy.ps1 опрашивает /var/log/msp-deploy.*
+  - path: /var/log/msp-deploy.started
+    content: |
+      cloud-init started
+    owner: root:root
+    permissions: '0644'
+
+  # APT-репозитории добавляются через runcmd (apt-key deprecated, нужны keyrings)
+  # Docker official GPG ставится в /etc/apt/keyrings/docker.gpg
+
+  # Минимальный /etc/caddy/Caddyfile — будет переопределён скриптом setup-on-vm.sh
+  # после загрузки кода. На этом этапе важно только чтобы Caddy не падал.
+  - path: /etc/caddy/Caddyfile
+    content: |
+      :80 {
+        respond "MSP Cloud · provisioning in progress..." 503
+      }
+    owner: root:root
+    permissions: '0644'
+
+# Запуск установки. Каждая команда логируется в /var/log/cloud-init-output.log.
+runcmd:
+  # 1. Docker repo + Docker Engine + Compose v2 plugin
+  - install -m 0755 -d /etc/apt/keyrings
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+  - chmod a+r /etc/apt/keyrings/docker.asc
+  - |
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
+    https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" \
+    > /etc/apt/sources.list.d/docker.list
+
+  # 2. Caddy official repo (автоматический SSL через Let's Encrypt)
+  - |
+    curl -fsSL https://dl.cloudsmith.io/public/caddy/stable/gpg.key \
+    | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+  - |
+    curl -fsSL https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt \
+    > /etc/apt/sources.list.d/caddy-stable.list
+
+  # 3. NodeSource Node.js 20 LTS (для yarn build фронта)
+  - |
+    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
+    | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+  - |
+    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] \
+    https://deb.nodesource.com/node_20.x nodistro main" \
+    > /etc/apt/sources.list.d/nodesource.list
+
+  - apt-get update
+  - DEBIAN_FRONTEND=noninteractive apt-get install -y
+      docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+      caddy
+      nodejs
+
+  # 4. Yarn через corepack (входит в Node 20)
+  - corepack enable
+  - corepack prepare yarn@stable --activate
+
+  # 5. Docker group для ubuntu
+  - usermod -aG docker ubuntu
+
+  # 6. Firewall: SSH + HTTP/S + почтовые порты Stalwart
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow 22/tcp     comment 'SSH'
+  - ufw allow 80/tcp     comment 'Caddy HTTP / ACME challenge'
+  - ufw allow 443/tcp    comment 'Caddy HTTPS / лендинг + API'
+  - ufw allow 25/tcp     comment 'Stalwart SMTP MX (приём почты)'
+  - ufw allow 465/tcp    comment 'Stalwart SMTPS submission'
+  - ufw allow 587/tcp    comment 'Stalwart STARTTLS submission'
+  - ufw allow 143/tcp    comment 'Stalwart IMAP'
+  - ufw allow 993/tcp    comment 'Stalwart IMAPS'
+  - ufw allow 4190/tcp   comment 'Stalwart ManageSieve'
+  - ufw --force enable
+
+  # 7. Создание директории приложения (PowerShell-скрипт зальёт сюда репо)
+  - mkdir -p /opt/msp
+  - chown -R ubuntu:ubuntu /opt/msp
+
+  # 8. logrotate для будущих логов приложения
+  - |
+    cat > /etc/logrotate.d/msp-app <<'EOF'
+    /var/log/msp-deploy.log {
+      daily
+      rotate 14
+      compress
+      missingok
+      notifempty
+    }
+    EOF
+
+  # 9. Включаем systemd-сервисы
+  - systemctl enable --now docker
+  - systemctl enable --now caddy
+
+  # 10. Маркер готовности базового образа.
+  #     deploy.ps1 опрашивает наличие этого файла перед загрузкой кода.
+  - touch /var/log/msp-deploy.base-ready
+  - date -u +"%Y-%m-%dT%H:%M:%SZ base provisioning done" >> /var/log/msp-deploy.log
+
+# Финальный шаг — если что-то упало, отметить ошибку явно.
+final_message: |
+  cloud-init finished at $TIMESTAMP. Base OS provisioning done.
+  deploy.ps1 will continue with code upload + app start.

@@ -1,0 +1,88 @@
+# ═══════════════════════════════════════════════════════════════════
+# Prod-стек на VM в Yandex Cloud:
+#   mongo    — БД (volume на host, expose только в docker-сеть)
+#   backend  — FastAPI (expose 127.0.0.1:8001, Caddy на хосте проксирует)
+#
+# Запуск:  cd /opt/msp/Newbie/deploy/yandex && docker compose up -d
+# Логи:    docker compose logs -f
+# Стоп:    docker compose down
+# ═══════════════════════════════════════════════════════════════════
+name: msp
+
+services:
+  mongo:
+    image: mongo:7.0
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    # MongoDB доступна ТОЛЬКО внутри docker-сети, наружу не светим.
+    expose:
+      - "27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+
+  backend:
+    build:
+      context: ../../backend
+      dockerfile: ../deploy/yandex/Dockerfile.backend
+    restart: unless-stopped
+    env_file: ../../backend/.env
+    # Переопределяем MONGO_URL — внутри compose-сети mongo доступна по имени.
+    environment:
+      MONGO_URL: mongodb://mongo:27017
+      DB_NAME: mspshield
+    # 127.0.0.1:8001 — слушаем только localhost VM, Caddy проксирует через хост.
+    ports:
+      - "127.0.0.1:8001:8001"
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  # ─── Stalwart Mail Server ─────────────────────────────────────────
+  # Документация: https://stalw.art/docs/install/platform/docker/
+  # Порты:
+  #   25    — SMTP MX (приём почты от других серверов)
+  #   465   — SMTPS submission (Outlook/Thunderbird шлют ИСХОДЯЩИЕ)
+  #   587   — STARTTLS submission (Grafana/Wazuh шлют АЛЕРТЫ)
+  #   143   — IMAP (deprecated, но Outlook любит)
+  #   993   — IMAPS (стандартное чтение почты клиентами)
+  #   4190  — ManageSieve (фильтры на сервере)
+  #   8080  — Admin WebUI (БЕЗ публичного выхода — bind на 127.0.0.1, SSH tunnel)
+  #
+  # TLS-сертификаты для mail.<domain> Caddy получает у Let's Encrypt и
+  # Stalwart читает их через bind-mount /var/lib/caddy → /etc/stalwart-certs:ro
+  stalwart:
+    image: stalwartlabs/stalwart:v0.16
+    restart: unless-stopped
+    environment:
+      # Bootstrap admin (первый вход в WebUI). Пароль генерируется
+      # setup-on-vm.sh и пишется в ~/msp-deploy-secrets.txt
+      STALWART_RECOVERY_ADMIN: "admin:${STALWART_ADMIN_PASSWORD:-changeme}"
+    volumes:
+      - stalwart-etc:/etc/stalwart
+      - stalwart-data:/var/lib/stalwart
+      # Read-only mount Caddy cert store — Stalwart читает PEM-файлы напрямую.
+      # Caddy перевыпускает сертификаты автоматически каждые 60 дней,
+      # Stalwart автоматически подхватывает новые (watch на mtime файлов).
+      - /var/lib/caddy:/etc/stalwart-certs:ro
+    ports:
+      # MX / Submission / IMAP — публично на всех интерфейсах
+      - "25:25"
+      - "465:465"
+      - "587:587"
+      - "143:143"
+      - "993:993"
+      - "4190:4190"
+      # Admin WebUI — ТОЛЬКО локально (доступ через SSH tunnel)
+      - "127.0.0.1:8080:8080"
+
+volumes:
+  mongo-data:
+    driver: local
+  stalwart-etc:
+    driver: local
+  stalwart-data:
+    driver: local

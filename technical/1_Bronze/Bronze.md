@@ -23,7 +23,7 @@ Bronze — **базовый уровень защиты от катастроф�
 ### Мониторинг
 - **Prometheus** — опрашивает все серверы клиента каждые 15 секунд
 - **Grafana** — dashboard-ы CPU / RAM / диск / сеть / сервисы
-- **Alertmanager** → Telegram-чат клиента и наш `#incidents`
+- **Alertmanager** → Telegram и/или **MAX** чат клиента и наш `#incidents` (канал выбирает клиент при онбординге; `ALERT_CHANNELS=max,telegram` в backend `.env` см. [`docs/MAX_SETUP.md`](../../docs/MAX_SETUP.md))
 
 ### Бэкапы
 - **restic** — инкрементальное шифрованное копирование в Yandex S3 (AES-256)
@@ -35,8 +35,8 @@ Bronze — **базовый уровень защиты от катастроф�
 - У клиента — только WG-конфиг, больше «внешнего периметра» нет
 
 ### Отчётность
-- **Weekly report** — uptime, инциденты, тренды (PDF + Telegram)
-- 1 час/мес консультаций по скайпу/Telegram
+- **Weekly report** — uptime, инциденты, тренды (PDF + Telegram/MAX)
+- 1 час/мес консультаций по скайпу / Telegram / MAX
 
 ### Сервисы клиента, которые мы мониторим по Bronze
 Для каждого — детальный playbook в [`../0_Common/SERVICES/`](../0_Common/SERVICES/):

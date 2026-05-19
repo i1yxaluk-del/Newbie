@@ -44,6 +44,41 @@ docker compose up -d
 2. Бот добавлен в нужную группу, имеет права писать.
 3. `TG_CHAT_ID` — с минусом (для групп) или без (для личных чатов).
 
+### MAX bot не отвечает / webhook не приходит
+
+Проверить:
+
+1. `MAX_BOT_TOKEN` корректный — `curl https://botapi.max.ru/me?access_token=$MAX_BOT_TOKEN` должен вернуть профиль бота.
+2. Webhook зарегистрирован: `curl https://botapi.max.ru/subscriptions?access_token=$MAX_BOT_TOKEN` — должен быть список с вашим URL.
+3. URL обязательно `https://` с **валидным** TLS (не self-signed, не Let's Encrypt staging) — MAX отвергает невалидные сертификаты.
+4. `MAX_WEBHOOK_SECRET` совпадает между `backend/.env` и тем, что отправили в `POST /subscriptions`.
+5. `journalctl -u mspshield-backend | grep max` — backend пишет, что пришёл webhook с правильным `X-Max-Bot-Api-Secret`.
+
+Перезарегистрировать webhook:
+
+```bash
+cd /opt/mspshield && python scripts/max_setup_webhook.py
+```
+
+Подробнее: [`docs/MAX_SETUP.md` §6 «Типичные ошибки»](../MAX_SETUP.md).
+
+### Alertmanager шлёт алёрты, но в MAX ничего не приходит
+
+```bash
+# 1. backend получает webhook?
+sudo journalctl -u mspshield-backend | grep alertmanager
+# 2. ALERT_CHANNELS включает max?
+grep ALERT_CHANNELS /etc/mspshield/backend.env
+# 3. Bearer-токен совпадает?
+diff <(grep ALERTMANAGER_WEBHOOK_TOKEN /etc/mspshield/backend.env | cut -d= -f2) \
+     <(cat /etc/alertmanager/max_webhook_token)
+# 4. Тест:
+curl -X POST -H "Authorization: Bearer $(cat /etc/alertmanager/max_webhook_token)" \
+  -H "Content-Type: application/json" \
+  -d '{"alerts":[{"status":"firing","labels":{"alertname":"TestMAX","severity":"warning"}}]}' \
+  https://mspshield.ru/api/alerts/alertmanager
+```
+
 ## Terraform
 
 ### `Error: Error creating instance: quota for instance-cpu exceeded`

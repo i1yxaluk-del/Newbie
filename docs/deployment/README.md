@@ -92,7 +92,7 @@
 - SSH-ключ (`ssh-keygen -t ed25519`).
 - `terraform` ≥ 1.5, `ansible` ≥ 2.15, `yc` CLI.
 
-**Итог:** `https://mspshield.ru` работает с валидным SSL, форма заявки пишет в MongoDB, Telegram-бот получает уведомления, Prometheus собирает метрики.
+**Итог:** `https://mspshield.ru` работает с валидным SSL, форма заявки пишет в MongoDB, уведомления приходят в Telegram и/или MAX (по выбору, `ALERT_CHANNELS=max,telegram` — см. [`docs/MAX_SETUP.md`](../MAX_SETUP.md)), Prometheus собирает метрики, Alertmanager шлёт алёрты в те же мессенджеры.
 
 ### Этап C. Первый клиент (онбординг)
 

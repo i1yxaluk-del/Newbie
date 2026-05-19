@@ -14,7 +14,8 @@
 
 ```
 Gold = ВСЁ из Silver ПЛЮС:
-  ✓ SIEM: Wazuh Agent → Wazuh Manager → Telegram алерты
+  ✓ SIEM: Wazuh Agent → Wazuh Manager → Alertmanager → Telegram / MAX алерты
+    (канал выбирает клиент при онбординге, ALERT_CHANNELS=max,telegram)
   ✓ FIM (File Integrity Monitoring) — контроль изменений файлов
   ✓ Kaspersky Endpoint Security (через GPO + KSC)
   ✓ osTicket — тикет-система для инцидентов
@@ -47,7 +48,7 @@ Gold = ВСЁ из Silver ПЛЮС:
 | Wazuh VM | Yandex Cloud | `EXECUTOR/SOP_executor_gold.md` §3 | — | — |
 | Wazuh Docker Compose | Wazuh VM | `EXECUTOR/SOP_executor_gold.md` §3 | В SOP (inline) | — |
 | Wazuh Manager ossec.conf | Wazuh VM | `EXECUTOR/SOP_executor_gold.md` §4 | `EXECUTOR/wazuh/wazuh_manager_ossec.conf` | — |
-| Wazuh → Telegram | Wazuh VM | `EXECUTOR/SOP_executor_gold.md` §4 | В SOP (custom-telegram.py) | `0_Common/docker/.env.example` (TG token) |
+| Wazuh → Telegram/MAX | Wazuh VM | `EXECUTOR/SOP_executor_gold.md` §4 | В SOP (custom-telegram.py + Alertmanager webhook → backend → MAX) | `0_Common/docker/.env.example` (TG token, MAX_BOT_TOKEN) |
 | KSC setup | Wazuh/Automation VM | `EXECUTOR/SOP_executor_gold.md` §5 | `EXECUTOR/ksc/ksc_setup_guide.md` | — |
 | osTicket | Wazuh VM | `EXECUTOR/SOP_executor_gold.md` §6 | `EXECUTOR/osticket/docker-compose.yml` | — |
 | Gold alert rules | Monitoring VM | — | `EXECUTOR/gold_alerts.yml` | `1_Bronze/EXECUTOR/prometheus/rules/` |
@@ -63,7 +64,7 @@ Gold = ВСЁ из Silver ПЛЮС:
 □ Шаг 20. Настроить ОС Wazuh VM (max_map_count)      → SOP_executor_gold.md §3
 □ Шаг 21. Запустить Wazuh Docker Compose             → SOP_executor_gold.md §3
 □ Шаг 22. Настроить Wazuh Manager (ossec.conf)       → SOP_executor_gold.md §4
-□ Шаг 23. Настроить Wazuh → Telegram                 → SOP_executor_gold.md §4
+□ Шаг 23. Настроить Wazuh → Telegram/MAX            → SOP_executor_gold.md §4
 □ Шаг 24. Установить Wazuh Agent на клиентах         → SOP_client_gold.md §1
 □ Шаг 25. Установить KES через GPO                   → SOP_client_gold.md §2
 □ Шаг 26. Настроить KSC                              → SOP_executor_gold.md §5

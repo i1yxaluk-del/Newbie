@@ -36,14 +36,14 @@
 интернет → DNS (mspshield.ru) → nginx(443) → ┬─ frontend (React static)
                                              └─ backend (FastAPI) → MongoDB
                                                     │
-                                                    └─ POST в Telegram (заявка)
+                                                    └─ POST в Telegram / MAX (заявка)
 ```
 
 ---
 
 ## 1. Первый деплой — от нуля до публичного сайта
 
-**Результат:** `https://mspshield.ru` открывается в браузере, форма отправляется, заявка приходит в Telegram.
+**Результат:** `https://mspshield.ru` открывается в браузере, форма отправляется, заявка приходит в Telegram и/или MAX (по выбору, `ALERT_CHANNELS` в `backend/.env`).
 **Время:** 2–3 часа первый раз (половина — ожидание DNS и Let's Encrypt).
 
 > Полный командный раннер живёт в `docs/deployment/landing_production.md`. Здесь — **его краткий пересказ с пояснениями, зачем каждый шаг**.
@@ -53,8 +53,9 @@
 - [ ] Зарегистрирован домен **mspshield.ru** (или любой другой — дальше везде подставь свой).
 - [ ] Создан аккаунт **Yandex Cloud**, привязана карта, включён хотя бы один платёжный аккаунт ([console.cloud.yandex.ru](https://console.cloud.yandex.ru)).
 - [ ] Скачан `yc` CLI и выполнен `yc init` (это положит токен в `~/.config/yandex-cloud/config.yaml`).
-- [ ] Создан **Telegram-бот** через [@BotFather](https://t.me/BotFather) → получен `TELEGRAM_BOT_TOKEN`.
-- [ ] Создан Telegram-чат (или использован личный) и узнан его **chat_id** (боту послать `/start`, потом открыть `https://api.telegram.org/bot<TOKEN>/getUpdates`).
+- [ ] Выбран хотя бы один канал уведомлений (Telegram или MAX — или оба):
+  - [ ] **Telegram:** бот через [@BotFather](https://t.me/BotFather) → `TELEGRAM_BOT_TOKEN`; chat_id через `getUpdates`.
+  - [ ] **MAX:** бот через `@MasterBot` в MAX → `MAX_BOT_TOKEN`; ваш user_id бот пришлёт после `/start`. Подробнее — [`docs/MAX_SETUP.md`](../MAX_SETUP.md).
 
 ### 1.2 Поднять инфру (Terraform, 15 мин)
 
@@ -128,7 +129,7 @@ cd mspshield/deploy
 
 # Скопировать примеры конфигов и заполнить секреты:
 cp ../backend/.env.example ../backend/.env
-nano ../backend/.env                          # заполнить MONGO_URL, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, ADMIN_TOKEN
+nano ../backend/.env                          # заполнить MONGO_URL, TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID и/или MAX_BOT_TOKEN/MAX_ALERT_CHAT_ID, ADMIN_TOKEN
 
 # Frontend env:
 echo "REACT_APP_BACKEND_URL=https://mspshield.ru" > ../frontend/.env
@@ -173,7 +174,7 @@ curl -X POST https://mspshield.ru/api/leads \
   -d '{"company":"Test","contact":"Ivan","phone_or_email":"test@example.com","tariff":"Silver","consent":true,"website":""}'
 # Ожидаем {"ok": true, "id": "..."}
 
-# 4. Заявка пришла в Telegram? (проверить чат глазами)
+# 4. Заявка пришла в Telegram/MAX? (проверить выбранный чат глазами)
 
 # 5. Админка — список заявок (в браузере — https://mspshield.ru/admin/leads):
 curl -H "X-Admin-Token: $(grep ADMIN_TOKEN backend/.env | cut -d= -f2)" \
@@ -191,10 +192,10 @@ curl -H "X-Admin-Token: $(grep ADMIN_TOKEN backend/.env | cut -d= -f2)" \
 Когда посетитель нажимает **«Отправить заявку»**, происходит **3 параллельных действия**:
 
 1. **POST /api/leads** → FastAPI пишет документ в коллекцию **`leads`** в MongoDB.
-2. FastAPI делает **POST в Telegram Bot API** → уведомление прилетает в твой чат сразу.
+2. FastAPI делает **POST в Telegram Bot API** и/или **MAX Bot API** (в зависимости от `ALERT_CHANNELS=max,telegram`) → уведомление прилетает в настроенные чаты сразу.
 3. FastAPI инкрементит счётчик в Prometheus (`mspshield_leads_total`) — для статистики.
 
-**Источник истины = MongoDB**. Telegram — это «push» (если прошляпишь — не страшно, всё хранится).
+**Источник истины = MongoDB**. Telegram / MAX — это «push» (если прошляпишь — не страшно, всё хранится).
 
 #### Посмотреть заявки «глазами»
 
@@ -244,7 +245,7 @@ docker exec -it deploy-mongo-1 mongosh mspshield
 Есть **3 уровня**, выбирай один в зависимости от зрелости:
 
 **Уровень 0 — ничего не ставим (подходит первые 1–2 недели):**
-- UptimeRobot (бесплатно, 50 мониторов): https://uptimerobot.com → добавь `https://mspshield.ru` и `https://mspshield.ru/api/health`. Алерт в Telegram.
+- UptimeRobot (бесплатно, 50 мониторов): https://uptimerobot.com → добавь `https://mspshield.ru` и `https://mspshield.ru/api/health`. Алерт в Telegram или (через webhook на `/api/alerts/alertmanager`) в MAX.
 - Health-check cron на своём ноуте: `curl -f https://mspshield.ru/api/health || notify-send` — раз в минуту.
 
 Этого **достаточно для первого клиента**. Мониторинг клиента = отдельная история (см. `docs/deployment/tenant_onboarding.md`).
@@ -262,7 +263,7 @@ docker compose --profile monitoring up -d
 
 ### 2.3 Еженедельный ритуал (10 минут каждый понедельник)
 
-1. Открыть Telegram-чат с заявками — пересчитать, сколько новых.
+1. Открыть Telegram- и/или MAX-чат с заявками — пересчитать, сколько новых.
 2. `ssh ubuntu@10.10.0.2 && docker compose ps` — все ли сервисы Up.
 3. `curl https://mspshield.ru/api/health` — отвечает ли API.
 4. Посмотреть Let's Encrypt cert: `echo | openssl s_client -connect mspshield.ru:443 2>/dev/null | openssl x509 -noout -dates`. Если `notAfter` < 7 дней — certbot умер, см. траблшутинг.
@@ -391,9 +392,9 @@ Frontend не трогает — пользователь не увидит «м
 
 | Зона | Что там страшного | Как защититься |
 |---|---|---|
-| `backend/server.py` | Ломать API = сломать и форму, и Telegram-уведомления | Сначала тест локально `python -m pytest backend/tests/` |
+| `backend/server.py` | Ломать API = сломать и форму, и Telegram/MAX-уведомления | Сначала тест локально `python -m pytest backend/tests/` |
 | `deploy/nginx/mspshield.conf` | Ломать nginx = сайт недоступен | `sudo nginx -t` ДО reload |
-| `backend/.env` | Потерять `TELEGRAM_BOT_TOKEN` → заявки не приходят | Бэкап в Vaultwarden |
+| `backend/.env` | Потерять `TELEGRAM_BOT_TOKEN` / `MAX_BOT_TOKEN` → заявки не приходят | Бэкап в Vaultwarden |
 | MongoDB | Удалить `db.leads.drop()` = потерять всех клиентов | `docs/deployment/disaster_recovery.md` |
 
 ---
@@ -455,18 +456,19 @@ curl -v https://mspshield.ru/api/health
 docker compose logs backend | tail -50
 ```
 
-### 4.4 Заявки перестали приходить в Telegram
+### 4.4 Заявки перестали приходить в Telegram / MAX
 
 ```bash
 # В MongoDB они есть?
 docker exec -it deploy-mongo-1 mongosh mspshield --eval 'db.leads.find().sort({created_at:-1}).limit(3)'
 
-# Если ДА — проблема в Telegram-интеграции:
-docker compose logs backend | grep -i telegram
+# Если ДА — проблема в интеграции (Telegram или MAX):
+docker compose logs backend | grep -iE 'telegram|max'
 # Частые причины:
-#  - TELEGRAM_BOT_TOKEN протух (редко, но бывает если бот удалили)
-#  - TELEGRAM_CHAT_ID в числовом формате, а в .env строкой
+#  - TELEGRAM_BOT_TOKEN / MAX_BOT_TOKEN протух (редко, но бывает если бот удалили)
+#  - TELEGRAM_CHAT_ID / MAX_ALERT_CHAT_ID в числовом формате, а в .env строкой
 #  - Бот выгнан из чата
+#  - MAX webhook разорван — перерегистрировать через `python scripts/max_setup_webhook.py`
 
 # Если заявок НЕТ ВООБЩЕ в Mongo — проблема в приёме на backend, см. 4.3.
 ```

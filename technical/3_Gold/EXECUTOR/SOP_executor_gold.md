@@ -14,7 +14,7 @@
 1. Архитектура Gold (Исполнитель)
 2. Wazuh VM — создание и настройка
 3. Wazuh Docker Compose — развёртывание
-4. Wazuh Manager — конфигурация + Telegram
+4. Wazuh Manager — конфигурация + Telegram / MAX
 5. KSC — Kaspersky Security Center
 6. osTicket — тикет-система
 7. Gold alert rules
@@ -314,7 +314,15 @@ docker cp wazuh_manager_ossec.conf wazuh-manager:/var/ossec/etc/ossec.conf
 docker restart wazuh-manager
 ```
 
-### 4.2 Интеграция Wazuh → Telegram
+### 4.2 Интеграция Wazuh → Telegram / MAX
+
+Два пути — выбираете один или оба (комбинировать можно):
+
+**Путь A: напрямую из Wazuh** (как ниже, через `custom-telegram.py`) — простой, но дублирует код только под Telegram.
+
+**Путь B (рекомендованный): Wazuh → Alertmanager → backend `/api/alerts/alertmanager` → MAX + Telegram.** Канал управляется через `ALERT_CHANNELS=max,telegram` в `backend/.env`. Подробности и пример Alertmanager route'а: [`docs/MAX_SETUP.md` §10](../../../docs/MAX_SETUP.md) и [`deploy/alertmanager/alertmanager.yml`](../../../deploy/alertmanager/alertmanager.yml).
+
+Ниже — Путь A (legacy, прямой Telegram).
 
 ```bash
 # custom-telegram.py — скрипт отправки алертов Wazuh в Telegram
@@ -377,6 +385,20 @@ docker exec wazuh-manager chown root:wazuh /var/ossec/integrations/custom-telegr
 
 echo "Telegram интеграция установлена"
 ```
+
+### 4.3 MAX-канал для Wazuh-алертов (через backend)
+
+Если клиент выбрал MAX или Telegram+MAX:
+
+1. В Wazuh `ossec.conf` оставить только integration на Alertmanager (а не `custom-telegram`).
+2. В Alertmanager — receiver `webhook_configs` на `https://msp-oblako.ru/api/alerts/alertmanager` с Bearer-токеном `ALERTMANAGER_WEBHOOK_TOKEN` (см. `deploy/alertmanager/alertmanager.yml`).
+3. В `backend/.env`:
+   ```
+   MAX_BOT_TOKEN=...           # @MasterBot
+   MAX_ALERT_CHAT_ID=...       # ваш user_id в MAX
+   ALERT_CHANNELS=max,telegram # fan-out
+   ```
+4. Тест: `amtool alert add alertname=WazuhTest severity=critical` → в MAX и в Telegram приходит `🔴 P1 · WazuhTest · agent01`.
 
 ---
 

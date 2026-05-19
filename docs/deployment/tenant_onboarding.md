@@ -182,9 +182,11 @@ yc storage s3 ls s3://mspshield-backups-prod/acme/
 
 ---
 
-## Шаг 5. Мониторинг: алёрты в Telegram клиенту
+## Шаг 5. Мониторинг: алёрты клиенту в Telegram и/или MAX
 
-### 5.1. Отдельный Telegram-чат для клиента
+На онбординге спросить клиента какой мессенджер использовать: **Telegram, MAX или оба**. MAX бывает предпочтительнее для российских компаний (льготный режим, отечественный провайдер).
+
+### 5.1. Telegram-вариант
 
 Создать в Telegram группу «MSPShield × Acme — Алёрты», добавить:
 
@@ -194,24 +196,37 @@ yc storage s3 ls s3://mspshield-backups-prod/acme/
 
 Получить `CHAT_ID` (см. раздел 7 в [`landing_production.md`](landing_production.md#7-telegram)).
 
-### 5.2. Обновить Alertmanager
+### 5.2. MAX-вариант
+
+Клиент ставит MAX на рабочий телефон, находит наш бот `@msp_oblako_bot`, пишет `/start` — бот выдаёт ему `chat_id`. Передать его нам — это будет `MAX_ALERT_CHAT_ID` для этого клиента. Подробности: [`docs/MAX_SETUP.md`](../MAX_SETUP.md).
+
+### 5.3. Обновить Alertmanager
 
 ```bash
 ssh ubuntu@mspshield-landing
 sudo nano /etc/alertmanager/alertmanager.yml
 # Добавить в routes:
 #   - match: { tenant: acme }
-#     receiver: telegram_acme
-# И в receivers:
-#   - name: telegram_acme
-#     telegram_configs:
+#     receiver: tenant_acme
+# И в receivers (Telegram-вариант или webhook в backend → MAX):
+#   - name: tenant_acme
+#     telegram_configs:                                    # если клиент выбрал TG
 #       - api_url: https://api.telegram.org
 #         bot_token_file: /etc/alertmanager/tg_bot_token
-#         chat_id: -1001234567890   # чат клиента
+#         chat_id: -1001234567890
+#     webhook_configs:                                     # если клиент выбрал MAX (либо оба)
+#       - url: https://msp-oblako.ru/api/alerts/alertmanager
+#         http_config:
+#           authorization:
+#             type: Bearer
+#             credentials_file: /etc/alertmanager/max_webhook_token
+#         send_resolved: true
 sudo systemctl reload alertmanager
 ```
 
-### 5.3. В Prometheus пометить таргеты клиента лейблом `tenant=acme`
+В backend `/etc/mspshield/backend.env` для MAX-клиента добавить `tenants[acme].max_chat_id` или прописать в базе (см. `backend/integrations/max.py` и поле `max_chat_id` в коллекции `tenants`).
+
+### 5.4. В Prometheus пометить таргеты клиента лейблом `tenant=acme`
 
 Ansible это уже делает через `targets/tenants/acme.yml` (генерируется из inventory).
 
@@ -222,7 +237,7 @@ Ansible это уже делает через `targets/tenants/acme.yml` (ген
 Отправить email по шаблону из [`../onboarding/welcome_package.md`](../onboarding/welcome_package.md). Содержит:
 
 - пример месячного отчёта (шаблон);
-- контактные данные (Telegram-поддержка, email);
+- контактные данные (Telegram / MAX поддержка, email);
 - SLA матрицу для его тарифа;
 - время weekly-sync (еженедельный 15-мин звонок);
 - patch-window договорённости.
@@ -252,7 +267,7 @@ Ansible это уже делает через `targets/tenants/acme.yml` (ген
 - [ ] `systemctl status` на всех сервисах клиента — active.
 - [ ] Первый restic-снапшот создан (`restic snapshots`).
 - [ ] Prometheus-таргеты клиента `UP` (http://localhost:9090/targets).
-- [ ] Alertmanager: маршрут `tenant=acme → telegram_acme` работает (тестовый алёрт дошёл).
+- [ ] Alertmanager: маршрут `tenant=acme → tenant_acme` работает (тестовый алёрт дошёл в выбранный канал — Telegram и/или MAX).
 - [ ] Welcome-package отправлен клиенту, клиент подтвердил получение.
 - [ ] Первый weekly-sync запланирован в календаре.
 - [ ] Карточка клиента в Kaiten создана со всеми контактами.
@@ -268,5 +283,5 @@ Ansible это уже делает через `targets/tenants/acme.yml` (ген
 3. Экспортировать restic-снапшоты на отдельный диск (оставить у себя 30 дней на случай спора).
 4. Через 30 дней — `restic forget --keep-last 0 --prune`.
 5. Удалить блок из `inventory/prod.yml`, закоммитить.
-6. Удалить Telegram-чат клиента.
+6. Удалить Telegram- и/или MAX-чат клиента (в MAX — `/stop` боту + очистить `max_chat_id` в `tenants`).
 7. Отменить подписку клиента в Kaiten.

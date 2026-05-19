@@ -126,6 +126,9 @@ uvicorn server:app --host 0.0.0.0 --port 8001 --reload
 | `ADMIN_TOKEN` | для `/leads`, `/stats` | `openssl rand -hex 32` |
 | `CORS_ORIGINS` | prod | CSV явных origins; **нельзя `*` в prod** |
 | `TG_BOT_TOKEN` / `TG_CHAT_ID` | опц. | Telegram-бот для уведомлений о лидах |
+| `MAX_BOT_TOKEN` / `MAX_ALERT_CHAT_ID` / `MAX_WEBHOOK_SECRET` / `MAX_BOT_USERNAME` | опц. | MAX-бот ([@MasterBot](https://max.ru), бесплатный официальный Bot API). См. [`docs/MAX_SETUP.md`](docs/MAX_SETUP.md) |
+| `ALERT_CHANNELS` | опц. | Каналы fan-out для алёртов: `max,telegram` (по умолчанию — оба, если оба настроены) |
+| `ALERTMANAGER_WEBHOOK_TOKEN` | опц. | Bearer-токен для `POST /api/alerts/alertmanager` (см. [`deploy/alertmanager/alertmanager.yml`](deploy/alertmanager/alertmanager.yml)) |
 | `RATE_LIMIT_PER_MIN` | опц. | Per-IP лимит POST /api/leads (default 10) |
 | `RATE_LIMIT_WINDOW_SEC` | опц. | Окно rate-limit (default 60s) |
 | `SMARTCAPTCHA_SERVER_KEY` | prod рекомендуется | Yandex SmartCaptcha server-side verify |

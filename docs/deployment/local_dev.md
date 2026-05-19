@@ -46,7 +46,7 @@ ADMIN_TOKEN=<сгенерированная-строка-на-шаге-выше>
 CORS_ORIGINS=http://localhost:3000
 ```
 
-Telegram-нотификации и SmartCaptcha для локальной разработки **не нужны** — оставить пустыми.
+Telegram-/MAX-нотификации и SmartCaptcha для локальной разработки **не нужны** — оставить пустыми (`TG_BOT_TOKEN=`, `MAX_BOT_TOKEN=`). Если хочется проверить MAX-интеграцию локально — см. [`docs/MAX_SETUP.md` §12 «Локальный dev»](../MAX_SETUP.md).
 
 ## Шаг 3. Запуск через docker compose
 

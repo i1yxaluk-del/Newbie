@@ -1,6 +1,6 @@
 # Продакшен-развёртывание лендинга `mspshield.ru`
 
-Цель: поднять публичный сайт на Yandex Cloud, чтобы `https://mspshield.ru` отдавал лендинг с валидным SSL, форма заявки писала в MongoDB, Telegram-бот получал уведомления.
+Цель: поднять публичный сайт на Yandex Cloud, чтобы `https://mspshield.ru` отдавал лендинг с валидным SSL, форма заявки писала в MongoDB, Telegram- и/или MAX-бот получал уведомления.
 
 **Время:** 4–6 часов (первый раз).
 **Стоимость:** ~2 500–4 000 ₽/мес (2 VM + Object Storage + domain).
@@ -17,7 +17,7 @@
 4. [WireGuard bootstrap на bastion](#4-wireguard).
 5. [Ansible site.yml — настройка landing-VM](#5-ansible).
 6. [DNS-переключение + SSL от Let's Encrypt](#6-dns--ssl).
-7. [Telegram-уведомления](#7-telegram).
+7. [Уведомления о заявках: Telegram + MAX](#7-telegram).
 8. [Мониторинг: Prometheus + Alertmanager](#8-monitoring).
 9. [Smoke-test + чек-лист готовности](#9-smoke-test).
 
@@ -285,9 +285,11 @@ curl -I https://mspshield.ru
 ---
 
 <a id="7-telegram"></a>
-## 7. Telegram-уведомления
+## 7. Уведомления о заявках — Telegram или MAX (или оба)
 
-### 7.1. Создать бота
+Backend (`backend/integrations/`) умеет шлать уведомления в **два канала одновременно**: Telegram (исторический) и MAX (российский мессенджер, бесплатный Bot API — см. [`docs/MAX_SETUP.md`](../MAX_SETUP.md)). Настройте хотя бы один — либо оба.
+
+### 7.1. Telegram-бот (легаси канал)
 
 1. В Telegram: чат с `@BotFather` → `/newbot` → имя `MSPShield Leads Bot` → username `mspshield_leads_bot` → получить `BOT_TOKEN` (например, `7123456789:AAH...`).
 2. Создать канал или группу для уведомлений, добавить бота как админа.
@@ -298,20 +300,34 @@ curl "https://api.telegram.org/bot<BOT_TOKEN>/getUpdates" | jq '.result[].messag
 # например, -1001234567890
 ```
 
-### 7.2. Прописать на landing-VM
+### 7.2. MAX-бот (российский мессенджер, рекомендуется)
+
+1. В MAX-приложении открыть `@MasterBot` → `Создать бота` → имя `MSP Lead Bot` → username `msp_oblako_bot` → получить `MAX_BOT_TOKEN`.
+2. Написать боту `/start` — он ответит и пришлёт `user_id` (это ваш `MAX_ALERT_CHAT_ID`).
+3. Подробный плейбук: [`docs/MAX_SETUP.md`](../MAX_SETUP.md).
+
+### 7.3. Прописать на landing-VM
 
 ```bash
 ssh ubuntu@mspshield-landing
 sudo nano /etc/mspshield/backend.env
+# --- Telegram (если выбран) ---
 # TG_BOT_TOKEN=7123456789:AAH...
 # TG_CHAT_ID=-1001234567890
+# --- MAX (если выбран) ---
+# MAX_BOT_TOKEN=...
+# MAX_BOT_USERNAME=msp_oblako_bot
+# MAX_ALERT_CHAT_ID=...
+# MAX_WEBHOOK_SECRET=$(openssl rand -hex 32)
 
 sudo systemctl restart mspshield-backend
+# Для MAX — одноразовый вызов:
+python /opt/mspshield/scripts/max_setup_webhook.py
 ```
 
-### 7.3. Тест
+### 7.4. Тест
 
-Отправить заявку с `https://mspshield.ru` → проверить, что сообщение прилетело в канал.
+Отправить заявку с `https://mspshield.ru` → проверить, что сообщение прилетело в настроенные каналы (Telegram-группу и/или MAX-чат с ботом).
 
 ---
 
@@ -330,13 +346,14 @@ curl -s http://localhost:9093/-/healthy
 # OK
 ```
 
-### Алёрты в Telegram
+### Алёрты в Telegram / MAX
 
-В [`alertmanager.yml`](../../technical/0_Common/monitoring/alertmanager.yml) уже есть `telegram` и `telegram_p1` receivers. Надо:
+В [`alertmanager.yml`](../../technical/0_Common/monitoring/alertmanager.yml) уже есть `telegram` / `telegram_p1` receivers и универсальный `msp-max-tg` (webhook на backend `/api/alerts/alertmanager`, fan-out в MAX+Telegram).
 
-1. Положить `/etc/alertmanager/tg_bot_token` (тот же бот или отдельный «alerts»-бот).
-2. Заменить `chat_id: 0` на реальный chat_id (можно другой чат для P1/P2).
-3. `sudo systemctl restart alertmanager`.
+1. **Telegram-путь:** положить `/etc/alertmanager/tg_bot_token`, заменить `chat_id: 0` на реальный chat_id.
+2. **MAX-путь (рекомендованный):** положить `/etc/alertmanager/max_webhook_token` (такой же как `ALERTMANAGER_WEBHOOK_TOKEN` в backend `.env`); в `alertmanager.yml` есть receiver `msp-max-tg` с `bearer_token_file: /etc/alertmanager/max_webhook_token` — см. [`deploy/alertmanager/alertmanager.yml`](../../deploy/alertmanager/alertmanager.yml).
+3. Каналы выбираются в `backend/.env`: `ALERT_CHANNELS=max,telegram` (или один из).
+4. `sudo systemctl restart alertmanager`.
 
 ---
 
@@ -348,14 +365,14 @@ curl -s http://localhost:9093/-/healthy
 - [ ] `curl -I https://mspshield.ru` → 200 + TLS-валидный.
 - [ ] `curl https://mspshield.ru/api/health` → `{"status":"ok"}`.
 - [ ] Форма заявки отправляется → запись появилась в MongoDB (`mongo --eval 'db.leads.countDocuments()'`).
-- [ ] Telegram-бот получил уведомление о заявке.
+- [ ] Telegram- и/или MAX-бот получил уведомление о заявке (в зависимости от `ALERT_CHANNELS` / настроенных интеграций).
 - [ ] `curl https://mspshield.ru/api/leads -H "X-Admin-Token: ..."` → список заявок.
 - [ ] В Prometheus (`http://localhost:9090/targets` через SSH-туннель) — все таргеты `UP`.
 - [ ] `curl https://mspshield.ru/metrics` **заблокирован** извне (должно быть 403/404 от nginx).
 - [ ] `certbot renew --dry-run` — успех.
 - [ ] На bastion `wg show` — peer landing подключен.
 - [ ] `backup_install.yml` прогнан на landing (есть бэкапы в Object Storage).
-- [ ] Мониторинг: создан тестовый алёрт (остановить nginx на 60 сек) → Telegram получил, восстановление (resolved) тоже пришло.
+- [ ] Мониторинг: создан тестовый алёрт (остановить nginx на 60 сек) → Telegram и/или MAX получил, восстановление (resolved) тоже пришло.
 
 ### Smoke-test формы заявки
 

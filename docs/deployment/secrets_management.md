@@ -10,6 +10,9 @@
 | WireGuard peer-keys (клиентов) | `/etc/wireguard/tenants/<client>.conf` на bastion | `root` на bastion |
 | `ADMIN_TOKEN` backend | `/etc/mspshield/backend.env` (chmod 600) | `root` на landing-VM |
 | `TG_BOT_TOKEN` | `/etc/mspshield/backend.env` + `/etc/alertmanager/tg_bot_token` | `root` |
+| `MAX_BOT_TOKEN` | `/etc/mspshield/backend.env` (бот из `@MasterBot` MAX) | `root` |
+| `MAX_WEBHOOK_SECRET` | `/etc/mspshield/backend.env` (верификация `X-Max-Bot-Api-Secret`) | `root` |
+| `ALERTMANAGER_WEBHOOK_TOKEN` | `/etc/mspshield/backend.env` + `/etc/alertmanager/max_webhook_token` | `root` |
 | `SMARTCAPTCHA_SERVER_KEY` | `/etc/mspshield/backend.env` | `root` |
 | Restic S3-ключи (клиент → бэкап бакет) | `/etc/restic/env` на каждом клиентском хосте (chmod 600) | `root` |
 | Пароли клиентов (RDP, админки, сайтов) | **Vaultwarden** на bastion | Владелец + Junior (после приёма на работу) |
@@ -20,7 +23,7 @@
 ## Запрещено
 
 - **Коммитить в git** любой файл, содержащий строки вида `TOKEN`, `PASSWORD`, `SECRET`, `PRIVATE KEY`, `ADMIN_TOKEN=<значение>`.
-- **Отправлять секреты через Telegram** (даже в личку — сохранится в истории устройства клиента).
+- **Отправлять секреты через Telegram / MAX** (даже в личку — сохраняется в истории клиентского устройства).
 - **Хранить пароли клиентов в Excel/Google Docs** — только Vaultwarden.
 - **Логгировать секреты** в прод-сервисах (проверять `grep -r SECRET /var/log/`).
 - **Давать Junior полный доступ к Vaultwarden** — только конкретные коллекции после подписания NDA (см. `contracts/junior_nda.md` при его создании).
@@ -63,6 +66,8 @@ ssh -L 8443:localhost:8443 ubuntu@<bastion_public_ip>
 |--------|---------------|-----------------|
 | `ADMIN_TOKEN` backend | Каждые 6 мес | Или при любом подозрении |
 | `TG_BOT_TOKEN` | По необходимости | При увольнении Junior (если у него был доступ к чату) |
+| `MAX_BOT_TOKEN` | По необходимости | При увольнении Junior, при компрометации webhook'а |
+| `ALERTMANAGER_WEBHOOK_TOKEN` | 12 мес | При увольнении Junior — `openssl rand -hex 32` в `backend/.env` + `/etc/alertmanager/max_webhook_token` |
 | WireGuard peer-keys клиента | 12 мес | Или по договорённости с клиентом |
 | Restic S3-ключи | Каждые 12 мес | — |
 | SSH-ключи Junior | При уходе / повышении | См. [`../../technical/0_Common/scripts/rotate_junior_access.sh`](../../technical/0_Common/scripts/rotate_junior_access.sh) |

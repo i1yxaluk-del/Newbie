@@ -18,7 +18,7 @@
 
 **Ваш дежурный контакт:**
 
-- 💬 **Обычные вопросы**: @MspShieldSupport (Telegram)
+- 💬 **Обычные вопросы**: @MspShieldSupport (Telegram) · @msp_oblako_bot (MAX)
 - 📧 **Email**: support@mspshield.ru
 - 🚨 **P1 срочные аварии** — см. блок SLA ниже (у каждого тарифа свои каналы)
 
@@ -34,7 +34,7 @@
 | **P3 Средне** | 1 пользователь не может что-то | ≤ **4 ч** | ≤ 2 раб. дн |
 | **P4 Низко** | «Как настроить?» | ≤ **1 раб. дн** | ≤ 5 раб. дн |
 
-**Каналы связи:** Telegram @MspShieldOps (primary), email support@mspshield.ru, звонок для P1 (+7…).
+**Каналы связи:** Telegram @MspShieldOps (primary) · MAX @msp_oblako_bot (альтернатива для РФ) · email support@mspshield.ru · звонок для P1 (+7…). Клиент выбирает один предпочтительный мессенджер при онбординге (или оба).
 <!-- BRONZE-SLA-END -->
 
 <!-- SILVER-SLA-START · оставь ТОЛЬКО этот блок, остальные два удали если клиент Silver -->
@@ -47,7 +47,7 @@
 | **P3 Средне** | 1–3 пользователя не могут что-то | ≤ **2 ч** | ≤ 1 раб. дн |
 | **P4 Низко** | Запрос на настройку | ≤ **4 ч** | ≤ 3 раб. дн |
 
-**Каналы связи:** Telegram @MspShieldOps (primary), email, звонок для P1, ночной hotline +7… (P1 only).
+**Каналы связи:** Telegram @MspShieldOps (primary) · MAX @msp_oblako_bot (альтернатива для РФ) · email · звонок для P1 · ночной hotline +7… (P1 only). Клиент выбирает Telegram или MAX (или оба) при онбординге.
 <!-- SILVER-SLA-END -->
 
 <!-- GOLD-SLA-START · оставь ТОЛЬКО этот блок, остальные два удали если клиент Gold -->
@@ -60,7 +60,7 @@
 | **P3 Средне** | Локальный инцидент | ≤ **1 ч** | ≤ **4 ч** |
 | **P4 Низко** | Запрос на настройку | ≤ **2 ч** | ≤ 2 раб. дн |
 
-**Каналы связи:** 24/7 hotline +7… · Telegram @MspShieldOps · email · osTicket https://tickets.mspshield.ru (self-service).
+**Каналы связи:** 24/7 hotline +7… · Telegram @MspShieldOps · MAX @msp_oblako_bot (альтернатива для РФ) · email · osTicket https://tickets.mspshield.ru (self-service). Алёрты SIEM доставляются в выбранный мессенджер (`ALERT_CHANNELS=max,telegram` в backend).
 <!-- GOLD-SLA-END -->
 
 ### Что у вас есть
@@ -87,7 +87,7 @@ MSPShield — Managed Service Provider для СМБ в РФ. Мы управл�
 
 **Ваш тариф:** `<Bronze | Silver | Gold>`
 **Старт контракта:** `<дата>`
-**Ваш аккаунт-лидер:** `<имя>` (`<email>`, `<telegram>`).
+**Ваш аккаунт-лидер:** `<имя>` (`<email>`, `<telegram>`, `<max>`).
 
 ### 2. Что мы делаем для вас (по вашему тарифу)
 

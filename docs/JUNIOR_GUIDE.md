@@ -23,7 +23,8 @@ MSPShield — это маркетинговый лендинг + форма за
 [ FastAPI · backend/server.py ]
    │
    ├── MongoDB                 ─── основное хранилище заявок
-   ├── Telegram Bot (опц.)     ─── мгновенный пинг в чат менеджеру
+   ├── Telegram Bot (опц.)     ─── мгновенный пинг в чат менеджеру (legacy)
+   ├── MAX Bot (опц.)          ─── аналогичный канал в MAX (РФ-мессенджер)
    ├── Kaiten REST API (опц.)  ─── создаёт карточку в воронке Sales
    └── CRM_WEBHOOK_URL (опц.)  ─── n8n / Make / Zapier / Bitrix24
 ```
@@ -145,11 +146,16 @@ sudo -u mspshield bash -c '
 '
 ```
 
-Опциональные интеграции (заполняются ПОСЛЕ создания учёток в Telegram/Kaiten — см. разделы 5–6):
+Опциональные интеграции (заполняются ПОСЛЕ создания учёток в Telegram/MAX/Kaiten — см. разделы 5–7):
 
 ```
 TG_BOT_TOKEN=…
 TG_CHAT_ID=…
+MAX_BOT_TOKEN=…
+MAX_BOT_USERNAME=msp_oblako_bot
+MAX_ALERT_CHAT_ID=…
+MAX_WEBHOOK_SECRET=…
+ALERT_CHANNELS=max,telegram
 KAITEN_DOMAIN=acme.kaiten.ru
 KAITEN_API_TOKEN=…
 KAITEN_BOARD_ID=…
@@ -298,7 +304,7 @@ BACKEND_URL=https://mspshield.ru python scripts/seed_test_lead.py
 - В **админке** (`/admin`) появятся 3 строки с `source=test`.
 - В **Kaiten** в колонке «Новая» доски «Lead Pipeline» — 3 карточки
   `[bronze|silver|gold] TEST · ООО ...`.
-- В **Telegram** (если настроен) — 3 уведомления.
+- В **Telegram** и/или **MAX** (если настроен хотя бы один канал) — 3 уведомления в каждом подключённом.
 
 ### 5.4. Удалить тестовые заявки
 
@@ -337,6 +343,22 @@ curl -H "Authorization: Bearer $KAITEN_API_TOKEN" \
 
 ---
 
+## 6б. MAX-уведомления (опционально, 3 минуты, рекомендуется для РФ)
+
+1. Скачай MAX-приложение (https://max.ru), создай аккаунт по номеру телефона.
+2. Напиши `@MasterBot` → `Создать бота` → имя `MSP Lead Bot` → username → получи `MAX_BOT_TOKEN`.
+3. Напиши своему боту `/start` — он ответит и пришлёт `user_id`. Это `MAX_ALERT_CHAT_ID`.
+4. Сгенерируй секрет вебхука: `openssl rand -hex 32` → `MAX_WEBHOOK_SECRET`.
+5. Внеси всё в `backend/.env`, перезапусти backend.
+6. **Только на prod (требуется валидный HTTPS):** `python scripts/max_setup_webhook.py` — регистрирует webhook в MAX.
+7. Отправь тестовый лид — придёт уведомление в MAX.
+
+Подробная инструкция: [`docs/MAX_SETUP.md`](MAX_SETUP.md).
+
+Алёрты Alertmanager в MAX (`POST /api/alerts/alertmanager`) работают автоматически, если `ALERT_CHANNELS` включает `max` и выставлен `ALERTMANAGER_WEBHOOK_TOKEN`.
+
+---
+
 ## 7. Универсальный CRM webhook (для не-Kaiten)
 
 Если используешь n8n / Make / Zapier / Bitrix24 inbound webhook /
@@ -363,7 +385,7 @@ POST приходит JSON-ом со всеми полями лида (см. м�
 - [ ] Бэкап Mongo в cron, тест-восстановление сделан хотя бы раз
 - [ ] Yandex Metrika / счётчик посещений установлен (если используется)
 - [ ] Kaiten бутстрап выполнен, `seed_test_lead.py` создаёт карточки
-- [ ] Telegram-бот пингует канал
+- [ ] Telegram-бот пингует канал (если включён) и/или MAX-бот пишет в ваш MAX-чат
 - [ ] `/admin` логин по `ADMIN_TOKEN` работает, JWT в localStorage держится
 - [ ] CSP не ругается в браузере (DevTools → Console)
 

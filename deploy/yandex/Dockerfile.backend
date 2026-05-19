@@ -1,0 +1,31 @@
+# ═══════════════════════════════════════════════════════════════════
+# Backend (FastAPI + Motor) образ для прод-деплоя в Yandex Cloud.
+# Билдится на VM из ../../backend контекста (см. docker-compose.yml).
+# ═══════════════════════════════════════════════════════════════════
+FROM python:3.12-slim
+
+# Системные зависимости (gcc для пары wheel-ов, если потребуется)
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      build-essential \
+      curl \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Устанавливаем зависимости из requirements.txt отдельным слоем,
+# чтобы Docker кэшировал их при изменении кода.
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Копируем код приложения
+COPY . .
+
+# uvicorn слушает 8001 локально, Caddy на хосте проксирует /api/ → 8001
+EXPOSE 8001
+
+# Healthcheck — backend подключается к MongoDB при старте, /api/health пингует БД
+HEALTHCHECK --interval=20s --timeout=5s --start-period=20s --retries=3 \
+  CMD curl -fsS http://localhost:8001/api/health || exit 1
+
+CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "2"]

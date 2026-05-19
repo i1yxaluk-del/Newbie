@@ -1,0 +1,99 @@
+# ═══════════════════════════════════════════════════════════════════
+# Caddyfile — terminate HTTPS, авто-SSL через Let's Encrypt.
+#
+# Файл устанавливается в /etc/caddy/Caddyfile скриптом setup-on-vm.sh.
+# Поле {$MSP_DOMAIN} подставляется через `caddy fmt` / env-substitution
+# при запуске Caddy (мы экспортим MSP_DOMAIN в caddy.service).
+#
+# После старта Caddy:
+#   1. Делает HTTP-01 challenge на :80 для обоих хостов
+#   2. Получает сертификат от Let's Encrypt
+#   3. Кладёт сертификат в /var/lib/caddy/.local/share/caddy
+#   4. Слушает :443 с TLS
+#   5. /api/*   → 127.0.0.1:8001 (backend)
+#      /       → /var/www/landing (фронт SPA, fallback на index.html)
+#
+# ВАЖНО: DNS A-record для домена должен указывать на public IP ВМ
+# до того как Caddy начнёт получать сертификат. Иначе ACME-challenge
+# не пройдёт. Caddy ретраит каждые 10 минут.
+# ═══════════════════════════════════════════════════════════════════
+
+# www → apex редирект (apex обрабатывается следующим блоком)
+www.{$MSP_DOMAIN} {
+    redir https://{$MSP_DOMAIN}{uri} permanent
+}
+
+# mail.{domain} — Caddy получает сертификат от Let's Encrypt,
+# Stalwart использует его (Caddy mount-ит cert-store в Stalwart-контейнер RO).
+# Сам Caddy для mail-сабдомена возвращает 404 — мы тут не хостим веб-морду
+# (админка Stalwart открывается через SSH tunnel на 127.0.0.1:8080).
+mail.{$MSP_DOMAIN} {
+    log {
+        output file /var/log/caddy/access.log {
+            roll_size 50mb
+            roll_keep 10
+        }
+    }
+    respond "MSP Cloud mail — admin only via SSH tunnel" 404
+}
+
+{$MSP_DOMAIN} {
+    # Логи в JSON для последующей агрегации (Loki / Grafana при наличии)
+    log {
+        output file /var/log/caddy/access.log {
+            roll_size 50mb
+            roll_keep 10
+            roll_keep_for 720h
+        }
+        format json
+    }
+
+    # Сжатие
+    encode zstd gzip
+
+    # Безопасные дефолты
+    header {
+        # HSTS — браузер запоминает что сайт только HTTPS на год
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        # Защита от MIME-sniffing
+        X-Content-Type-Options "nosniff"
+        # Анти-кликджекинг
+        X-Frame-Options "DENY"
+        # Контроль реферера
+        Referrer-Policy "strict-origin-when-cross-origin"
+        # Скрыть `Server: Caddy`
+        -Server
+    }
+
+    # API → backend (FastAPI uvicorn в Docker, проброшен на 127.0.0.1:8001)
+    handle /api/* {
+        reverse_proxy 127.0.0.1:8001 {
+            # Передаём реальный IP клиента
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+            transport http {
+                read_timeout 30s
+                write_timeout 30s
+            }
+        }
+    }
+
+    # Prometheus metrics — отдаём только из локальной сети VM
+    @metrics {
+        path /metrics
+        not remote_ip 127.0.0.1/8 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16
+    }
+    respond @metrics 403
+
+    handle /metrics {
+        reverse_proxy 127.0.0.1:8001
+    }
+
+    # Статика лендинга — SPA fallback на index.html для React-router
+    handle {
+        root * /var/www/landing
+        try_files {path} /index.html
+        file_server
+    }
+}

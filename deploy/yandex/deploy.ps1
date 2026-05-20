@@ -117,6 +117,22 @@ function Write-Ok   { param([string]$Text) Write-Host "  ✓ $Text" -ForegroundC
 function Write-Warn { param([string]$Text) Write-Host "  ! $Text" -ForegroundColor Yellow; Add-Content -Path $LogFile -Value "  WARN: $Text" }
 function Write-Fail { param([string]$Text) Write-Host "  ✗ $Text" -ForegroundColor Red; Add-Content -Path $LogFile -Value "  FAIL: $Text" }
 
+# Безопасное форматирование поля для рамки заголовка: усекает или паддит
+# до фиксированной ширины. Замена паттерна `" " * (W - $s.Length)` —
+# тот падает с ArgumentOutOfRangeException (parameter: times), если строка
+# оказывается длиннее ширины (а $LogFile в $env:TEMP легко выходит за 52
+# символа на типичной Windows-машине).
+function Format-BoxField {
+    param([string]$Value, [int]$Width = 52)
+    if ($null -eq $Value) { $Value = "" }
+    if ($Value.Length -gt $Width) {
+        # Хвост важнее головы для путей — оставляем "конец" со штампом времени.
+        if ($Width -le 3) { return $Value.Substring($Value.Length - $Width) }
+        return "..." + $Value.Substring($Value.Length - $Width + 3)
+    }
+    return $Value.PadRight($Width)
+}
+
 function Save-State {
     param([hashtable]$State)
     $State | ConvertTo-Json -Depth 5 | Out-File -FilePath $StateFile -Encoding utf8
@@ -139,13 +155,13 @@ Write-Host @"
   ║   МСП Облако · автоматический деплой в Yandex Cloud           ║
   ╠════════════════════════════════════════════════════════════════╣
   ║                                                                ║
-  ║   Домен:    $($Domain.PadRight(52))║
-  ║   Зона:     $($Zone.PadRight(52))║
-  ║   ВМ:       $($VmName) ($VmCores vCPU / $VmMemoryGb GB / $VmDiskGb GB SSD)$((" " * (52 - "$VmName ($VmCores vCPU / $VmMemoryGb GB / $VmDiskGb GB SSD)".Length)))║
-  ║   Тип:      $(if($Preemptible){"прерываемая (дешевле)"}else{"гарантированная"})$((" " * (52 - $(if($Preemptible){"прерываемая (дешевле)".Length}else{"гарантированная".Length}))))║
-  ║   Почта:    $(if($SkipMail){"пропущено"}else{"Stalwart (admin@/sales@/alert@)"})$((" " * (52 - $(if($SkipMail){"пропущено".Length}else{"Stalwart (admin@/sales@/alert@)".Length}))))║
+  ║   Домен:    $(Format-BoxField $Domain)║
+  ║   Зона:     $(Format-BoxField $Zone)║
+  ║   ВМ:       $(Format-BoxField "$VmName ($VmCores vCPU / $VmMemoryGb GB / $VmDiskGb GB SSD)")║
+  ║   Тип:      $(Format-BoxField $(if($Preemptible){"прерываемая (дешевле)"}else{"гарантированная"}))║
+  ║   Почта:    $(Format-BoxField $(if($SkipMail){"пропущено"}else{"Stalwart (admin@/sales@/alert@)"}))║
   ║                                                                ║
-  ║   Логи:     $($LogFile)$((" " * (52 - $LogFile.Length)))║
+  ║   Логи:     $(Format-BoxField $LogFile)║
   ║                                                                ║
   ╚════════════════════════════════════════════════════════════════╝
 

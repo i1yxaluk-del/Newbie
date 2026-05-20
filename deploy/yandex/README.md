@@ -536,41 +536,35 @@ zip-распаковщики), BOM мог быть удалён — и тогд�
     + FullyQualifiedErrorId : System.ArgumentOutOfRangeException,deploy.ps1
 ```
 
-**Причина.** Это известный баг **PSReadLine 2.x** на Windows 10 PS 5.1
-(см. PSReadLine [#468](https://github.com/PowerShell/PSReadLine/issues/468),
-[#2189](https://github.com/PowerShell/PSReadLine/issues/2189)): если скрипт
-меняет `[Console]::InputEncoding` или зовёт `chcp 65001` внутри
-интерактивной сессии PowerShell, PSReadLine теряет состояние буфера колонок
-и при ближайшей перерисовке prompt'а бросает `ArgumentOutOfRangeException`
-с параметром `times` (это `times`-параметр в `Console.Write(char, int times)`).
+**Причина (исправлена в PR #38).** Заголовок скрипта печатает
+рамку фиксированной ширины 52 символа через паттерн
+`" " * (52 - $Value.Length)`. В PowerShell оператор `*` для строк
+выкидывает `ArgumentOutOfRangeException` с именем параметра ровно
+`times`, если множитель отрицательный — а это происходит, когда
+`$Value` длиннее ширины поля. На типичной Windows-машине `$LogFile =
+$env:TEMP\msp-deploy-YYYYMMDD-HHmmss.log` ≈ 60-70 символов (особенно
+при длинном имени пользователя), что и триггерит ошибку.
 
-**Что сделано в скрипте.** Начиная с PR #37 `deploy.ps1`:
-- НЕ трогает `[Console]::InputEncoding`;
-- НЕ зовёт `chcp 65001`;
-- сохраняет прежнее значение `[Console]::OutputEncoding` и восстанавливает
-  его через `try / finally` при любом выходе из скрипта (успех, ошибка,
-  Ctrl+C).
+**Что сделано в скрипте.** Введён хелпер `Format-BoxField`, который
+безопасно паддит ИЛИ усекает строку до нужной ширины (длинные значения
+получают префикс `...` и сохранённый «хвост» — для путей это
+сохраняет timestamp в имени файла). Все 6 паттернов в заголовке
+заменены на вызов хелпера.
 
-**Если ошибка уже была хоть раз — состояние PSReadLine в текущем окне уже
-испорчено.** Закройте окно PowerShell и откройте новое:
+**Если ловите эту ошибку на старой версии `deploy.ps1`:** обновитесь
+до PR #38 (`git pull`). Никаких других обходов не нужно — фикс
+полностью на стороне скрипта.
 
-```powershell
-exit            # или просто закройте окно
-# новое окно:
-cd C:\msp\Newbie
-.\deploy\yandex\deploy.ps1
-```
-
-**Альтернативы, которые гарантированно работают:**
+**Дополнительные альтернативы запуска (на всякий случай):**
 
 ```powershell
-# 1. Без интерактивного профиля (PSReadLine не загружается):
+# 1. Без интерактивного профиля:
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\deploy\yandex\deploy.ps1
 
-# 2. Под PowerShell 7+ (PSReadLine там стабильнее):
+# 2. Под PowerShell 7+:
 pwsh -File .\deploy\yandex\deploy.ps1
 
-# 3. Из cmd.exe (не PowerShell — PSReadLine не задействован):
+# 3. Из cmd.exe:
 cmd /c "powershell.exe -ExecutionPolicy Bypass -File .\deploy\yandex\deploy.ps1"
 ```
 

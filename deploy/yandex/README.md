@@ -522,6 +522,58 @@ zip-распаковщики), BOM мог быть удалён — и тогд�
    pwsh -File .\deploy\yandex\deploy.ps1
    ```
 
+### 10.7. PowerShell: `ArgumentOutOfRangeException` / «Имя параметра: times»
+
+Симптом — парсер прошёл (BOM на месте), но скрипт всё равно падает:
+
+```
+.\deploy\yandex\deploy.ps1 : Заданный аргумент находится вне диапазона
+допустимых значений.
+Имя параметра: times
+строка:1 знак:1
++ .\deploy\yandex\deploy.ps1
+    + CategoryInfo          : OperationStopped: (:) [deploy.ps1], ArgumentOutOfRangeException
+    + FullyQualifiedErrorId : System.ArgumentOutOfRangeException,deploy.ps1
+```
+
+**Причина.** Это известный баг **PSReadLine 2.x** на Windows 10 PS 5.1
+(см. PSReadLine [#468](https://github.com/PowerShell/PSReadLine/issues/468),
+[#2189](https://github.com/PowerShell/PSReadLine/issues/2189)): если скрипт
+меняет `[Console]::InputEncoding` или зовёт `chcp 65001` внутри
+интерактивной сессии PowerShell, PSReadLine теряет состояние буфера колонок
+и при ближайшей перерисовке prompt'а бросает `ArgumentOutOfRangeException`
+с параметром `times` (это `times`-параметр в `Console.Write(char, int times)`).
+
+**Что сделано в скрипте.** Начиная с PR #37 `deploy.ps1`:
+- НЕ трогает `[Console]::InputEncoding`;
+- НЕ зовёт `chcp 65001`;
+- сохраняет прежнее значение `[Console]::OutputEncoding` и восстанавливает
+  его через `try / finally` при любом выходе из скрипта (успех, ошибка,
+  Ctrl+C).
+
+**Если ошибка уже была хоть раз — состояние PSReadLine в текущем окне уже
+испорчено.** Закройте окно PowerShell и откройте новое:
+
+```powershell
+exit            # или просто закройте окно
+# новое окно:
+cd C:\msp\Newbie
+.\deploy\yandex\deploy.ps1
+```
+
+**Альтернативы, которые гарантированно работают:**
+
+```powershell
+# 1. Без интерактивного профиля (PSReadLine не загружается):
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\deploy\yandex\deploy.ps1
+
+# 2. Под PowerShell 7+ (PSReadLine там стабильнее):
+pwsh -File .\deploy\yandex\deploy.ps1
+
+# 3. Из cmd.exe (не PowerShell — PSReadLine не задействован):
+cmd /c "powershell.exe -ExecutionPolicy Bypass -File .\deploy\yandex\deploy.ps1"
+```
+
 ---
 
 ## 11. Установка PTR-записи (обратная DNS)

@@ -1,107 +1,105 @@
 # SOP — Silver · Сторона КЛИЕНТА
-# Версия 2.0 | Апрель 2026
+# Версия 3.0 | PowerShell-first (Windows 10 admin workstation)
 # ═══════════════════════════════════════════════════════════════════
 #
-# Silver включает ВСЁ из Bronze ПЛЮС:
-#   - Promtail (сбор логов → Loki)
-#   - Puppet Agent (desired state control)
+# Silver на стороне клиента = Bronze ПЛЮС:
+#   - Promtail (сбор логов → Loki Исполнителя)
+#   - Puppet Agent (desired state)
 #   - Управление AD/DNS/GPO через согласованный контур
 #
+# Развёртывание — с Win10-станции администратора (PowerShell 5.1+).
+# На серверах клиента остаются Linux (через SSH) и Windows
+# (через PowerShell Remoting / WinRM).
 # ═══════════════════════════════════════════════════════════════════
 
 ## СОДЕРЖАНИЕ
 
+0. Предпосылки
 1. Архитектура (добавления к Bronze)
 2. Promtail — установка и конфигурация
 3. Puppet Agent — установка и регистрация
-4. AD/DNS/GPO — управление через Ansible
+4. AD/DNS/GPO — управление
 5. Верификация Silver
 6. Troubleshooting
+
+---
+
+## 0. ПРЕДПОСЫЛКИ
+
+- На Win10-станции — те же требования, что и в `SOP_client_bronze.md` §0.
+- На серверах клиента Bronze уже установлен (`node_exporter`, restic, WireGuard).
+- Сводный объект `$client` (см. Bronze §2) уже подгружен в сессию PowerShell.
+- Известны:
+  - `$client.Silver.LokiUrl`        — обычно `http://10.9.0.1:3100`
+  - `$client.Silver.PuppetServer`   — обычно `puppet-server.internal`
+  - `$client.Slug`, `$client.Name`  — для labels Loki
 
 ---
 
 ## 1. АРХИТЕКТУРА SILVER (КЛИЕНТ)
 
 ```
-СЕРВЕРЫ ЗАКАЗЧИКА                    YANDEX CLOUD (Исполнитель)
-┌───────────────────────────────┐    ┌──────────────────────────────────┐
-│ Linux-серверы                  │    │ Monitoring VM                    │
-│ ├── node_exporter   :9100 ✓   │◀──▶│ ├── Prometheus :9090             │
-│ ├── restic backup        ✓    │    │ ├── Grafana    :3000             │
-│ ├── WireGuard client     ✓    │    │ ├── Alertmanager :9093           │
-│ ├── promtail ───────────────→ │──→ │ └── Loki       :3100 ← NEW      │
-│ └── puppet_agent ──────────→  │◀──▶│                                  │
-│                               │    │ Automation VM                    │
-│ Windows-серверы               │    │ ├── Puppet Server :8140 ← NEW    │
-│ ├── windows_exporter  :9182 ✓ │◀──▶│ └── Ansible Control Node ← NEW  │
-│ ├── restic backup         ✓   │    └──────────────────────────────────┘
-│ ├── WireGuard client      ✓   │
-│ └── puppet_agent          ✓   │
-└───────────────────────────────┘
-
-Потоки данных Silver:
-  Логи:    Клиент → [promtail] → [Loki] → Grafana Explore
-  Config:  Puppet Server → [puppet_agent] → применяет desired state
-  AD/GPO:  Ansible → [WinRM] → Windows DC
+WINDOWS 10 АДМИН        СЕРВЕРЫ ЗАКАЗЧИКА                   YANDEX CLOUD (Исполнитель)
+┌──────────────┐        ┌──────────────────────────────┐    ┌──────────────────────────────────┐
+│ PowerShell   │        │ Linux                          │    │ Monitoring VM                    │
+│  ssh + scp   │ ─SSH─▶ │ ├── node_exporter   :9100 ✓    │◀──▶│ ├── Prometheus :9090             │
+│  Invoke-Cmd  │ ─WinRM▶│ ├── restic backup       ✓      │    │ ├── Grafana    :3000             │
+│  yc CLI      │        │ ├── WireGuard          ✓       │    │ ├── Alertmanager :9093           │
+└──────────────┘        │ ├── promtail ─────────────────┼────│ └── Loki :3100  ← NEW (Silver)  │
+                        │ └── puppet_agent ─────────────┼────│                                  │
+                        │                                │    │ Automation VM                    │
+                        │ Windows                        │    │ ├── Puppet Server :8140 ← NEW    │
+                        │ ├── windows_exporter :9182 ✓   │    │ └── Ansible Control       ← NEW │
+                        │ ├── restic backup        ✓     │    └──────────────────────────────────┘
+                        │ ├── WireGuard           ✓      │
+                        │ └── puppet_agent        ✓      │
+                        └──────────────────────────────┘
 ```
 
 ---
 
-## 2. PROMTAIL — СБОР ЛОГОВ (Linux)
+## 2. PROMTAIL (Linux)
 
-### 2.1 Что такое Promtail и зачем
+### 2.1. Через Ansible с Automation VM (рекомендуется)
 
-```
-Promtail = агент сбора логов для Grafana Loki.
-Работает на клиентском сервере, читает лог-файлы и
-отправляет их в Loki Исполнителя через VPN-туннель.
-
-После настройки в Grafana можно искать:
-  {client="company1"} |= "error"          — все ошибки клиента
-  {host="web-01"} |= "nginx"              — логи nginx конкретного сервера
-  {job="auth"} |= "Failed password"       — брутфорс попытки
-```
-
-### 2.2 Автоматическая установка (Ansible)
-
-```bash
-# На Ansible Control Node (Automation VM):
-ansible-playbook -i inventory/clients/CLIENT/hosts \
-  playbooks/deploy_silver.yml \
-  --tags promtail \
-  -e "client_slug=CLIENT_SLUG client_name='ООО Название'" \
-  -v
+```powershell
+ssh msp-automation @"
+cd /opt/ansible
+ansible-playbook playbooks/deploy_silver.yml \
+    -i inventory/clients/$($client.Slug)/hosts \
+    --tags promtail \
+    -e client_slug=$($client.Slug) \
+    -e client_name='$($client.Name)' -v
+"@
 ```
 
-### 2.3 Ручная установка Linux
+### 2.2. Ручная установка (если Ansible недоступен)
 
-```bash
-#!/bin/bash
-# install_promtail.sh — устанавливает Promtail на Linux-сервер
-# Запуск: sudo bash install_promtail.sh
+```powershell
+$srv         = 'srv-app-01'
+$slug        = $client.Slug
+$cname       = $client.Name
+$promtailVer = '3.0.0'
+$lokiUrl     = $client.Silver.LokiUrl
 
+$bash = @"
 set -euo pipefail
+PROMTAIL_VERSION='$promtailVer'
+LOKI_URL='$lokiUrl'
+CLIENT_SLUG='$slug'
+CLIENT_NAME='$cname'
+HOST=\$(hostname -s)
 
-PROMTAIL_VERSION="${PROMTAIL_VERSION:-3.0.0}"
-LOKI_URL="${LOKI_URL:-http://10.9.0.1:3100}"  # IP Bastion через VPN
-CLIENT_SLUG="${CLIENT_SLUG:-unknown}"
-CLIENT_NAME="${CLIENT_NAME:-Unknown Client}"
-HOSTNAME_SHORT=$(hostname -s)
+# Скачать promtail
+ARCH=linux-amd64
+curl -sSL "https://github.com/grafana/loki/releases/download/v\${PROMTAIL_VERSION}/promtail-\${ARCH}.zip" -o /tmp/promtail.zip
+unzip -q /tmp/promtail.zip -d /tmp/
+sudo install -m 0755 "/tmp/promtail-\${ARCH}" /usr/local/bin/promtail
+rm -rf /tmp/promtail*
 
-# ── Скачать promtail ──────────────────────────────────────────────
-ARCH="linux-amd64"
-URL="https://github.com/grafana/loki/releases/download/v${PROMTAIL_VERSION}/promtail-${ARCH}.zip"
-TMP=$(mktemp -d)
-
-echo "Скачиваю promtail v${PROMTAIL_VERSION}..."
-curl -sSL "$URL" -o "${TMP}/promtail.zip"
-unzip -q "${TMP}/promtail.zip" -d "${TMP}/"
-install -m 0755 "${TMP}/promtail-${ARCH}" /usr/local/bin/promtail
-rm -rf "${TMP}"
-
-# ── Конфигурация ──────────────────────────────────────────────────
-mkdir -p /etc/promtail
-cat > /etc/promtail/config.yml << EOF
+# Конфиг
+sudo mkdir -p /etc/promtail /var/lib/promtail
+sudo tee /etc/promtail/config.yml >/dev/null << EOF
 server:
   http_listen_port: 9080
   grpc_listen_port: 0
@@ -111,85 +109,56 @@ positions:
   filename: /var/lib/promtail/positions.yaml
 
 clients:
-  - url: ${LOKI_URL}/loki/api/v1/push
-    tenant_id: ${CLIENT_SLUG}
+  - url: \${LOKI_URL}/loki/api/v1/push
+    tenant_id: \${CLIENT_SLUG}
     backoff_config:
       min_period: 500ms
       max_period: 5m
       max_retries: 10
 
 scrape_configs:
-
-  # ── Системные логи ─────────────────────────────────────────────
-  - job_name: system
+  - job_name: varlog
     static_configs:
       - targets: [localhost]
         labels:
           job: varlog
-          host: "${HOSTNAME_SHORT}"
-          client: "${CLIENT_SLUG}"
-          client_name: "${CLIENT_NAME}"
-    pipeline_stages:
-      - multiline:
-          firstline: '^\d{4}-\d{2}-\d{2}'
-          max_wait_time: 3s
-    static_configs:
-      - targets: [localhost]
-        labels:
-          job: varlog
+          host: \${HOST}
+          client: \${CLIENT_SLUG}
+          client_name: '\${CLIENT_NAME}'
           __path__: /var/log/syslog
 
-  # ── Логи аутентификации (SSH, sudo) ───────────────────────────
   - job_name: auth
     static_configs:
       - targets: [localhost]
         labels:
           job: auth
-          host: "${HOSTNAME_SHORT}"
-          client: "${CLIENT_SLUG}"
+          host: \${HOST}
+          client: \${CLIENT_SLUG}
           __path__: /var/log/auth.log
 
-  # ── Логи Nginx (если установлен) ─────────────────────────────
   - job_name: nginx
     static_configs:
       - targets: [localhost]
         labels:
           job: nginx
-          host: "${HOSTNAME_SHORT}"
-          client: "${CLIENT_SLUG}"
+          host: \${HOST}
+          client: \${CLIENT_SLUG}
           __path__: /var/log/nginx/*.log
-    pipeline_stages:
-      - match:
-          selector: '{job="nginx"}'
-          stages:
-            - regex:
-                expression: '^(?P<remote_addr>\S+) - (?P<remote_user>\S+) \[(?P<time_local>[^\]]+)\] "(?P<method>\S+) (?P<request>[^"]+)" (?P<status>\d+) (?P<body_bytes_sent>\d+)'
-            - labels:
-                status:
-                method:
-            - metrics:
-                nginx_requests_total:
-                  type: Counter
-                  description: "Total number of nginx requests"
-                  source: status
 
-  # ── Логи PostgreSQL (если установлен) ─────────────────────────
   - job_name: postgresql
     static_configs:
       - targets: [localhost]
         labels:
           job: postgresql
-          host: "${HOSTNAME_SHORT}"
-          client: "${CLIENT_SLUG}"
+          host: \${HOST}
+          client: \${CLIENT_SLUG}
           __path__: /var/log/postgresql/*.log
 EOF
 
-# ── Создать директорию для positions ─────────────────────────────
-mkdir -p /var/lib/promtail
-chown nobody:nogroup /var/lib/promtail 2>/dev/null || true
+sudo chown -R nobody:nogroup /var/lib/promtail 2>/dev/null || true
 
-# ── Systemd unit ──────────────────────────────────────────────────
-cat > /etc/systemd/system/promtail.service << 'EOF'
+# Systemd
+sudo tee /etc/systemd/system/promtail.service >/dev/null << 'EOF'
 [Unit]
 Description=Promtail Log Shipper
 After=network-online.target
@@ -200,278 +169,237 @@ Type=simple
 ExecStart=/usr/local/bin/promtail -config.file=/etc/promtail/config.yml
 Restart=on-failure
 RestartSec=5s
-StandardOutput=journal
-StandardError=journal
 SyslogIdentifier=promtail
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-systemctl daemon-reload
-systemctl enable --now promtail
+sudo ufw allow from 10.9.0.0/24 to any port 9080 proto tcp comment 'promtail HTTP' || true
 
-echo "✓ Promtail установлен и запущен"
-echo "  Проверка: curl -s http://localhost:9080/ready"
-echo "  Логи: journalctl -u promtail -f"
+sudo systemctl daemon-reload
+sudo systemctl enable --now promtail
+sudo systemctl --no-pager status promtail | head -10
+curl -fsS http://localhost:9080/ready
+"@
+$bash | ssh root@$srv bash -s
 ```
 
 ---
 
-## 3. PUPPET AGENT — DESIRED STATE (Linux/Windows)
+## 3. PUPPET AGENT (Linux + Windows)
 
-### 3.1 Концепция Puppet в MSP
+### 3.1. Концепция
 
-```
-БЕЗ PUPPET:                    С PUPPET:
-Сервер настроен → OK           Puppet Agent проверяет каждые 30 мин
-Кто-то изменил → drift         Если изменили → вернёт к эталону
-Обнаружим случайно             Автоматически фиксирует отклонения
+| Без Puppet                          | С Puppet                                  |
+|-------------------------------------|--------------------------------------------|
+| Настроили → надеемся, что не сломают | Каждые 30 мин проверяется desired state    |
+| Drift замечаем случайно              | Drift фиксируется, при необходимости откатывается |
 
-Что контролирует Puppet:
-  ✓ /etc/ssh/sshd_config      — SSH настройки (не допустить небезопасных)
-  ✓ sysctl параметры          — сетевая безопасность ядра
-  ✓ fail2ban конфигурация     — защита от брутфорса
-  ✓ systemd services          — агенты мониторинга не должны быть отключены
-  ✓ /etc/resolv.conf          — DNS настройки (Yandex DNS для РФ)
-  ✓ /etc/ntp.conf             — синхронизация времени
-```
+Что фиксируется на клиенте:
+- `/etc/ssh/sshd_config` — небезопасные опции возвращаются к baseline.
+- `sysctl` — сетевая безопасность ядра.
+- `fail2ban` — конфиг и сервис.
+- systemd-юниты `node_exporter`, `restic-backup.timer`, `promtail`.
+- `/etc/resolv.conf`, `/etc/ntp.conf`.
 
-### 3.2 Установка Puppet Agent (Linux)
+### 3.2. Linux — установка через PowerShell + SSH
 
-```bash
-#!/bin/bash
-# install_puppet_agent.sh
-# Переменные: PUPPET_SERVER, CLIENT_CERTNAME
+```powershell
+$srv     = 'srv-app-01'
+$pserver = $client.Silver.PuppetServer
+$cname   = "$srv.$($client.Slug).internal"
 
+$bash = @"
 set -euo pipefail
+PUPPET_SERVER='$pserver'
+CERTNAME='$cname'
 
-PUPPET_SERVER="${PUPPET_SERVER:-puppet-server.internal}"
-CLIENT_CERTNAME="${CLIENT_CERTNAME:-$(hostname -f)}"
+CODENAME=\$(lsb_release -cs)
+wget -qO /tmp/puppet8-release.deb "https://apt.puppetlabs.com/puppet8-release-\${CODENAME}.deb"
+sudo dpkg -i /tmp/puppet8-release.deb
+sudo apt-get update -q
+sudo apt-get install -y puppet-agent
 
-echo "Устанавливаю Puppet Agent..."
-echo "Puppet Server: $PUPPET_SERVER"
-echo "Certname: $CLIENT_CERTNAME"
-
-# ── Добавить репозиторий ──────────────────────────────────────────
-CODENAME=$(lsb_release -cs 2>/dev/null || echo "jammy")
-wget -qO /tmp/puppet8-release.deb \
-    "https://apt.puppetlabs.com/puppet8-release-${CODENAME}.deb"
-dpkg -i /tmp/puppet8-release.deb
-apt-get update -q
-rm /tmp/puppet8-release.deb
-
-# ── Установка ─────────────────────────────────────────────────────
-apt-get install -y puppet-agent
-
-# ── Конфигурация ──────────────────────────────────────────────────
-cat > /etc/puppetlabs/puppet/puppet.conf << EOF
+sudo tee /etc/puppetlabs/puppet/puppet.conf >/dev/null << EOF
 [main]
-certname = ${CLIENT_CERTNAME}
-server   = ${PUPPET_SERVER}
+certname = \${CERTNAME}
+server   = \${PUPPET_SERVER}
 
 [agent]
-runinterval    = 1800    # 30 минут
-report         = true
-splay          = true    # Случайная задержка (не все клиенты сразу)
-splaylimit     = 300     # До 5 минут случайной задержки
-usecacheonfailure = true # Применять последний известный каталог при недоступности сервера
+runinterval       = 1800
+report            = true
+splay             = true
+splaylimit        = 300
+usecacheonfailure = true
 EOF
 
-# ── Первый запуск (запрос сертификата) ───────────────────────────
-echo ""
-echo "Запрашиваю сертификат у Puppet Server..."
+# Первый запуск — запрос сертификата (ОК если падает: ждёт подписи)
 /opt/puppetlabs/bin/puppet agent --test --waitforcert 60 || true
 
-echo ""
-echo "✓ Puppet Agent установлен"
-echo ""
-echo "На Puppet Server выполнить:"
-echo "  puppetserver ca sign --certname ${CLIENT_CERTNAME}"
-echo ""
-echo "Затем проверить: puppet agent --test --verbose"
+echo "Подпишите на Automation VM:"
+echo "  ssh msp-automation 'sudo puppetserver ca sign --certname \${CERTNAME}'"
+"@
+$bash | ssh root@$srv bash -s
+
+# Подписать сертификат с Win10 одной командой:
+ssh msp-automation "sudo puppetserver ca sign --certname $cname"
+ssh root@$srv "/opt/puppetlabs/bin/puppet agent --test --verbose | tail -20"
 ```
 
-### 3.3 Установка Puppet Agent (Windows)
+### 3.3. Windows — установка через Invoke-Command
 
 ```powershell
-# install_puppet_agent.ps1
-param(
-    [string]$PuppetServer  = "puppet-server.internal",
-    [string]$PuppetVersion = "8.5.0"
-)
+$srv     = 'WIN-AD01'
+$cred    = Get-Credential -UserName "$srv\Administrator"
+$pserver = $client.Silver.PuppetServer
+$pver    = '8.5.0'
 
-$AgentUrl = "https://downloads.puppetlabs.com/windows/puppet8/puppet-agent-${PuppetVersion}-x64.msi"
-$MsiPath  = "$env:TEMP\puppet-agent.msi"
+Invoke-Command -ComputerName $srv -Credential $cred -ScriptBlock {
+    param($PuppetServer, $PuppetVersion)
+    $url = "https://downloads.puppetlabs.com/windows/puppet8/puppet-agent-${PuppetVersion}-x64.msi"
+    $msi = "$env:TEMP\puppet-agent.msi"
+    Invoke-WebRequest -Uri $url -OutFile $msi -UseBasicParsing
 
-Write-Host "Скачиваю Puppet Agent v${PuppetVersion}..."
-Invoke-WebRequest -Uri $AgentUrl -OutFile $MsiPath -UseBasicParsing
+    $cert = $env:COMPUTERNAME.ToLower() + ".clients.internal"
+    Start-Process msiexec.exe -ArgumentList @(
+        '/i', $msi, '/quiet', '/norestart',
+        "PUPPET_MASTER_SERVER=$PuppetServer",
+        "PUPPET_AGENT_CERTNAME=$cert"
+    ) -Wait
 
-$Certname = $env:COMPUTERNAME.ToLower() + ".clients.internal"
+    & 'C:\Program Files\Puppet Labs\Puppet\bin\puppet.bat' agent --test --waitforcert 60 2>&1 |
+        Select-Object -First 25
+    Remove-Item $msi -Force
+    Write-Output "Cert request submitted for $cert"
+} -ArgumentList $pserver, $pver
 
-Write-Host "Устанавливаю..."
-Start-Process msiexec.exe -ArgumentList @(
-    "/i", $MsiPath,
-    "/quiet",
-    "/norestart",
-    "PUPPET_MASTER_SERVER=$PuppetServer",
-    "PUPPET_AGENT_CERTNAME=$Certname"
-) -Wait
-
-# Добавить в PATH
-$env:Path += ";C:\Program Files\Puppet Labs\Puppet\bin"
-
-# Запросить сертификат
-Write-Host "Запрашиваю сертификат..."
-& puppet agent --test --waitforcert 60 2>&1 | Select-Object -First 20
-
-Write-Host ""
-Write-Host "На Puppet Server выполнить:"
-Write-Host "  puppetserver ca sign --certname $Certname"
-
-Remove-Item $MsiPath -Force
+# Подписать с Win10
+$cert = "$($srv.ToLower()).clients.internal"
+ssh msp-automation "sudo puppetserver ca sign --certname $cert"
 ```
 
 ---
 
-## 4. AD/DNS/GPO — УПРАВЛЕНИЕ
+## 4. AD/DNS/GPO
 
-### 4.1 Что входит в Silver (границы)
+### 4.1. Что входит в Silver
 
-```
-ВХОДИТ:
-✓ Мониторинг репликации AD
-✓ Мониторинг статуса контроллеров домена
-✓ Добавление/удаление пользователей (стандарт)
-✓ Управление членством в группах безопасности
-✓ Типовые GPO (парольная политика, экран блокировки, аудит)
-✓ Мониторинг DNS (доступность, задержки)
-✓ Контроль обновлений Windows через GPO/WSUS
+В тариф **входит**:
+- мониторинг репликации AD и статуса DC;
+- стандартные операции с пользователями и группами;
+- типовые GPO (парольная политика, экран блокировки, аудит);
+- мониторинг DNS;
+- управление WSUS/Windows Update через GPO.
 
-НЕ ВХОДИТ (требует отдельного соглашения):
-✗ Проектирование новой AD-структуры
-✗ Миграция доменов или лесов
-✗ Exchange/Hybrid AD настройки
-✗ Azure AD Connect
-✗ Более 3 нестандартных GPO в месяц
-```
+В тариф **не входит** (отдельное соглашение):
+- проектирование новой структуры AD/леса;
+- миграции доменов/лесов;
+- Exchange Hybrid / Azure AD Connect;
+- более 3 нестандартных GPO в месяц.
 
-### 4.2 Типовые GPO (шаблоны для клиентов)
+### 4.2. Типовые GPO — выполняется на Domain Controller через WinRM
 
 ```powershell
-# gpо_baseline.ps1 — Создание базовых политик безопасности
-# Запускать от Domain Admin
+$dc   = 'WIN-DC01'
+$cred = Get-Credential -UserName 'CORP\msp-admin' -Message 'Domain Admin for GPO'
 
-# ── 1. Парольная политика ─────────────────────────────────────────
-# Применяется через Fine-Grained Password Policy (FGPP)
-# или через Default Domain Policy
+Invoke-Command -ComputerName $dc -Credential $cred -ScriptBlock {
+    Import-Module ActiveDirectory, GroupPolicy
 
-$DomainPath = (Get-ADDomain).DistinguishedName
+    $DomainPath = (Get-ADDomain).DistinguishedName
+    $Domain     = $env:USERDOMAIN
 
-# Настроить Default Domain Policy (минимальные требования)
-Set-ADDefaultDomainPasswordPolicy -Identity $env:USERDOMAIN `
-    -MinPasswordLength 12 `
-    -MaxPasswordAge (New-TimeSpan -Days 90) `
-    -MinPasswordAge (New-TimeSpan -Days 1) `
-    -PasswordHistoryCount 12 `
-    -ComplexityEnabled $true `
-    -ReversibleEncryptionEnabled $false
+    # ── Парольная политика ───────────────────────────────────────
+    Set-ADDefaultDomainPasswordPolicy -Identity $Domain `
+        -MinPasswordLength 12 `
+        -MaxPasswordAge (New-TimeSpan -Days 90) `
+        -MinPasswordAge (New-TimeSpan -Days 1) `
+        -PasswordHistoryCount 12 `
+        -ComplexityEnabled $true `
+        -ReversibleEncryptionEnabled $false
 
-# ── 2. Политика блокировки аккаунта ──────────────────────────────
-Set-ADDefaultDomainPasswordPolicy -Identity $env:USERDOMAIN `
-    -LockoutDuration (New-TimeSpan -Minutes 30) `
-    -LockoutObservationWindow (New-TimeSpan -Minutes 30) `
-    -LockoutThreshold 5
+    # ── Lockout ─────────────────────────────────────────────────
+    Set-ADDefaultDomainPasswordPolicy -Identity $Domain `
+        -LockoutDuration            (New-TimeSpan -Minutes 30) `
+        -LockoutObservationWindow   (New-TimeSpan -Minutes 30) `
+        -LockoutThreshold           5
 
-Write-Host "✓ Парольная политика настроена"
+    # ── GPO: Security Baseline ─────────────────────────────────
+    if (-not (Get-GPO -Name 'MSP-Security-Baseline' -ErrorAction SilentlyContinue)) {
+        $gpo = New-GPO -Name 'MSP-Security-Baseline'
+        New-GPLink -Name 'MSP-Security-Baseline' -Target $DomainPath -Enforced Yes
+    }
 
-# ── 3. GPO: Аудит событий ────────────────────────────────────────
-# Через Group Policy Management Console (GPMC) или PowerShell:
+    # ── GPO: Screen Lock ───────────────────────────────────────
+    if (-not (Get-GPO -Name 'MSP-ScreenLock' -ErrorAction SilentlyContinue)) {
+        $lock = New-GPO -Name 'MSP-ScreenLock'
+        Set-GPRegistryValue -Name 'MSP-ScreenLock' `
+            -Key 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Personalization' `
+            -ValueName 'NoLockScreen' -Type DWord -Value 0
+        New-GPLink -Name 'MSP-ScreenLock' -Target $DomainPath
+    }
+    Write-Output "GPO baseline applied for $Domain"
+}
+```
 
-# Создать GPO для аудита
-$gpo = New-GPO -Name "MSP-Security-Baseline"
+---
 
-# Настроить аудит входов (для анализа в Loki/Wazuh)
-$gpoGuid = $gpo.Id.Guid
-$settings = @{
-    "AuditLogon"           = "Success, Failure"
-    "AuditAccountLogon"    = "Success, Failure"
-    "AuditObjectAccess"    = "Failure"
-    "AuditPrivilegeUse"    = "Failure"
-    "AuditProcessTracking" = "Failure"
-    "AuditPolicyChange"    = "Success, Failure"
-    "AuditAccountManagement" = "Success, Failure"
+## 5. ВЕРИФИКАЦИЯ SILVER
+
+PowerShell-обёртка, использующая `Test-MspBronzeClient` из Bronze SOP плюс Silver-проверки:
+
+```powershell
+function Test-MspSilverClient {
+    param([Parameter(Mandatory)]$Client)
+
+    Test-MspBronzeClient -Client $Client | Out-Null
+
+    foreach ($s in $Client.Servers) {
+        Write-Host "`n=== Silver checks · $($s.Host) ($($s.OS)) ===" -ForegroundColor Cyan
+
+        if ($s.OS -eq 'linux') {
+            $check = @'
+echo -n "promtail active ........ "
+systemctl is-active --quiet promtail && echo OK || echo FAIL
+
+echo -n "promtail HTTP /ready ... "
+curl -fsS --max-time 5 http://localhost:9080/ready | grep -q ready && echo OK || echo FAIL
+
+echo -n "puppet agent active .... "
+systemctl is-active --quiet puppet && echo OK || echo FAIL
+
+echo -n "puppet last run <40 min: "
+last=$(stat -c %Y /opt/puppetlabs/puppet/cache/state/last_run_summary.yaml 2>/dev/null || echo 0)
+elapsed=$(( $(date +%s) - last ))
+[ "$elapsed" -lt 2400 ] && echo "OK (${elapsed}s)" || echo "STALE (${elapsed}s)"
+'@
+            $check | ssh root@$($s.Host) bash -s
+        }
+        else {
+            $cred = Get-Credential -UserName "$($s.Host)\Administrator" -Message "WinRM creds"
+            Invoke-Command -ComputerName $s.Host -Credential $cred -ScriptBlock {
+                @{
+                    'Puppet service' = (Get-Service puppet -ErrorAction SilentlyContinue).Status
+                    'Puppet last run'= (Get-Item 'C:\ProgramData\PuppetLabs\puppet\cache\state\last_run_summary.yaml' -ErrorAction SilentlyContinue).LastWriteTime
+                }
+            } | Format-Table -AutoSize
+        }
+    }
 }
 
-# Привязать GPO к домену
-New-GPLink -Name "MSP-Security-Baseline" -Target $DomainPath -Enforced Yes
-
-Write-Host "✓ GPO MSP-Security-Baseline создан и привязан"
-
-# ── 4. GPO: Экран блокировки ─────────────────────────────────────
-$LockGpo = New-GPO -Name "MSP-ScreenLock"
-# Блокировка через 15 минут бездействия
-Set-GPRegistryValue -Name "MSP-ScreenLock" `
-    -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\Personalization" `
-    -ValueName "NoLockScreen" `
-    -Type DWord `
-    -Value 0
-
-New-GPLink -Name "MSP-ScreenLock" -Target $DomainPath
-
-Write-Host "✓ GPO MSP-ScreenLock создан"
+Test-MspSilverClient -Client $client
 ```
 
 ---
 
-## 5. ВЕРИФИКАЦИЯ SILVER CLIENT
+## 6. TROUBLESHOOTING
 
-```bash
-#!/bin/bash
-echo "=== ВЕРИФИКАЦИЯ SILVER CLIENT ==="
-echo "Сервер: $(hostname) | Дата: $(date)"
-
-# ── Bronze checks ─────────────────────────────────────────────────
-echo ""
-echo "─── Bronze компоненты ───"
-echo -n "  WireGuard VPN... "
-sudo wg show wg0-msp &>/dev/null && echo "✅ OK" || echo "❌ FAIL"
-
-echo -n "  node_exporter... "
-curl -s --max-time 5 http://localhost:9100/metrics | head -1 | grep -q "^#" && echo "✅ OK" || echo "❌ FAIL"
-
-echo -n "  Restic timer... "
-systemctl is-active restic-backup.timer &>/dev/null && echo "✅ OK" || echo "❌ FAIL"
-
-# ── Silver checks ─────────────────────────────────────────────────
-echo ""
-echo "─── Silver компоненты ───"
-echo -n "  Promtail service... "
-systemctl is-active promtail &>/dev/null && echo "✅ OK" || echo "❌ FAIL"
-
-echo -n "  Promtail → Loki... "
-curl -s --max-time 5 http://localhost:9080/ready | grep -q "ready" && echo "✅ OK" || echo "❌ FAIL"
-
-echo -n "  Puppet Agent service... "
-systemctl is-active puppet &>/dev/null && echo "✅ OK" || echo "❌ FAIL"
-
-echo -n "  Puppet last run (< 40 мин назад)... "
-LAST_RUN=$(stat -c %Y /opt/puppetlabs/puppet/cache/state/last_run_summary.yaml 2>/dev/null || echo 0)
-ELAPSED=$(( $(date +%s) - LAST_RUN ))
-[ "$ELAPSED" -lt 2400 ] && echo "✅ OK (${ELAPSED}с назад)" || echo "⚠️ ДАВНО (${ELAPSED}с назад)"
-
-echo ""
-echo "=== ВЕРИФИКАЦИЯ ЗАВЕРШЕНА ==="
-```
-
----
-
-## 6. TROUBLESHOOTING SILVER
-
-| Проблема | Диагностика | Решение |
-|---|---|---|
-| Promtail не отправляет логи | `journalctl -u promtail -n 50` | Проверить VPN (доступен 10.9.0.1:3100?), `curl -s http://10.9.0.1:3100/ready` |
-| Positions застрял | `cat /var/lib/promtail/positions.yaml` | Удалить positions.yaml, перезапустить promtail |
-| Puppet не применяет каталог | `puppet agent --test --verbose 2>&1 \| tail -30` | Проверить сертификат: `puppet ssl verify`, возможно нужно пересоздать |
-| Puppet сертификат устарел | `puppet ssl show` | `puppet ssl clean`, перезапросить у сервера |
-| GPO не применяются | `gpresult /r /scope computer` | `gpupdate /force`, проверить DNS, репликацию AD |
+| Проблема                          | Диагностика (с Win10)                                             | Решение                                                                                |
+|-----------------------------------|--------------------------------------------------------------------|-----------------------------------------------------------------------------------------|
+| Promtail не шлёт логи             | `ssh root@srv 'journalctl -u promtail -n 50'`                      | Проверить VPN; `ssh root@srv 'curl -fsS http://10.9.0.1:3100/ready'`                   |
+| `positions.yaml` застрял          | `ssh root@srv 'cat /var/lib/promtail/positions.yaml'`              | `ssh root@srv 'sudo rm /var/lib/promtail/positions.yaml; sudo systemctl restart promtail'` |
+| Puppet не применяет каталог       | `ssh root@srv 'sudo puppet agent --test --verbose 2>&1 \| tail -30'` | Проверить сертификат: `ssh msp-automation 'sudo puppetserver ca list --all'`          |
+| Puppet сертификат устарел         | `ssh root@srv 'sudo puppet ssl show'`                              | `ssh root@srv 'sudo puppet ssl clean'`, затем заново запросить                          |
+| Puppet Agent (Windows) не работает | `Invoke-Command -ComputerName $srv ... { Get-Service puppet }`     | `Invoke-Command ... { & 'C:\Program Files\Puppet Labs\Puppet\bin\puppet.bat' agent --test }` |
+| GPO не применяется                | `Invoke-Command ... { gpresult /h C:\gpr.html ; Get-Content C:\gpr.html }` | `gpupdate /force` на DC и клиенте; проверить link и Enforced флаг                 |

@@ -41,16 +41,31 @@ services:
       mongo:
         condition: service_healthy
 
-  # ─── Stalwart Mail Server ─────────────────────────────────────────
+  # ─── Stalwart Mail Server (relay/submit-only режим) ──────────────
   # Документация: https://stalw.art/docs/install/platform/docker/
-  # Порты:
-  #   25    — SMTP MX (приём почты от других серверов)
-  #   465   — SMTPS submission (Outlook/Thunderbird шлют ИСХОДЯЩИЕ)
-  #   587   — STARTTLS submission (Grafana/Wazuh шлют АЛЕРТЫ)
-  #   143   — IMAP (deprecated, но Outlook любит)
-  #   993   — IMAPS (стандартное чтение почты клиентами)
+  #
+  # ВАЖНО · Yandex Cloud блокирует TCP/25 на публичных IP VPC:
+  #   Исходящий трафик с публичных IP VPC на TCP/25 автоматически
+  #   блокируется (анти-спам). Получить адрес с открытым :25 в YC
+  #   сейчас технически невозможно. Поэтому Stalwart работает в
+  #   submit-only режиме: только 465/587 для отправки + 143/993 для
+  #   чтения локальных ящиков. Inbound MX-приём почты к нашему IP
+  #   не работает — внешний MX-провайдер (Yandex 360 для бизнеса,
+  #   Mail.ru для бизнеса, Mailgun routes) принимает почту и
+  #   forwards на наш :587. Полное руководство: STALWART_RELAY_MODE.md
+  #
+  # Активные порты:
+  #   465   — SMTPS submission (implicit TLS) — клиенты шлют ИСХОДЯЩЕЕ
+  #   587   — STARTTLS submission — Grafana/Wazuh/Alertmanager шлют АЛЕРТЫ
+  #   143   — IMAP STARTTLS (для legacy клиентов)
+  #   993   — IMAPS (TLS) — основное чтение ящиков
   #   4190  — ManageSieve (фильтры на сервере)
   #   8080  — Admin WebUI (БЕЗ публичного выхода — bind на 127.0.0.1, SSH tunnel)
+  #
+  # Закрыто (заблокировано Yandex Cloud):
+  #   25    — НЕ открываем. Outgoing к чужим :25 всё равно режется YC.
+  #           Outbound идёт через smarthost (Yandex 360 / Mailgun / Brevo)
+  #           на их :465 или :587 (настраивается в Stalwart admin UI).
   #
   # TLS-сертификаты для mail.<domain> Caddy получает у Let's Encrypt и
   # Stalwart читает их через bind-mount /var/lib/caddy → /etc/stalwart-certs:ro
@@ -69,8 +84,8 @@ services:
       # Stalwart автоматически подхватывает новые (watch на mtime файлов).
       - /var/lib/caddy:/etc/stalwart-certs:ro
     ports:
-      # MX / Submission / IMAP — публично на всех интерфейсах
-      - "25:25"
+      # Submission / IMAP — публично на всех интерфейсах.
+      # Порт 25 НЕ открываем (см. комментарий выше — YC блокирует).
       - "465:465"
       - "587:587"
       - "143:143"

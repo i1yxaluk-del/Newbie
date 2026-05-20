@@ -1,175 +1,257 @@
 # SOP — Bronze · Сторона ИСПОЛНИТЕЛЯ
-# Версия 2.0 | Апрель 2026
+# Версия 3.0 | PowerShell-first (Windows 10 admin workstation)
 # ═══════════════════════════════════════════════════════════════════
 #
 # Документ описывает ВСЁ, что разворачивается на стороне ИСПОЛНИТЕЛЯ
 # для обеспечения тарифа Bronze (и является фундаментом для Silver/Gold).
 #
-# Всё работает в Yandex Cloud (ru-central1), единая VM или разнесено.
+# Архитектура (без изменений):
+#   - Рабочая станция администратора: Windows 10 / 11 + PowerShell
+#   - Cloud-площадка: Yandex Cloud (ru-central1), Ubuntu 22.04 LTS VM
+#   - Клиенты: Linux/Windows, подключаются по WireGuard
+#
+# Все блоки бывают двух типов:
+#   • PowerShell (` ```powershell `) — выполняются на Win10 ноутбуке.
+#   • Bash (` ```bash `) — выполняются на Ubuntu VM (через SSH-сессию,
+#     которую открывает PowerShell). Bash-блоки запускаются либо после
+#     `ssh ubuntu@$VmIp`, либо через here-string `$bash | ssh ... bash -s`.
 # ═══════════════════════════════════════════════════════════════════
 
 ## СОДЕРЖАНИЕ
 
+0. Рабочая станция администратора (Windows 10)
 1. Архитектура Исполнителя
-2. Развёртывание VM в Yandex Cloud
-3. Базовая настройка ОС
+2. Развёртывание VM в Yandex Cloud (из PowerShell)
+3. Базовая настройка ОС (Ubuntu VM)
 4. WireGuard Bastion Server
 5. Docker Compose — Мониторинг стек
-6. Добавление клиента (скрипт)
+6. Добавление клиента (PowerShell-обёртка + bash-скрипт на VM)
 7. Еженедельный отчёт
 8. Обслуживание и мониторинг стека
+
+---
+
+## 0. РАБОЧАЯ СТАНЦИЯ АДМИНИСТРАТОРА (Windows 10)
+
+### 0.1. Что должно быть установлено
+
+| Компонент          | Источник                                                | Проверка                         |
+|--------------------|----------------------------------------------------------|----------------------------------|
+| Windows            | 10 build 1803+ / Windows 11                              | `winver`                         |
+| PowerShell         | 5.1 (встроен) или 7+ (`winget install Microsoft.PowerShell`) | `$PSVersionTable.PSVersion`      |
+| OpenSSH Client     | Встроен в Win10 1803+ (`Settings → Apps → Optional features`) | `Get-Command ssh`                |
+| `yc` CLI           | См. §0.3                                                 | `yc version`                     |
+| Git for Windows    | `winget install Git.Git`                                 | `git --version`                  |
+| tar                | Встроен в Win10 17063+                                   | `tar --version`                  |
+
+### 0.2. Профиль PowerShell и кодировка
+
+Русские/UTF-8 символы в выводе требуют корректной кодировки консоли — иначе
+получите `вњ“`, `вЊ©` и `ArgumentOutOfRangeException` в скриптах:
+
+```powershell
+# Один раз — в $PROFILE
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
+# Проверка
+[Console]::OutputEncoding.CodePage   # должно быть 65001
+```
+
+Откройте профиль:
+```powershell
+if (-not (Test-Path $PROFILE)) { New-Item -ItemType File -Path $PROFILE -Force }
+notepad $PROFILE
+```
+
+### 0.3. Установка `yc` CLI на Windows
+
+```powershell
+# Через PowerShell (официальный installer Яндекса для Windows)
+Invoke-WebRequest -Uri "https://storage.yandexcloud.net/yandexcloud-yc/install.ps1" `
+    -OutFile "$env:TEMP\yc-install.ps1"
+& powershell -ExecutionPolicy Bypass -File "$env:TEMP\yc-install.ps1"
+
+# Перезапустить PowerShell-сессию, затем проверить:
+yc version
+yc init   # OAuth-авторизация в браузере
+yc config list
+```
+
+### 0.4. SSH-ключ для управления VM
+
+```powershell
+# Ключ для управления Yandex Cloud VM
+$SshKeyDir = "$env:USERPROFILE\.ssh"
+if (-not (Test-Path $SshKeyDir)) { New-Item -ItemType Directory -Path $SshKeyDir -Force }
+
+ssh-keygen -t ed25519 -f "$SshKeyDir\id_ed25519_yc" -N '""' -C "msp-admin@$env:COMPUTERNAME"
+
+# Публичный ключ — будем класть в `--ssh-key` при создании VM
+Get-Content "$SshKeyDir\id_ed25519_yc.pub"
+```
+
+### 0.5. Шаблон рабочих переменных (положить в $PROFILE)
+
+```powershell
+# Постоянные переменные сессии — для всех команд ниже
+$Env:MSP_FOLDER_ID = "<folder-id-из-yc-config-list>"
+$Env:MSP_ZONE      = "ru-central1-a"
+$Env:MSP_SSH_KEY   = "$env:USERPROFILE\.ssh\id_ed25519_yc"
+$Env:MSP_VM_NAME   = "msp-monitoring"
+
+# Helper-функция: открыть SSH в управляющую VM
+function msp-ssh { ssh -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP @args }
+
+# Helper: выполнить bash-блок на VM через here-string
+function msp-bash {
+    param([Parameter(Mandatory)][string]$Script)
+    $Script | ssh -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP bash -s
+}
+```
 
 ---
 
 ## 1. АРХИТЕКТУРА
 
 ```
-YANDEX CLOUD ru-central1-a
-┌───────────────────────────────────────────────────────────────┐
-│ msp-all-in-one VM (для старта: burst 5%, 2vCPU, 4GB, 40GB)  │
-│                                                               │
-│ ┌─────────────────────────────────────────────────────────┐  │
-│ │ Docker Compose (profile: monitoring)                    │  │
-│ │ ├── Prometheus    :9090  ← scrapes client exporters     │  │
-│ │ ├── Alertmanager  :9093  ← routes alerts to Telegram    │  │
-│ │ ├── Grafana       :3000  ← dashboards (не открыт наружу)│  │
-│ │ ├── node-exporter :9100  ← метрики самой VM             │  │
-│ │ └── cAdvisor      :8080  ← метрики Docker               │  │
-│ └─────────────────────────────────────────────────────────┘  │
-│                                                               │
-│ На хосте (bare-metal):                                       │
-│ ├── WireGuard :51820/udp   ← VPN для клиентов               │
-│ ├── nftables               ← firewall                        │
-│ ├── fail2ban               ← защита SSH                      │
-│ └── SSH :22                ← только из доверенных IP         │
-└───────────────────────────────────────────────────────────────┘
-         ↑            ↑            ↑
-    10.9.0.10    10.9.0.20    10.9.0.30     ← Клиенты через VPN
-   (Bronze-1)  (Bronze-2)  (Bronze-3)
+WINDOWS 10 АДМИН-СТАНЦИЯ                       YANDEX CLOUD ru-central1-a
+┌──────────────────────────┐                   ┌───────────────────────────────────────────────────────────────┐
+│  PowerShell 5.1 / 7      │   yc CLI / SSH    │ msp-monitoring VM (burst 5-20%, 2vCPU, 4GB, 40GB)             │
+│   yc CLI                 │ ─────────────────▶│                                                               │
+│   OpenSSH client         │                   │ ┌─────────────────────────────────────────────────────────┐  │
+│   Git for Windows        │                   │ │ Docker Compose (profile: monitoring)                    │  │
+└──────────────────────────┘                   │ │ ├── Prometheus    :9090  ← scrapes client exporters     │  │
+                                               │ │ ├── Alertmanager  :9093  ← routes alerts to Telegram    │  │
+                                               │ │ ├── Grafana       :3000  ← dashboards (не открыт наружу)│  │
+                                               │ │ ├── node-exporter :9100  ← метрики самой VM             │  │
+                                               │ │ └── cAdvisor      :8080  ← метрики Docker               │  │
+                                               │ └─────────────────────────────────────────────────────────┘  │
+                                               │                                                               │
+                                               │ Хост (Ubuntu 22.04 LTS):                                     │
+                                               │ ├── WireGuard :51820/udp   ← VPN для клиентов               │
+                                               │ ├── ufw / nftables         ← firewall                        │
+                                               │ ├── fail2ban               ← защита SSH                      │
+                                               │ └── SSH :22                ← только из доверенных IP         │
+                                               └───────────────────────────────────────────────────────────────┘
+                                                        ↑            ↑            ↑
+                                                   10.9.0.10    10.9.0.20    10.9.0.30     ← Клиенты через VPN
+                                                  (Bronze-1)  (Bronze-2)  (Bronze-3)
 
-Yandex Object Storage:
-└── backup-CLIENT_NAME/   ← restic репозитории клиентов
-```
-
-**Сетевая схема:**
-```
-Internet:51820 → WireGuard → 10.9.0.0/24 (внутренняя VPN-сеть)
-                               ↕
-                         Prometheus scrapes
-                         9100 (Linux) / 9182 (Windows)
+                                               Yandex Object Storage:
+                                               └── backup-CLIENT_NAME/   ← restic репозитории клиентов
 ```
 
 ---
 
-## 2. РАЗВЁРТЫВАНИЕ VM В YANDEX CLOUD
+## 2. РАЗВЁРТЫВАНИЕ VM В YANDEX CLOUD (из PowerShell)
 
-### 2.1 Подготовка
+### 2.1. OAuth-авторизация и folder
 
-```bash
-# Установить YC CLI
-curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
-source ~/.bashrc
-yc init
+```powershell
+yc init                                                     # OAuth в браузере
+yc config list                                              # запомните folder-id
 
-# Проверить
-yc config list
+# Или явно:
+$folderId = (yc config get folder-id).Trim()
+$Env:MSP_FOLDER_ID = $folderId
 ```
 
-### 2.2 Создать VM (all-in-one для старта)
+### 2.2. Создание VM (one-liner)
 
-```bash
-# Параметры VM:
-# - core-fraction 5 = burst VM (в 5-10 раз дешевле!)
-#   достаточно для Bronze с <5 клиентами
-# - preemptible = прерываемая, на 70% дешевле
-#   НЕ подходит для production, только для теста
-# Для production: убрать --preemptible и --core-fraction 5
+```powershell
+$SshPubKey = Get-Content "$Env:MSP_SSH_KEY.pub" -Raw
 
-# Получить список образов
-yc compute image list --folder-id standard-images | grep ubuntu-22
+yc compute instance create `
+    --name $Env:MSP_VM_NAME `
+    --folder-id $Env:MSP_FOLDER_ID `
+    --zone $Env:MSP_ZONE `
+    --network-interface "subnet-name=default,nat-ip-version=ipv4" `
+    --create-boot-disk "image-family=ubuntu-2204-lts,size=40GB,type=network-ssd,auto-delete=true" `
+    --cores 2 `
+    --core-fraction 20 `
+    --memory 4GB `
+    --ssh-key "$Env:MSP_SSH_KEY.pub" `
+    --metadata serial-port-enable=1
 
-# Создать VM
-yc compute instance create \
-  --name msp-monitoring \
-  --zone ru-central1-a \
-  --network-interface subnet-name=default-vpc,nat-ip-version=ipv4 \
-  --create-boot-disk \
-    image-family=ubuntu-2204-lts,\
-    size=40,\
-    type=network-ssd,\
-    auto-delete=true \
-  --cores 2 \
-  --core-fraction 20 \
-  --memory 4 \
-  --ssh-key ~/.ssh/id_ed25519.pub \
-  --metadata serial-port-enable=1
-
-# Получить IP
-MSP_IP=$(yc compute instance get msp-monitoring --format json | jq -r '.network_interfaces[0].primary_v4_address.one_to_one_nat.address')
-echo "MSP VM IP: $MSP_IP"
+# Получить public IP
+$vm = yc compute instance get $Env:MSP_VM_NAME --format json | ConvertFrom-Json
+$Env:MSP_VM_IP = $vm.network_interfaces[0].primary_v4_address.one_to_one_nat.address
+Write-Host "VM IP: $Env:MSP_VM_IP"
 ```
 
-### 2.3 Создать S3-bucket и ключи для бэкапов
+> `core-fraction 20` = «burst до 20%», подходит для Bronze с <5 клиентами.
+> Для production без burst — уберите `--core-fraction`.
+> Для тестов добавьте `--preemptible` (прерываемая, скидка 70%, **не для prod**).
 
-```bash
-# Сервисный аккаунт для бэкапов
-yc iam service-account create --name msp-backup-sa
+### 2.3. S3-bucket и ключи для restic-бэкапов
 
-# Назначить роль на папку
-FOLDER_ID=$(yc config get folder-id)
-SA_ID=$(yc iam service-account get msp-backup-sa --format json | jq -r '.id')
+```powershell
+# Сервисный аккаунт
+yc iam service-account create --name msp-backup-sa --folder-id $Env:MSP_FOLDER_ID
 
-yc resource-manager folder add-access-binding $FOLDER_ID \
-  --role storage.editor \
-  --subject serviceAccount:$SA_ID
+$saId = (yc iam service-account get msp-backup-sa --folder-id $Env:MSP_FOLDER_ID --format json | ConvertFrom-Json).id
 
-# Создать статический ключ (S3-совместимый)
-yc iam access-key create --service-account-name msp-backup-sa \
-  --format json | tee ~/msp-s3-keys.json
+# Роль на каталог
+yc resource-manager folder add-access-binding $Env:MSP_FOLDER_ID `
+    --role storage.editor `
+    --subject "serviceAccount:$saId"
 
-# Посмотреть ключи
-cat ~/msp-s3-keys.json | jq '{key_id: .access_key.key_id, secret: .secret}'
+# Статический S3-ключ
+$keys = yc iam access-key create --service-account-name msp-backup-sa --format json | ConvertFrom-Json
 
-# Создать bucket для клиента (при онбординге)
-create_client_bucket() {
-    local CLIENT=$1
-    yc storage bucket create \
-        --name "backup-${CLIENT}" \
-        --default-storage-class standard \
-        --max-size 107374182400  # 100 GB
-    echo "Bucket создан: backup-${CLIENT}"
+# Сохранить в защищённом каталоге (НЕ коммитить!)
+$secretsDir = "$env:USERPROFILE\.msp-secrets"
+if (-not (Test-Path $secretsDir)) { New-Item -ItemType Directory -Path $secretsDir -Force | Out-Null }
+$keys | ConvertTo-Json -Depth 5 | Set-Content "$secretsDir\s3-keys.json" -Encoding UTF8
+Write-Host "Access-key ID:  $($keys.access_key.key_id)"
+Write-Host "Secret saved:   $secretsDir\s3-keys.json"
+```
+
+Создание bucket-а под клиента (повторяется при каждом онбординге):
+```powershell
+function New-MspBackupBucket {
+    param([Parameter(Mandatory)][string]$ClientSlug)
+    yc storage bucket create `
+        --name "backup-$ClientSlug" `
+        --default-storage-class standard `
+        --max-size 107374182400        # 100 GB
+    Write-Host "Bucket: backup-$ClientSlug"
 }
-# Пример: create_client_bucket "company-name"
+# Пример: New-MspBackupBucket -ClientSlug company-name
 ```
 
 ---
 
-## 3. БАЗОВАЯ НАСТРОЙКА ОС
+## 3. БАЗОВАЯ НАСТРОЙКА ОС (Ubuntu VM)
 
-```bash
-# Подключиться
-ssh ubuntu@$MSP_IP
+PowerShell открывает SSH-сессию; всё, что внутри here-string — выполняется
+на Linux:
 
-# ── Обновление ────────────────────────────────────────────────────
+```powershell
+$bash = @'
+set -euo pipefail
+
+# Обновление
 sudo apt update && sudo apt upgrade -y
 sudo apt install -y \
     curl wget git nano htop iotop \
     chrony ufw fail2ban jq \
     wireguard wireguard-tools
 
-# ── Часовой пояс ──────────────────────────────────────────────────
+# Часовой пояс
 sudo timedatectl set-timezone Europe/Moscow
 sudo systemctl enable --now chrony
-chronyc tracking
+chronyc tracking || true
 
-# ── SSH Hardening ──────────────────────────────────────────────────
-sudo sed -i 's/^#*PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
+# SSH hardening
+sudo sed -i 's/^#*PermitRootLogin.*/PermitRootLogin no/'         /etc/ssh/sshd_config
 sudo sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
-sudo sed -i 's/^#*MaxAuthTries.*/MaxAuthTries 3/' /etc/ssh/sshd_config
+sudo sed -i 's/^#*MaxAuthTries.*/MaxAuthTries 3/'                /etc/ssh/sshd_config
 sudo systemctl restart sshd
 
-# ── fail2ban ──────────────────────────────────────────────────────
-sudo tee /etc/fail2ban/jail.local << 'EOF'
+# fail2ban
+sudo tee /etc/fail2ban/jail.local >/dev/null << 'EOF'
 [DEFAULT]
 bantime  = 3600
 findtime = 600
@@ -183,129 +265,156 @@ backend = %(syslog_backend)s
 EOF
 sudo systemctl enable --now fail2ban
 
-# ── UFW Firewall ──────────────────────────────────────────────────
+# UFW Firewall
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
-sudo ufw allow 22/tcp comment "SSH"
-sudo ufw allow 51820/udp comment "WireGuard VPN"
-# Grafana только через VPN — НЕ открывать наружу!
-# sudo ufw allow 3000/tcp  ← НЕ ДЕЛАТЬ!
+sudo ufw allow 22/tcp     comment "SSH"
+sudo ufw allow 51820/udp  comment "WireGuard VPN"
 sudo ufw --force enable
 sudo ufw status verbose
 
-# ── Docker ────────────────────────────────────────────────────────
+# Docker
 curl -fsSL https://get.docker.com | sudo sh
-sudo usermod -aG docker $USER
-newgrp docker
+sudo usermod -aG docker ubuntu
 docker --version
+'@
+$bash | ssh -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP bash -s
+```
+
+Дальше для удобства можно открывать обычный интерактивный SSH:
+```powershell
+ssh -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP
 ```
 
 ---
 
 ## 4. WIREGUARD BASTION SERVER
 
-### 4.1 Генерация ключей сервера
+### 4.1. Генерация ключей сервера (на VM)
 
-```bash
+```powershell
+$bash = @'
+set -euo pipefail
 cd /etc/wireguard
-
-# Генерация
-sudo wg genkey | sudo tee server_private.key | sudo wg pubkey | sudo tee server_public.key
+sudo wg genkey | sudo tee server_private.key | sudo wg pubkey | sudo tee server_public.key >/dev/null
 sudo chmod 600 server_private.key
 
-# Показать публичный ключ (нужен клиентам)
 echo "=== BASTION PUBLIC KEY ==="
 sudo cat server_public.key
-
-# Сохранить в переменную
-SERVER_PUBKEY=$(sudo cat server_public.key)
+'@
+$bash | ssh -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP bash -s
 ```
 
-### 4.2 Конфигурация WireGuard сервера
+Сохраните вывод в безопасное место:
+```powershell
+$ServerPubKey = (msp-bash 'sudo cat /etc/wireguard/server_public.key').Trim()
+$ServerPubKey | Set-Content "$env:USERPROFILE\.msp-secrets\bastion_pubkey.txt"
+```
 
-```bash
-sudo tee /etc/wireguard/wg0.conf << EOF
+### 4.2. Конфигурация WireGuard
+
+```powershell
+$bash = @'
+set -euo pipefail
+
+PRIV=$(sudo cat /etc/wireguard/server_private.key)
+
+sudo tee /etc/wireguard/wg0.conf >/dev/null << EOF
 [Interface]
-PrivateKey = $(sudo cat /etc/wireguard/server_private.key)
-Address = 10.9.0.1/24
+PrivateKey = $PRIV
+Address    = 10.9.0.1/24
 ListenPort = 51820
 SaveConfig = false
-PostUp   = iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+PostUp     = iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+PostDown   = iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
 
 # === PEERS КЛИЕНТОВ (добавлять при онбординге) ===
-# [Peer]
-# PublicKey = <CLIENT_PUBLIC_KEY>
-# AllowedIPs = 10.9.0.10/32
-# PresharedKey = <OPTIONAL_PSK>
 EOF
 sudo chmod 600 /etc/wireguard/wg0.conf
 
-# Включить IP forwarding
 echo "net.ipv4.ip_forward=1" | sudo tee /etc/sysctl.d/99-wireguard.conf
 sudo sysctl -p /etc/sysctl.d/99-wireguard.conf
 
-# Запустить
 sudo systemctl enable --now wg-quick@wg0
 sudo wg show wg0
+'@
+$bash | ssh -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP bash -s
 ```
 
-### 4.3 Скрипт добавления клиента (add_peer.sh)
+### 4.3. Скрипт добавления peer-а на VM
 
-```bash
-sudo tee /usr/local/bin/add_vpn_peer.sh << 'SCRIPT'
+```powershell
+$addPeer = @'
+sudo tee /usr/local/bin/add_vpn_peer.sh >/dev/null << 'SCRIPT'
 #!/bin/bash
 # add_vpn_peer.sh CLIENT_SLUG VPN_IP CLIENT_PUBKEY
-# Пример: add_vpn_peer.sh company1 10.9.0.10 "abc123..."
-
 set -euo pipefail
-
 CLIENT="${1:?Usage: $0 CLIENT_SLUG VPN_IP CLIENT_PUBKEY}"
 VPN_IP="${2:?}"
 CLIENT_PUBKEY="${3:?}"
-
 CONFIG="/etc/wireguard/wg0.conf"
 
-# Добавить peer в конфиг
 cat >> "$CONFIG" << EOF
 
 # === ${CLIENT} ===
 [Peer]
-PublicKey = ${CLIENT_PUBKEY}
+PublicKey  = ${CLIENT_PUBKEY}
 AllowedIPs = ${VPN_IP}/32
 EOF
 
-# Применить без перезапуска
 wg set wg0 peer "$CLIENT_PUBKEY" allowed-ips "${VPN_IP}/32"
-
-echo "✓ Peer добавлен: ${CLIENT} → ${VPN_IP}"
-echo "  Проверка: wg show wg0"
+echo "OK: ${CLIENT} -> ${VPN_IP}"
 SCRIPT
 sudo chmod +x /usr/local/bin/add_vpn_peer.sh
+'@
+$addPeer | ssh -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP bash -s
+```
+
+PowerShell-обёртка для запуска (с Win10-ноутбука):
+```powershell
+function Add-MspVpnPeer {
+    param(
+        [Parameter(Mandatory)][string]$ClientSlug,
+        [Parameter(Mandatory)][string]$VpnIp,
+        [Parameter(Mandatory)][string]$ClientPubKey
+    )
+    $cmd = "sudo /usr/local/bin/add_vpn_peer.sh '$ClientSlug' '$VpnIp' '$ClientPubKey'"
+    ssh -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP $cmd
+}
+# Пример: Add-MspVpnPeer -ClientSlug company1 -VpnIp 10.9.0.10 -ClientPubKey 'abc123...'
 ```
 
 ---
 
 ## 5. DOCKER COMPOSE — МОНИТОРИНГ СТЕК
 
-### 5.1 Создать структуру
+### 5.1. Подготовка структуры
 
-```bash
-sudo mkdir -p /opt/monitoring/{prometheus/rules,alertmanager,grafana/provisioning/{datasources,dashboards},loki}
-sudo chown -R ubuntu:ubuntu /opt/monitoring
-cd /opt/monitoring
+```powershell
+msp-bash 'sudo mkdir -p /opt/monitoring/{prometheus/rules,alertmanager,grafana/provisioning/{datasources,dashboards},loki}'
+msp-bash 'sudo chown -R ubuntu:ubuntu /opt/monitoring'
 ```
 
-### 5.2 .env файл
+### 5.2. Локальное редактирование + scp на VM
 
-```bash
-cat > /opt/monitoring/.env << 'EOF'
-# ════════════════════════════════════════════
-# MSP Monitoring Stack — Environment Variables
-# ЗАМЕНИТЬ ВСЕ ЗНАЧЕНИЯ ПЕРЕД ЗАПУСКОМ!
-# ════════════════════════════════════════════
+Конфиги хранятся в репозитории `i1yxaluk-del/Newbie`. Клонируйте локально и
+заливайте на VM:
 
-# Версии образов (зафиксированные для стабильности)
+```powershell
+git clone https://github.com/i1yxaluk-del/Newbie $env:USERPROFILE\Newbie
+cd $env:USERPROFILE\Newbie\technical\1_Bronze\EXECUTOR\monitoring-stack
+
+# Залить весь каталог на VM (через scp с тем же ключом)
+scp -i $Env:MSP_SSH_KEY -r .\* ubuntu@$Env:MSP_VM_IP:/opt/monitoring/
+```
+
+### 5.3. .env (генерация на VM)
+
+```powershell
+$envScript = @'
+cd /opt/monitoring
+GRAFANA_PWD=$(openssl rand -base64 32)
+cat > .env << EOF
 PROMETHEUS_VERSION=v2.51.0
 ALERTMANAGER_VERSION=v0.27.0
 GRAFANA_VERSION=10.4.2
@@ -314,429 +423,130 @@ CADVISOR_VERSION=v0.49.1
 LOKI_VERSION=3.0.0
 PROMTAIL_VERSION=3.0.0
 
-# Grafana — генерировать пароль автоматически!
-# НЕ писать пароль вручную — использовать: openssl rand -base64 32
 GRAFANA_ADMIN_USER=admin
-GRAFANA_ADMIN_PASSWORD=$(openssl rand -base64 32)
+GRAFANA_ADMIN_PASSWORD=$GRAFANA_PWD
 
-# Telegram для алертов
-# Создать бота: @BotFather → /newbot
-# Получить chat_id: написать боту → curl https://api.telegram.org/bot<TOKEN>/getUpdates
 TELEGRAM_BOT_TOKEN=REPLACE_WITH_BOT_TOKEN
 TELEGRAM_CHAT_ID=REPLACE_WITH_CHAT_ID
 
-# Email (резервный канал)
-SMTP_HOST=smtp.yandex.ru:587
+# Email backup-канал (через Stalwart submit-only :587, не :25 — Yandex Cloud)
+SMTP_HOST=stalwart:587
 SMTP_FROM=alerts@your-domain.ru
 SMTP_USER=alerts@your-domain.ru
-SMTP_PASSWORD=REPLACE_WITH_EMAIL_PASSWORD
+SMTP_PASSWORD=REPLACE_WITH_PASSWORD
 ALERT_EMAIL_TO=admin@your-domain.ru
 EOF
-chmod 600 /opt/monitoring/.env
-echo "✓ .env создан — заполните значения!"
+chmod 600 .env
+echo "Grafana admin password: $GRAFANA_PWD"
+'@
+$envScript | ssh -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP bash -s
 ```
 
-### 5.3 docker-compose.yml
+> SMTP в .env указывает на `stalwart:587` — это контейнер из
+> `deploy/yandex/docker-compose.yml`. Снаружи через `:25` слать нельзя
+> (Yandex Cloud блокирует), подробности — в `deploy/yandex/STALWART_RELAY_MODE.md`.
 
-```bash
-cat > /opt/monitoring/docker-compose.yml << 'EOF'
-# ════════════════════════════════════════════════════════════════
-# MSP Monitoring Stack — Docker Compose
-# Профили: monitoring (Bronze), silver (Silver+)
-# Запуск Bronze: docker compose --profile monitoring up -d
-# Запуск Silver: docker compose --profile silver up -d
-# ════════════════════════════════════════════════════════════════
-version: "3.8"
+### 5.4. docker-compose.yml
 
-networks:
-  monitoring:
-    name: msp-monitoring
-    driver: bridge
+> Полный файл `docker-compose.yml` лежит в репо `i1yxaluk-del/Newbie`
+> (каталог `technical/1_Bronze/EXECUTOR/monitoring-stack/`). Если правите
+> через PowerShell — редактируйте локально и пересылайте через `scp`.
 
-volumes:
-  prometheus_data:
-    name: msp-prometheus-data
-  grafana_data:
-    name: msp-grafana-data
-  loki_data:
-    name: msp-loki-data
+Ключевые блоки (Prometheus / Alertmanager / Grafana / node-exporter / cAdvisor)
+без изменений; профили `monitoring`, `silver`, `gold`. Loki включается через
+профиль `silver`.
 
-services:
+### 5.5. Запуск стека
 
-  # ── Prometheus ─────────────────────────────────────────────────
-  prometheus:
-    image: prom/prometheus:${PROMETHEUS_VERSION:-v2.51.0}
-    container_name: msp-prometheus
-    restart: unless-stopped
-    profiles: [monitoring, silver, gold]
-    user: "65534:65534"
-    volumes:
-      - prometheus_data:/prometheus
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./prometheus/rules:/etc/prometheus/rules:ro
-    command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-      - "--storage.tsdb.path=/prometheus"
-      - "--storage.tsdb.retention.time=45d"
-      - "--storage.tsdb.retention.size=8GB"
-      - "--storage.tsdb.wal-compression"
-      - "--web.enable-lifecycle"
-      - "--web.enable-admin-api"
-      - "--query.timeout=60s"
-    ports:
-      - "127.0.0.1:9090:9090"  # Только localhost + VPN
-    networks: [monitoring]
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    deploy:
-      resources:
-        limits:
-          memory: 2G
-        reservations:
-          memory: 512M
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # ── Alertmanager ────────────────────────────────────────────────
-  alertmanager:
-    image: prom/alertmanager:${ALERTMANAGER_VERSION:-v0.27.0}
-    container_name: msp-alertmanager
-    restart: unless-stopped
-    profiles: [monitoring, silver, gold]
-    volumes:
-      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
-    command:
-      - "--config.file=/etc/alertmanager/alertmanager.yml"
-      - "--storage.path=/alertmanager"
-      - "--web.external-url=http://10.9.0.1:9093"
-    ports:
-      - "127.0.0.1:9093:9093"
-    networks: [monitoring]
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-    logging:
-      driver: json-file
-      options:
-        max-size: "5m"
-        max-file: "2"
-
-  # ── Grafana ─────────────────────────────────────────────────────
-  grafana:
-    image: grafana/grafana:${GRAFANA_VERSION:-10.4.2}
-    container_name: msp-grafana
-    restart: unless-stopped
-    profiles: [monitoring, silver, gold]
-    user: "472:472"
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
-    environment:
-      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:?GRAFANA_ADMIN_USER must be set in .env}
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD must be set in .env}
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_AUTH_ANONYMOUS_ENABLED=false
-      - GF_SERVER_ROOT_URL=http://10.9.0.1:3000
-      - GF_ALERTING_ENABLED=false
-      - GF_UNIFIED_ALERTING_ENABLED=false
-      - GF_SECURITY_DISABLE_GRAVATAR=true
-      - GF_ANALYTICS_REPORTING_ENABLED=false
-      - GF_ANALYTICS_CHECK_FOR_UPDATES=false
-    ports:
-      - "10.9.0.1:3000:3000"  # Только через VPN!
-    networks: [monitoring]
-    depends_on:
-      prometheus:
-        condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # ── Node Exporter (VM Исполнителя) ─────────────────────────────
-  node-exporter:
-    image: prom/node-exporter:${NODE_EXPORTER_VERSION:-v1.7.0}
-    container_name: msp-node-exporter
-    restart: unless-stopped
-    profiles: [monitoring, silver, gold]
-    pid: host
-    volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /:/rootfs:ro
-    command:
-      - "--path.procfs=/host/proc"
-      - "--path.sysfs=/host/sys"
-      - "--path.rootfs=/rootfs"
-      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
-    networks: [monitoring]
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-
-  # ── cAdvisor (Docker metrics) ───────────────────────────────────
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:${CADVISOR_VERSION:-v0.49.1}
-    container_name: msp-cadvisor
-    restart: unless-stopped
-    profiles: [monitoring, silver, gold]
-    privileged: true
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker:/var/lib/docker:ro
-      - /dev/disk:/dev/disk:ro
-    command:
-      - "--housekeeping_interval=30s"
-      - "--max_housekeeping_interval=35s"
-      - "--event_storage_event_limit=default=0"
-      - "--event_storage_age_limit=default=0"
-      - "--disable_metrics=percpu,sched,tcp,udp,disk,diskIO,accelerator,hugetlb,referenced_memory,cpu_topology,resctrl"
-      - "--docker_only=true"
-    networks: [monitoring]
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-
-  # ── Loki (Silver/Gold) ─────────────────────────────────────────
-  loki:
-    image: grafana/loki:${LOKI_VERSION:-3.0.0}
-    container_name: msp-loki
-    restart: unless-stopped
-    profiles: [silver, gold]
-    user: "10001:10001"
-    volumes:
-      - loki_data:/loki
-      - ./loki/loki-config.yml:/etc/loki/local-config.yaml:ro
-    command: -config.file=/etc/loki/local-config.yaml
-    ports:
-      - "10.9.0.1:3100:3100"  # Только через VPN
-    networks: [monitoring]
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-EOF
-echo "✓ docker-compose.yml создан"
-```
-
-### 5.4 Конфигурация Prometheus
-
-```bash
-cat > /opt/monitoring/prometheus/prometheus.yml << 'EOF'
-# ════════════════════════════════════════════════════════════════
-# prometheus.yml — Конфигурация сбора метрик
-# Добавлять клиентов в конец файла при онбординге
-# ════════════════════════════════════════════════════════════════
-global:
-  scrape_interval:     15s
-  evaluation_interval: 15s
-  scrape_timeout:      10s
-  external_labels:
-    region: 'ru-central1'
-    msp: 'primary'
-
-alerting:
-  alertmanagers:
-    - static_configs:
-        - targets: ['alertmanager:9093']
-      timeout: 10s
-      api_version: v2
-
-rule_files:
-  - "/etc/prometheus/rules/*.yml"
-
-scrape_configs:
-
-  # ── Инфраструктура Исполнителя ─────────────────────────────────
-  - job_name: 'prometheus'
-    static_configs:
-      - targets: ['localhost:9090']
-        labels: {role: 'monitoring', owner: 'executor'}
-
-  - job_name: 'alertmanager'
-    static_configs:
-      - targets: ['alertmanager:9093']
-        labels: {role: 'monitoring', owner: 'executor'}
-
-  - job_name: 'grafana'
-    static_configs:
-      - targets: ['grafana:3000']
-        labels: {role: 'monitoring', owner: 'executor'}
-
-  - job_name: 'node-exporter-host'
-    static_configs:
-      - targets: ['node-exporter:9100']
-        labels: {role: 'monitoring-host', owner: 'executor', instance: 'msp-vm'}
-
-  - job_name: 'cadvisor'
-    static_configs:
-      - targets: ['cadvisor:8080']
-        labels: {role: 'docker', owner: 'executor'}
-
-  # ════════════════════════════════════════════════════════════════
-  # КЛИЕНТЫ — добавлять при онбординге (см. скрипт add_client.sh)
-  # ════════════════════════════════════════════════════════════════
-
-  # ШАБЛОН (раскомментировать и заменить CLIENT_SLUG):
-  # - job_name: 'client-CLIENT_SLUG-linux'
-  #   scrape_interval: 30s
-  #   scrape_timeout: 25s
-  #   static_configs:
-  #     - targets:
-  #         - '10.9.0.10:9100'
-  #       labels:
-  #         client: 'CLIENT_SLUG'
-  #         client_name: 'ООО Название'
-  #         tier: 'bronze'
-  #         env: 'production'
-  #   metric_relabel_configs:
-  #     # Убрать технические go_ метрики (экономия места)
-  #     - source_labels: [__name__]
-  #       regex: 'go_.*'
-  #       action: drop
-  #
-  # - job_name: 'client-CLIENT_SLUG-windows'
-  #   scrape_interval: 30s
-  #   static_configs:
-  #     - targets:
-  #         - '10.9.0.20:9182'
-  #       labels:
-  #         client: 'CLIENT_SLUG'
-  #         client_name: 'ООО Название'
-  #         tier: 'bronze'
-  #         env: 'production'
-  #
-  # - job_name: 'client-CLIENT_SLUG-blackbox-http'
-  #   metrics_path: /probe
-  #   params:
-  #     module: [http_2xx]
-  #   static_configs:
-  #     - targets:
-  #         - 'https://site.ru'
-  #       labels:
-  #         client: 'CLIENT_SLUG'
-  #         tier: 'bronze'
-  #   relabel_configs:
-  #     - source_labels: [__address__]
-  #       target_label: __param_target
-  #     - source_labels: [__param_target]
-  #       target_label: instance
-  #     - target_label: __address__
-  #       replacement: 'localhost:9115'
-EOF
-```
-
-### 5.5 Grafana provisioning
-
-```bash
-# Datasource
-cat > /opt/monitoring/grafana/provisioning/datasources/prometheus.yml << 'EOF'
-apiVersion: 1
-datasources:
-  - name: Prometheus
-    type: prometheus
-    access: proxy
-    url: http://prometheus:9090
-    isDefault: true
-    editable: false
-    jsonData:
-      timeInterval: "15s"
-      httpMethod: POST
-      exemplarTraceIdDestinations: []
-EOF
-
-# Dashboard provisioning
-cat > /opt/monitoring/grafana/provisioning/dashboards/default.yml << 'EOF'
-apiVersion: 1
-providers:
-  - name: 'MSP Dashboards'
-    orgId: 1
-    folder: 'MSP'
-    type: file
-    disableDeletion: false
-    editable: true
-    updateIntervalSeconds: 30
-    options:
-      path: /var/lib/grafana/dashboards
-      foldersFromFilesStructure: false
-EOF
-```
-
-### 5.6 Запуск стека
-
-```bash
+```powershell
+$bash = @'
+set -euo pipefail
 cd /opt/monitoring
 
-# Проверить конфиги
+# Валидация конфига Prometheus
 docker run --rm -v ./prometheus:/prometheus prom/prometheus:v2.51.0 \
-  promtool check config /prometheus/prometheus.yml
+    promtool check config /prometheus/prometheus.yml
 
-# Запустить (Bronze)
+# Запуск (Bronze)
 docker compose --profile monitoring up -d
 
-# Проверить
 docker compose ps
 docker compose logs --tail=30 prometheus
-curl -s http://localhost:9090/-/healthy
-curl -s http://localhost:9093/-/healthy
 
-# Открыть Grafana через VPN: http://10.9.0.1:3000
+curl -fsS http://localhost:9090/-/healthy && echo "Prometheus OK"
+curl -fsS http://localhost:9093/-/healthy && echo "Alertmanager OK"
+'@
+$bash | ssh -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP bash -s
+```
+
+### 5.6. Доступ к Grafana с Windows-станции
+
+Grafana слушает только VPN-интерфейс (`10.9.0.1:3000`). Открыть с Windows
+можно через SSH-tunnel:
+
+```powershell
+# В отдельном окне PowerShell — туннель не закрывать пока работаешь
+ssh -i $Env:MSP_SSH_KEY -L 3000:10.9.0.1:3000 ubuntu@$Env:MSP_VM_IP
+
+# В браузере: http://localhost:3000
 ```
 
 ---
 
-## 6. СКРИПТ ДОБАВЛЕНИЯ КЛИЕНТА
+## 6. ДОБАВЛЕНИЕ КЛИЕНТА
 
-```bash
-sudo tee /usr/local/bin/add_client.sh << 'SCRIPT'
+### 6.1. PowerShell-обёртка (на Win10)
+
+```powershell
+function Add-MspClient {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$ClientSlug,
+        [Parameter(Mandatory)][string]$ClientName,
+        [ValidateSet('bronze','silver','gold')][string]$Tier = 'bronze',
+        [string]$LinuxIp1, [string]$LinuxIp2,
+        [string]$WindowsIp1,
+        [string]$SiteUrl,
+        [switch]$CreateBucket
+    )
+
+    if ($CreateBucket) { New-MspBackupBucket -ClientSlug $ClientSlug }
+
+    # Передаём всё на VM как параметры и зовём bash-скрипт add_client.sh
+    $cmd = "sudo /usr/local/bin/add_client.sh '$ClientSlug' '$ClientName' '$Tier' " +
+           "'$LinuxIp1' '$LinuxIp2' '$WindowsIp1' '$SiteUrl'"
+    ssh -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP $cmd
+}
+```
+
+### 6.2. Серверный bash-скрипт (один раз, на VM)
+
+```powershell
+$bash = @'
+sudo tee /usr/local/bin/add_client.sh >/dev/null << 'SCRIPT'
 #!/bin/bash
-# add_client.sh — Добавить нового клиента Bronze
-# Использование: add_client.sh CLIENT_SLUG "ООО Название" TIER
-# Пример: add_client.sh example "ООО Пример" bronze
-
+# add_client.sh CLIENT_SLUG CLIENT_NAME TIER LINUX_IP1 LINUX_IP2 WIN_IP1 SITE_URL
 set -euo pipefail
 
-CLIENT_SLUG="${1:?Usage: $0 CLIENT_SLUG 'Client Name' TIER}"
+CLIENT_SLUG="${1:?}"
 CLIENT_NAME="${2:?}"
 TIER="${3:-bronze}"
-PROMETHEUS_CFG="/opt/monitoring/prometheus/prometheus.yml"
+LINUX_IP1="${4:-}"
+LINUX_IP2="${5:-}"
+WIN_IP1="${6:-}"
+SITE_URL="${7:-}"
+CFG="/opt/monitoring/prometheus/prometheus.yml"
 
-echo "=== Добавление клиента: ${CLIENT_NAME} (${CLIENT_SLUG}) ==="
-
-# ── Запросить VPN IPs ────────────────────────────────────────────
-echo ""
-read -p "VPN IP первого Linux-сервера (или Enter чтобы пропустить): " LINUX_IP1
-read -p "VPN IP второго Linux-сервера (или Enter): " LINUX_IP2
-read -p "VPN IP первого Windows-сервера (или Enter): " WIN_IP1
-read -p "URL сайта для HTTP-проверки (или Enter): " SITE_URL
-
-# ── Добавить в Prometheus ────────────────────────────────────────
 {
 echo ""
 echo "  # ════════════════════════════════"
 echo "  # КЛИЕНТ: ${CLIENT_NAME} (${TIER})"
 echo "  # Добавлен: $(date '+%Y-%m-%d')"
 echo "  # ════════════════════════════════"
-} >> "$PROMETHEUS_CFG"
+} >> "$CFG"
 
 if [[ -n "$LINUX_IP1" ]]; then
-cat >> "$PROMETHEUS_CFG" << EOF
+cat >> "$CFG" << EOF
 
   - job_name: 'client-${CLIENT_SLUG}-linux'
     scrape_interval: 30s
@@ -746,19 +556,19 @@ cat >> "$PROMETHEUS_CFG" << EOF
           - '${LINUX_IP1}:9100'
 $([ -n "$LINUX_IP2" ] && echo "          - '${LINUX_IP2}:9100'")
         labels:
-          client: '${CLIENT_SLUG}'
+          client:      '${CLIENT_SLUG}'
           client_name: '${CLIENT_NAME}'
-          tier: '${TIER}'
-          env: 'production'
+          tier:        '${TIER}'
+          env:         'production'
     metric_relabel_configs:
       - source_labels: [__name__]
-        regex: 'go_.*'
+        regex:  'go_.*'
         action: drop
 EOF
 fi
 
 if [[ -n "$WIN_IP1" ]]; then
-cat >> "$PROMETHEUS_CFG" << EOF
+cat >> "$CFG" << EOF
 
   - job_name: 'client-${CLIENT_SLUG}-windows'
     scrape_interval: 30s
@@ -766,186 +576,174 @@ cat >> "$PROMETHEUS_CFG" << EOF
       - targets:
           - '${WIN_IP1}:9182'
         labels:
-          client: '${CLIENT_SLUG}'
+          client:      '${CLIENT_SLUG}'
           client_name: '${CLIENT_NAME}'
-          tier: '${TIER}'
-          env: 'production'
+          tier:        '${TIER}'
+          env:         'production'
 EOF
 fi
 
 if [[ -n "$SITE_URL" ]]; then
-cat >> "$PROMETHEUS_CFG" << EOF
+cat >> "$CFG" << EOF
 
   - job_name: 'client-${CLIENT_SLUG}-http'
     metrics_path: /probe
-    params:
-      module: [http_2xx]
+    params: { module: [http_2xx] }
     static_configs:
       - targets:
           - '${SITE_URL}'
         labels:
           client: '${CLIENT_SLUG}'
-          tier: '${TIER}'
+          tier:   '${TIER}'
     relabel_configs:
       - source_labels: [__address__]
-        target_label: __param_target
+        target_label:  __param_target
       - source_labels: [__param_target]
-        target_label: instance
-      - target_label: __address__
-        replacement: 'localhost:9115'
+        target_label:  instance
+      - target_label:  __address__
+        replacement:   'localhost:9115'
 EOF
 fi
 
-# ── Создать S3 bucket ────────────────────────────────────────────
-echo ""
-read -p "Создать S3 bucket для бэкапов? [y/N]: " CREATE_BUCKET
-if [[ "$CREATE_BUCKET" =~ ^[Yy]$ ]]; then
-    yc storage bucket create --name "backup-${CLIENT_SLUG}" 2>/dev/null || echo "Bucket уже существует"
-    echo "✓ Bucket: backup-${CLIENT_SLUG}"
-fi
-
-# ── Перезагрузить Prometheus ─────────────────────────────────────
-echo ""
-echo "Перезагружаю Prometheus конфиг..."
-curl -s -X POST http://localhost:9090/-/reload
-sleep 2
-
-# ── Проверить targets ────────────────────────────────────────────
-TARGETS=$(curl -s http://localhost:9090/api/v1/targets | \
-    python3 -c "
-import sys,json
-d=json.load(sys.stdin)
-targets=[t for t in d['data']['activeTargets'] if '${CLIENT_SLUG}' in str(t.get('labels',''))]
-for t in targets:
-    print(f\"  {'✓' if t['health']=='up' else '✗'} {t['labels'].get('job','?')} → {t['health']}\")
-")
-echo ""
-echo "=== Targets клиента ${CLIENT_SLUG} ==="
-echo "$TARGETS"
-echo ""
-echo "✅ Клиент ${CLIENT_NAME} добавлен!"
-echo "   Grafana: http://10.9.0.1:3000"
-echo "   Prometheus: http://10.9.0.1:9090/targets"
+curl -s -X POST http://localhost:9090/-/reload && echo "Prometheus reloaded"
 SCRIPT
 sudo chmod +x /usr/local/bin/add_client.sh
+'@
+$bash | ssh -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP bash -s
+```
+
+### 6.3. Использование
+
+```powershell
+Add-MspClient -ClientSlug example -ClientName "ООО Пример" `
+              -LinuxIp1 10.9.0.10 -WindowsIp1 10.9.0.20 `
+              -SiteUrl https://example.ru -CreateBucket
 ```
 
 ---
 
 ## 7. ЕЖЕНЕДЕЛЬНЫЙ ОТЧЁТ
 
-```bash
-cat > /usr/local/bin/weekly_report.sh << 'SCRIPT'
-#!/bin/bash
-# weekly_report.sh — Генерация еженедельного отчёта
-# Запускать по понедельникам через cron: 0 8 * * 1 root /usr/local/bin/weekly_report.sh
+### 7.1. Bash-скрипт на VM (через cron)
 
+```powershell
+$bash = @'
+sudo tee /usr/local/bin/weekly_report.sh >/dev/null << 'SCRIPT'
+#!/bin/bash
+# weekly_report.sh — генерация еженедельного отчёта. Запускается cron.
 PROMETHEUS="http://localhost:9090"
 REPORT_DATE=$(date '+%d.%m.%Y')
-PERIOD_START=$(date -d '7 days ago' '+%Y-%m-%d')
-
-query() {
-    local q="$1"
-    curl -s "${PROMETHEUS}/api/v1/query?query=$(python3 -c "import urllib.parse; print(urllib.parse.quote('${q}'))")" | \
-        python3 -c "import sys,json; d=json.load(sys.stdin); [print(f\"{r['metric'].get('client_name','?')}: {float(r['value'][1]):.1f}\") for r in d['data']['result']]" 2>/dev/null
-}
 
 echo "═══════════════════════════════════════════════"
 echo "  MSP WEEKLY REPORT — ${REPORT_DATE}"
-echo "  Период: ${PERIOD_START} → $(date '+%Y-%m-%d')"
 echo "═══════════════════════════════════════════════"
-echo ""
 
-echo "📊 ДОСТУПНОСТЬ СЕРВЕРОВ"
+echo ""
+echo "ДОСТУПНОСТЬ СЕРВЕРОВ"
 curl -s "${PROMETHEUS}/api/v1/query?query=up" | \
     python3 -c "
-import sys,json
-d=json.load(sys.stdin)
+import sys, json
+d = json.load(sys.stdin)
 for r in d['data']['result']:
-    status = '✓ UP' if r['value'][1]=='1' else '✗ DOWN'
+    status = 'UP  ' if r['value'][1]=='1' else 'DOWN'
     client = r['metric'].get('client_name', r['metric'].get('client', '?'))
     inst   = r['metric'].get('instance','?')
     print(f'  {status:6} {client:30} {inst}')
 "
 
 echo ""
-echo "💾 СТАТУС БЭКАПОВ"
+echo "СТАТУС БЭКАПОВ"
 curl -s "${PROMETHEUS}/api/v1/query?query=restic_backup_last_status" | \
     python3 -c "
-import sys,json,datetime
-d=json.load(sys.stdin)
+import sys, json
+d = json.load(sys.stdin)
 for r in d['data']['result']:
-    status = '✓ OK  ' if r['value'][1]=='1' else '✗ FAIL'
+    status = 'OK  ' if r['value'][1]=='1' else 'FAIL'
     host   = r['metric'].get('host','?')
     print(f'  {status} {host}')
 "
 
 echo ""
-echo "💿 ИСПОЛЬЗОВАНИЕ ДИСКОВ (>70%)"
+echo "ИСПОЛЬЗОВАНИЕ ДИСКОВ (>70%)"
 curl -s "${PROMETHEUS}/api/v1/query?query=(1-node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay\"}/node_filesystem_size_bytes)*100>70" | \
     python3 -c "
-import sys,json
-d=json.load(sys.stdin)
+import sys, json
+d = json.load(sys.stdin)
 if not d['data']['result']:
-    print('  ✓ Все диски в норме')
+    print('  Все диски в норме')
 for r in d['data']['result']:
     pct  = float(r['value'][1])
     inst = r['metric'].get('instance','?')
     mp   = r['metric'].get('mountpoint','?')
     clt  = r['metric'].get('client_name','?')
-    print(f'  ⚠ {pct:.1f}% — {clt} / {inst}:{mp}')
+    print(f'  {pct:5.1f}%  {clt} / {inst}:{mp}')
 "
-
-echo ""
-echo "═══════════════════════════════════════════════"
-echo "  Следующий отчёт: $(date -d 'next monday' '+%d.%m.%Y')"
-echo "═══════════════════════════════════════════════"
 SCRIPT
-chmod +x /usr/local/bin/weekly_report.sh
-
-# Cron для автоматического отчёта
+sudo chmod +x /usr/local/bin/weekly_report.sh
 echo "0 8 * * 1 root /usr/local/bin/weekly_report.sh" | sudo tee /etc/cron.d/msp-weekly-report
+'@
+$bash | ssh -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP bash -s
+```
+
+### 7.2. Ручной вызов с Win10
+
+```powershell
+ssh -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP "sudo /usr/local/bin/weekly_report.sh" `
+    | Tee-Object "$env:USERPROFILE\msp-reports\report-$(Get-Date -Format yyyy-MM-dd).txt"
 ```
 
 ---
 
 ## 8. ОБСЛУЖИВАНИЕ СТЕКА
 
-### Обновление версий образов
+### 8.1. Обновление образов
 
-```bash
+```powershell
+$bash = @'
 cd /opt/monitoring
-
-# Обновить образ (пример: prometheus)
-# 1. Изменить версию в .env
-# 2. Пересоздать контейнер
 docker compose pull prometheus
 docker compose up -d prometheus
 docker compose logs --tail=20 prometheus
+'@
+$bash | ssh -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP bash -s
 ```
 
-### Снапшот VM перед обновлениями
+### 8.2. Снапшот VM перед изменениями
 
-```bash
-# Создать снапшот перед любыми изменениями
-DISK_ID=$(yc compute instance get msp-monitoring --format json | jq -r '.boot_disk.disk_id')
-yc compute snapshot create \
-  --name "msp-$(date +%Y%m%d)" \
-  --source-disk-id $DISK_ID \
-  --async
-echo "Снапшот создаётся в фоне"
+```powershell
+$diskId = (yc compute instance get $Env:MSP_VM_NAME --folder-id $Env:MSP_FOLDER_ID --format json | ConvertFrom-Json).boot_disk.disk_id
+
+yc compute snapshot create `
+    --name "msp-$(Get-Date -Format yyyyMMdd-HHmm)" `
+    --source-disk-id $diskId `
+    --folder-id $Env:MSP_FOLDER_ID `
+    --async
+Write-Host "Снапшот создаётся в фоне"
 ```
 
-### Мониторинг самого стека
+### 8.3. Мониторинг самого стека
 
-```bash
-# Проверка здоровья всех контейнеров
-docker compose ps
-docker stats --no-stream
-
-# Место в volumes
-docker system df -v
-
-# Prometheus TSDB stats
-curl -s http://localhost:9090/api/v1/status/tsdb | python3 -m json.tool | grep -E "(headChunks|numSeries|sizeBytes)" | head -10
+```powershell
+msp-bash 'docker compose -f /opt/monitoring/docker-compose.yml ps'
+msp-bash 'docker stats --no-stream'
+msp-bash 'docker system df -v'
+msp-bash 'curl -s http://localhost:9090/api/v1/status/tsdb | python3 -m json.tool | head -40'
 ```
+
+### 8.4. Полное удаление VM
+
+```powershell
+yc compute instance delete --name $Env:MSP_VM_NAME --folder-id $Env:MSP_FOLDER_ID
+```
+
+---
+
+## Что меняется в Silver/Gold
+
+- Silver добавляет Loki/Promtail (`profile: silver`), еженедельный отчёт по
+  Sentinel-логам и пайплайн централизованных конфигов (Puppet/Ansible).
+  См. `technical/2_Silver/EXECUTOR/SOP_executor_silver.md`.
+- Gold добавляет Wazuh Manager, KSC, osTicket. См.
+  `technical/3_Gold/EXECUTOR/SOP_executor_gold.md`.
+
+Все эти SOPs используют ту же Win10-обёртку (yc CLI + PowerShell + SSH heredoc).

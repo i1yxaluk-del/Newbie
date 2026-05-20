@@ -1,5 +1,57 @@
 # CHANGELOG
 
+## v5.0 — 2026-05 · "PowerShell-first SOPs + Yandex-friendly mail"
+
+Полная переработка SOP-инструкций под администратора, работающего с
+**Windows 10**, и приведение почтового стека Yandex Cloud в соответствие
+с реальной политикой YC по TCP/25.
+
+### Changed (SOPs)
+
+- `technical/1_Bronze/EXECUTOR/SOP_executor_bronze.md`
+- `technical/1_Bronze/CLIENT/SOP_client_bronze.md`
+- `technical/2_Silver/EXECUTOR/SOP_executor_silver.md`
+- `technical/2_Silver/CLIENT/SOP_client_silver.md`
+- `technical/3_Gold/EXECUTOR/SOP_executor_gold.md`
+- `technical/3_Gold/CLIENT/SOP_client_gold.md`
+
+Все шесть SOP переведены на PowerShell-first формат: команды на
+Win10-станции выполняются в PowerShell 5.1/7, а Linux-команды
+запускаются как `bash`-блоки через OpenSSH client (`ssh root@srv 'bash …'`
+или `... | ssh ... bash -s`). Управление Windows-серверами клиента —
+через `Invoke-Command` (WinRM) или RDP. Серверная архитектура
+(Yandex Cloud, Ubuntu 22.04, WireGuard, Docker Compose, Prometheus,
+Grafana, Loki, Wazuh, Puppet, Ansible) не изменилась.
+
+- `technical/3_Gold/SOP_gold_complete.md` — добавлено явное
+  предупреждение об устаревании и ссылки на актуальные v3.0 SOPs.
+
+- `technical/README.md` — добавлен баннер про PowerShell-first и
+  Stalwart submit-only режим, обновлена дата ревизии.
+
+### Changed (Stalwart Mail / deploy/yandex/)
+
+Yandex Cloud блокирует TCP/25 на публичных IP VPC. Все upstream-документы
+обновлены, чтобы соответствовать этому ограничению:
+
+- `deploy/yandex/docker-compose.yml` — порт `25:25` удалён, активные
+  порты: **465 (SMTPS submission)**, **587 (STARTTLS submission)**,
+  143/993 (IMAP/IMAPS), 4190 (ManageSieve), 127.0.0.1:8080 (Admin WebUI).
+- `deploy/yandex/cloud-init.yaml` — `ufw allow 25/tcp` убран, добавлены
+  правила 465/587/143/993/4190 и комментарий о submit-only режиме.
+- `deploy/yandex/deploy.ps1` — security-group `msp-sg` пересоздана с
+  inline-правилами для 465/587/143/993/4190 (без 25). Финальный вывод
+  скрипта рекламирует submit-only режим и smarthost.
+- `deploy/yandex/README.md` — переписаны разделы Stalwart,
+  SMTP-настройки Grafana/Wazuh/Alertmanager (`stalwart:587`).
+- `deploy/yandex/STALWART_RELAY_MODE.md` — **новый документ**: полное
+  руководство по submit-only режиму, smarthost (Yandex 360 / Mailgun /
+  Brevo), внешним MX-провайдерам (Yandex 360, Mailgun routes,
+  Cloudflare Email Routing), DNS-записям, верификации и rollback'у на
+  TCP/25 (если YC снимет ограничение).
+
+---
+
 ## v4.1 — 2026-04 · "Materialization"
 
 Все 53 артефакта Марафона 3.1–3.5 материализованы как реальные файлы

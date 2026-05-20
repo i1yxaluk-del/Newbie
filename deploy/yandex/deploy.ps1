@@ -362,21 +362,27 @@ Write-Ok "Subnet: msp-subnet ($($subnet.id), 10.10.0.0/24)"
 $sgs = & yc vpc security-group list --folder-id $folderId --format json 2>$null | ConvertFrom-Json
 $sg = $sgs | Where-Object { $_.name -eq "msp-sg" } | Select-Object -First 1
 if (-not $sg) {
-    Write-Info "Создаю security group 'msp-sg' (SSH/HTTP/HTTPS/SMTP/IMAP)..."
+    Write-Info "Создаю security group 'msp-sg' (SSH/HTTP/HTTPS + Stalwart 465/587/IMAP)..."
+
+    # ВНИМАНИЕ: TCP/25 НЕ открываем — Yandex Cloud блокирует :25 на
+    # публичных IP VPC на уровне платформы. Inbound MX через наш IP
+    # работать не будет. Stalwart настроен в submit-only режиме:
+    # принимает 465 (SMTPS) и 587 (STARTTLS), отправляет наружу
+    # через smarthost (Yandex 360 / Mailgun / Brevo) — см.
+    # deploy/yandex/STALWART_RELAY_MODE.md.
 
     # Создаём с inline-правилами в одном вызове
     & yc vpc security-group create `
         --name msp-sg `
-        --description "MSP Cloud: web + mail ports" `
+        --description "MSP Cloud: web + mail (465/587/IMAP, no :25)" `
         --network-id $net.id `
         --folder-id $folderId `
         --rule "direction=ingress,port=22,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=SSH" `
         --rule "direction=ingress,port=80,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=HTTP/ACME" `
         --rule "direction=ingress,port=443,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=HTTPS" `
-        --rule "direction=ingress,port=25,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=SMTP-MX" `
-        --rule "direction=ingress,port=465,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=SMTPS" `
-        --rule "direction=ingress,port=587,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=SMTP-Submission" `
-        --rule "direction=ingress,port=143,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=IMAP" `
+        --rule "direction=ingress,port=465,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=SMTPS-Submission" `
+        --rule "direction=ingress,port=587,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=SMTP-Submission-STARTTLS" `
+        --rule "direction=ingress,port=143,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=IMAP-STARTTLS" `
         --rule "direction=ingress,port=993,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=IMAPS" `
         --rule "direction=ingress,port=4190,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=ManageSieve" `
         --rule "direction=egress,from-port=0,to-port=65535,protocol=any,v4-cidrs=[0.0.0.0/0],description=All-outbound" `
@@ -614,16 +620,32 @@ Write-Host ("  A     {0,-32}   {1}" -f $Domain, $publicIp) -ForegroundColor Whit
 Write-Host ("  A     www.{0,-28}   {1}" -f $Domain, $publicIp) -ForegroundColor White
 if (-not $SkipMail) {
 Write-Host ("  A     mail.{0,-27}   {1}" -f $Domain, $publicIp) -ForegroundColor White
-Write-Host ("  MX    {0,-32}   10 mail.{1}" -f $Domain, $Domain) -ForegroundColor White
-Write-Host ("  TXT   {0,-32}   v=spf1 a mx ip4:{1} -all" -f $Domain, $publicIp) -ForegroundColor White
+Write-Host ""
+Write-Host "  ВНИМАНИЕ · Yandex Cloud блокирует TCP/25 — MX к нашему IP НЕ работает." -ForegroundColor Yellow
+Write-Host "  Stalwart работает в submit-only режиме (465/587). Варианты MX:" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "  Вариант A · внешний MX-провайдер (рекомендуется)" -ForegroundColor White
+Write-Host "    MX-запись делегируйте в Yandex 360 для бизнеса / Mail.ru для бизнеса /" -ForegroundColor DarkGray
+Write-Host "    Mailgun routes. Провайдер примет почту и forwards на наш :587." -ForegroundColor DarkGray
+Write-Host "    Подробно: deploy/yandex/STALWART_RELAY_MODE.md" -ForegroundColor DarkGray
+Write-Host ""
+Write-Host "  Вариант B · полностью внешний почтовый хостинг (без локальных ящиков)" -ForegroundColor White
+Write-Host "    MX + IMAP на стороне Yandex 360. Stalwart остаётся только для" -ForegroundColor DarkGray
+Write-Host "    исходящих алертов внутренних сервисов через smarthost." -ForegroundColor DarkGray
+Write-Host ""
+Write-Host "  DNS-записи (SPF/DMARC соответствуют выбранному варианту):" -ForegroundColor White
+Write-Host ("  TXT   {0,-32}   v=spf1 a ip4:{1} include:_spf.yandex.net -all" -f $Domain, $publicIp) -ForegroundColor White
 Write-Host ("  TXT   _dmarc.{0,-26}   v=DMARC1; p=quarantine; rua=mailto:admin@{1}" -f $Domain, $Domain) -ForegroundColor White
 Write-Host ""
-Write-Host "  Для DKIM:" -ForegroundColor DarkGray
-Write-Host "    1. После DNS-propagation войдите в админку Stalwart:" -ForegroundColor DarkGray
+Write-Host "  DKIM (после первого деплоя):" -ForegroundColor DarkGray
+Write-Host "    1. SSH tunnel в Stalwart admin:" -ForegroundColor DarkGray
 Write-Host "         ssh -L 8080:localhost:8080 -i `"$SshKeyPath`" ubuntu@$publicIp" -ForegroundColor Yellow
-Write-Host "         → откройте http://localhost:8080/admin" -ForegroundColor DarkGray
+Write-Host "         → http://localhost:8080/admin" -ForegroundColor DarkGray
 Write-Host "    2. Settings → Domains → $Domain → Generate DKIM key" -ForegroundColor DarkGray
 Write-Host "    3. Скопируйте TXT-запись и добавьте в DNS" -ForegroundColor DarkGray
+Write-Host "    4. Settings → SMTP → Outbound → Relay host" -ForegroundColor DarkGray
+Write-Host "         host: smtp.yandex.ru   port: 465   tls: implicit" -ForegroundColor DarkGray
+Write-Host "         user: alert@$Domain  password: <Yandex 360 application password>" -ForegroundColor DarkGray
 }
 Write-Host ""
 Write-Host "  ┌─ После DNS-propagation (5-30 мин) ──────────────────────────" -ForegroundColor White
@@ -631,8 +653,10 @@ Write-Host "    https://$Domain                     · лендинг" -Foregrou
 Write-Host "    https://$Domain/admin               · админка лидов" -ForegroundColor Cyan
 Write-Host "    https://$Domain/api/health          · health-чек" -ForegroundColor Cyan
 if (-not $SkipMail) {
-Write-Host "    SMTP submit: $Domain:587 (STARTTLS) · sales@/alert@ креды на ВМ" -ForegroundColor Cyan
-Write-Host "    IMAP  read:  $Domain:993 (TLS)      · для Thunderbird/Outlook" -ForegroundColor Cyan
+Write-Host "    SMTPS submit: mail.$Domain:465 (implicit TLS) · клиенты/скрипты" -ForegroundColor Cyan
+Write-Host "    SMTP  submit: mail.$Domain:587 (STARTTLS)     · Grafana/Wazuh алерты" -ForegroundColor Cyan
+Write-Host "    IMAP  read:   mail.$Domain:993 (TLS)          · Thunderbird/Outlook"  -ForegroundColor Cyan
+Write-Host "    Outbound к интернету идёт через smarthost (см. Stalwart admin UI)" -ForegroundColor DarkGray
 }
 Write-Host ""
 Write-Host "  ┌─ ВАЖНО ─────────────────────────────────────────────────────" -ForegroundColor Yellow

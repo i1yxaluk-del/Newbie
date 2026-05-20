@@ -78,14 +78,25 @@ param(
 # ═══════════════════════════════════════════════════════════════════
 $ErrorActionPreference = "Stop"
 
-# Принудительно ставим UTF-8 для консоли — иначе на русской Windows 10 PowerShell 5.1
-# покажет крокозябры вместо кириллицы и Unicode box-drawing.
+# Принудительно ставим UTF-8 для консольного вывода — иначе на русской Windows 10
+# PowerShell 5.1 покажет крокозябры вместо кириллицы и Unicode box-drawing.
+#
+# ОСТОРОЖНО: на Win10 PS5.1 PSReadLine 2.x ломается, если внутри скрипта изменить
+# [Console]::InputEncoding или вызвать `chcp 65001` — следующий prompt бросает
+# ArgumentOutOfRangeException (parameter: times). См. PSReadLine#468, PSReadLine#2189.
+# Поэтому:
+#   1) трогаем только OutputEncoding (его достаточно для отображения кириллицы);
+#   2) каждое присваивание в отдельном try, чтобы одно падение не утаскивало другие;
+#   3) сохраняем прежнее значение и восстанавливаем через try/finally в самом низу.
+$script:__PrevOutputEncoding = $OutputEncoding
+$script:__PrevConsoleOutputEncoding = $null
+try { $script:__PrevConsoleOutputEncoding = [Console]::OutputEncoding } catch { }
+try { $OutputEncoding = [System.Text.UTF8Encoding]::new($false) } catch { }
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
+
+# Любые ошибки внутри скрипта должны восстановить OutputEncoding обратно — иначе
+# текущий PowerShell-сеанс остаётся с UTF-8 и PSReadLine может сломаться.
 try {
-    $OutputEncoding = New-Object System.Text.UTF8Encoding $false
-    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-    [Console]::InputEncoding  = [System.Text.Encoding]::UTF8
-    if (Get-Command chcp -ErrorAction SilentlyContinue) { chcp 65001 > $null }
-} catch { }
 $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $DeployDir = $PSScriptRoot
 $StateFile = Join-Path $DeployDir ".deploy-state.json"
@@ -578,3 +589,12 @@ Write-Host ""
 # В отдельный stdout-блок выводим только IP — для скриптов/CI
 [Console]::Out.Flush()
 Write-Host "PUBLIC_IP=$publicIp" -ForegroundColor White
+
+} finally {
+    try {
+        if ($null -ne $script:__PrevConsoleOutputEncoding) {
+            [Console]::OutputEncoding = $script:__PrevConsoleOutputEncoding
+        }
+    } catch { }
+    try { $OutputEncoding = $script:__PrevOutputEncoding } catch { }
+}

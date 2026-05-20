@@ -197,22 +197,65 @@ if (-not $ycCmd) {
     Write-Ok "yc CLI: $(yc version 2>&1 | Select-Object -First 1)"
 }
 
-# SSH client (Windows 10 1803+ built-in)
-$sshCmd = Get-Command ssh -ErrorAction SilentlyContinue
-if (-not $sshCmd) {
-    Write-Fail "SSH client не найден. Windows 10 build 1803+ требуется."
-    Write-Info "Включите: Settings → Apps → Optional features → OpenSSH Client"
-    exit 1
-}
-Write-Ok "SSH client: $(ssh -V 2>&1)"
+# SSH client / SCP client (Windows 10 1803+ built-in: C:\Windows\System32\OpenSSH).
+#
+# Get-Command может не найти ssh, если:
+#   (a) запущен 32-битный PowerShell (видит SysWOW64, а OpenSSH лежит в System32);
+#   (b) Optional Feature был включён в той же сессии — PATH не обновлён до перезахода;
+#   (c) ssh скрыт самописным alias-ом в $PROFILE.
+# Поэтому проверяем три источника и при необходимости добавляем в PATH сами.
+function Resolve-OpenSshTool {
+    param([string]$Name)   # "ssh" или "scp"
 
-# SCP client
-$scpCmd = Get-Command scp -ErrorAction SilentlyContinue
-if (-not $scpCmd) {
-    Write-Fail "SCP client не найден (входит в OpenSSH Client)."
+    # 1. Стандартный поиск по PATH (с .exe — без .exe Get-Command иногда мажет).
+    $cmd = @(Get-Command "$Name.exe" -ErrorAction SilentlyContinue)
+    if ($cmd.Count -gt 0) { return $cmd[0].Source }
+
+    # 2. Без .exe — на случай нестандартного $env:PATHEXT.
+    $cmd = @(Get-Command $Name -CommandType Application -ErrorAction SilentlyContinue)
+    if ($cmd.Count -gt 0) { return $cmd[0].Source }
+
+    # 3. Прямые кандидаты в стандартных местах установки OpenSSH (только на Windows).
+    if ($env:SystemRoot) {
+        $candidates = @(
+            (Join-Path $env:SystemRoot "System32\OpenSSH\$Name.exe"),
+            (Join-Path $env:SystemRoot "Sysnative\OpenSSH\$Name.exe")   # на случай 32-битного PS
+        )
+        if (${env:ProgramFiles})      { $candidates += (Join-Path ${env:ProgramFiles}      "OpenSSH\$Name.exe") }
+        if (${env:ProgramFiles(x86)}) { $candidates += (Join-Path ${env:ProgramFiles(x86)} "OpenSSH\$Name.exe") }
+        foreach ($c in $candidates) {
+            if ($c -and (Test-Path $c)) { return $c }
+        }
+    }
+    return $null
+}
+
+$sshPath = Resolve-OpenSshTool "ssh"
+$scpPath = Resolve-OpenSshTool "scp"
+
+if (-not $sshPath) {
+    Write-Fail "SSH client не найден."
+    Write-Info "Проверял: Get-Command ssh.exe, C:\Windows\System32\OpenSSH\ssh.exe и стандартные пути."
+    Write-Info "Если OpenSSH Client уже установлен — закройте PowerShell, откройте новое окно и повторите."
+    Write-Info "Иначе: Settings -> Apps -> Optional features -> OpenSSH Client (или: Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0)."
     exit 1
 }
-Write-Ok "SCP client доступен"
+if (-not $scpPath) {
+    Write-Fail "SCP client не найден (обычно идёт вместе с OpenSSH Client)."
+    Write-Info "Переустановите Optional Feature 'OpenSSH Client'."
+    exit 1
+}
+
+# Если ssh нашёлся не через PATH — добавим его директорию в PATH текущего процесса,
+# чтобы все последующие вызовы 'ssh' / 'scp' работали без явных путей.
+$sshDir = Split-Path -Parent $sshPath
+if (-not (($env:PATH -split ";") -contains $sshDir)) {
+    $env:PATH = "$sshDir;$env:PATH"
+    Write-Info "Добавил $sshDir в PATH текущей сессии."
+}
+
+Write-Ok "SSH client: $(& $sshPath -V 2>&1)"
+Write-Ok "SCP client: $scpPath"
 
 # ═══════════════════════════════════════════════════════════════════
 # Стадия 2: OAuth + профиль yc

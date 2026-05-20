@@ -3,6 +3,21 @@
 > Техническая документация MSP-сервиса. Используется владельцем, senior-инженерами,
 > junior-стажёрами и клиентами (часть материалов — только внутренние).
 
+> **v3.0 (май 2026)** — SOPs переведены на **PowerShell-first** для
+> администратора с **Windows 10**. Серверная сторона (Yandex Cloud,
+> Ubuntu 22.04, Docker, WireGuard, Stalwart, Prometheus и т.д.) не
+> изменилась — Linux-команды выполняются с Win10-станции через
+> OpenSSH client (`ssh root@srv 'bash …'` или `... | ssh ... bash -s`).
+> Управление Windows-серверами клиента — через PowerShell Remoting
+> (`Invoke-Command`) / WinRM / RDP. Подробнее: [`CHANGELOG.md`](../CHANGELOG.md).
+>
+> **Mail-стек Yandex Cloud:** Yandex Cloud блокирует TCP/25 на публичных
+> IP VPC, поэтому Stalwart работает в submit-only режиме на портах
+> **465 (SMTPS)** и **587 (STARTTLS)**, входящие письма принимаются через
+> внешний MX-провайдер (Yandex 360 / Mailgun routes / Cloudflare Email
+> Routing) с форвардом на `:587`. Подробности — в
+> [`deploy/yandex/STALWART_RELAY_MODE.md`](../deploy/yandex/STALWART_RELAY_MODE.md).
+
 ## Структура документации
 
 ```
@@ -141,7 +156,7 @@ technical/
 
 ## Обновления
 
-- **Последняя ревизия:** апрель 2026 (v3.1)
+- **Последняя ревизия:** май 2026 (v3.0 — PowerShell-first SOPs + Stalwart submit-only 465/587)
 - **Ответственный за documentation:** senior инженер (rotating quarterly)
 - **Changelog:** в Notion, раздел «Documentation changes»
 

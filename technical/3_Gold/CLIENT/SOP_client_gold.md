@@ -1,16 +1,19 @@
 # SOP — Gold · Сторона КЛИЕНТА
-# Версия 3.0 | Апрель 2026
+# Версия 3.0 | PowerShell-first (Windows 10 admin workstation)
 # ═══════════════════════════════════════════════════════════════════
 #
-# Gold клиент = Silver клиент + Wazuh Agent + Kaspersky Endpoint Security
+# Gold клиент = Silver клиент + Wazuh Agent + Kaspersky Endpoint Security (KES).
+# На клиенте — только лёгкие агенты. Тяжёлые сервисы (Wazuh Manager,
+# Indexer, Dashboard, KSC) — у Исполнителя (см. SOP_executor_gold.md).
 #
-# ПРИНЦИП: на клиенте — агенты, всё тяжёлое у Исполнителя.
-#
-# Для кого: Junior-инженер, выполняющий установку на серверах клиента
+# Все операции — с Win10-станции администратора:
+#   • Linux-серверы клиента → SSH (`ssh root@srv`, here-strings)
+#   • Windows-серверы клиента → Invoke-Command (WinRM) / GPO
 # ═══════════════════════════════════════════════════════════════════
 
 ## СОДЕРЖАНИЕ
 
+0. Предпосылки
 1. Wazuh Agent — Linux
 2. Wazuh Agent — Windows (с FIM для 1С)
 3. Kaspersky Endpoint Security — развёртывание через GPO
@@ -20,288 +23,262 @@
 
 ---
 
+## 0. ПРЕДПОСЫЛКИ
+
+- На Win10-станции — те же требования, что и в `SOP_client_bronze.md` §0.
+- На клиенте Bronze + Silver уже установлены (`node_exporter`,
+  `windows_exporter`, restic, WireGuard, Promtail, Puppet Agent).
+- В сессии PowerShell подгружен `$client`:
+  ```powershell
+  $client.Gold = @{
+      WazuhManager   = '10.9.0.3'
+      WazuhVersion   = '4.7.5'
+      KesMsiSysvol   = '\\domain.local\SYSVOL\domain.local\msp-tools\kes_setup.msi'
+      KesOuPath      = 'OU=Servers,DC=domain,DC=local'
+  }
+  ```
+
+---
+
 ## 1. WAZUH AGENT — LINUX
 
-### 1.1 Что такое Wazuh и зачем он клиенту
+### 1.1. Что делает агент
 
-```
-Wazuh Agent — ЛЁГКИЙ агент (аналог node_exporter по нагрузке):
-  ✓ Собирает системные логи (auth, syslog, nginx, postgres)
-  ✓ Мониторит изменения файлов (FIM — File Integrity Monitoring)
-  ✓ Сканирует уязвимости (CVE database)
-  ✓ Отправляет ВСЕ данные → Wazuh Manager (у Исполнителя через VPN)
+- Собирает логи (`/var/log/auth.log`, `/var/log/syslog`, nginx, postgres).
+- FIM — `/etc`, `/var/www`, `/bin`, `/sbin` и т.д.
+- Сканер уязвимостей (CVE).
+- Шлёт в Wazuh Manager (порт `1514/TCP` через VPN).
+- Ресурсы — ~50–100 МБ RAM.
 
-ВАЖНО для Junior:
-  - Wazuh — слой ОБНАРУЖЕНИЯ, не предотвращения
-  - Wazuh НЕ заменяет антивирус, firewall, hardening
-  - Порт агента: 1514/TCP к Manager, не открывает ничего наружу
-  - Ресурсы: ~50–100 MB RAM на агент
-```
+### 1.2. Установка через Ansible (рекомендуется)
 
-### 1.2 Автоматическая установка (Ansible)
-
-```bash
-# На Automation VM Исполнителя:
-ansible-playbook -i inventory/clients/CLIENT/hosts \
-  playbooks/deploy_gold.yml \
-  --tags wazuh_agent \
-  -e "client_slug=CLIENT_SLUG client_name='ООО Название'" \
-  -v
+```powershell
+ssh msp-automation @"
+cd /opt/ansible
+ansible-playbook playbooks/deploy_gold.yml \
+    -i inventory/clients/$($client.Slug)/hosts \
+    --tags wazuh_agent \
+    -e client_slug=$($client.Slug) \
+    -e client_name='$($client.Name)' \
+    -e wazuh_manager=$($client.Gold.WazuhManager) -v
+"@
 ```
 
-### 1.3 Ручная установка
+### 1.3. Ручная установка (если Ansible недоступен)
 
-```bash
-# Запустить скрипт: sudo bash install_wazuh_agent_linux.sh
-# Или вручную по шагам ниже:
+```powershell
+$srv     = 'srv-app-01'
+$manager = $client.Gold.WazuhManager
+$ver     = $client.Gold.WazuhVersion
 
-WAZUH_MANAGER="${WAZUH_MANAGER:-10.9.0.3}"  # IP Wazuh Manager ЧЕРЕЗ VPN
-WAZUH_VERSION="4.7.5"
+$bash = @"
+set -euo pipefail
+WAZUH_MANAGER='$manager'
+WAZUH_VERSION='$ver'
 
-# ── Шаг 1: Добавить GPG-ключ репозитория Wazuh ─────────────────────
-# GPG-ключ нужен чтобы apt проверял что пакеты действительно от Wazuh
-curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | \
-    gpg --no-default-keyring --keyring gnupg-ring:/usr/share/keyrings/wazuh.gpg --import
-chmod 644 /usr/share/keyrings/wazuh.gpg
+# 1. GPG-ключ
+curl -fsSL https://packages.wazuh.com/key/GPG-KEY-WAZUH | \
+    sudo gpg --no-default-keyring --keyring gnupg-ring:/usr/share/keyrings/wazuh.gpg --import
+sudo chmod 644 /usr/share/keyrings/wazuh.gpg
 
-# ── Шаг 2: Добавить репозиторий ─────────────────────────────────────
-echo "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main" \
-    > /etc/apt/sources.list.d/wazuh.list
+# 2. Репозиторий
+echo 'deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main' | \
+    sudo tee /etc/apt/sources.list.d/wazuh.list
 
-# ── Шаг 3: Установить агент ─────────────────────────────────────────
-apt-get update -q
-apt-get install -y wazuh-agent
+# 3. Установка
+sudo apt-get update -q
+sudo apt-get install -y wazuh-agent
 
-# ── Шаг 4: Настроить адрес Manager ──────────────────────────────────
-# ossec.conf — главный конфиг Wazuh Agent
-sed -i "s|<address>MANAGER_IP</address>|<address>${WAZUH_MANAGER}</address>|g" \
+# 4. Адрес Manager
+sudo sed -i "s|<address>MANAGER_IP</address>|<address>\${WAZUH_MANAGER}</address>|g" \
     /var/ossec/etc/ossec.conf
 
-# ── Шаг 5: Настройка FIM (мониторинг важных файлов) ────────────────
-# FIM = File Integrity Monitoring — отслеживает изменения в файлах
-# Если кто-то изменил /etc/passwd или /etc/ssh/sshd_config — мы узнаем
-cat > /var/ossec/etc/shared/agent.conf << 'EOF'
+# 5. FIM + rootcheck + CVE scanner
+sudo tee /var/ossec/etc/shared/agent.conf >/dev/null << 'EOF'
 <agent_config>
   <syscheck>
     <disabled>no</disabled>
-    <frequency>43200</frequency>  <!-- Проверка каждые 12 часов -->
-    <!-- Критичные системные конфиги -->
+    <frequency>43200</frequency>
     <directories check_all="yes">/etc</directories>
     <directories check_all="yes">/var/ossec/etc</directories>
-    <!-- Веб-файлы (если есть веб-сервер) -->
     <directories check_all="yes" report_changes="yes">/var/www</directories>
-    <!-- Системные бинарники (защита от rootkit) -->
     <directories check_all="yes">/bin,/sbin,/usr/bin,/usr/sbin</directories>
-    <!-- Исключения: файлы которые часто меняются нормально -->
     <ignore>/etc/mtab</ignore>
     <ignore>/etc/hosts.deny</ignore>
     <ignore>/etc/mail/statistics</ignore>
     <ignore>/etc/random-seed</ignore>
-    <ignore type="sregex">.log$|.swp$|.tmp$</ignore>
+    <ignore type="sregex">.log\$|.swp\$|.tmp\$</ignore>
   </syscheck>
-
   <rootcheck>
     <disabled>no</disabled>
     <check_files>yes</check_files>
     <check_trojans>yes</check_trojans>
   </rootcheck>
-
-  <!-- Сканер уязвимостей — проверяет установленные пакеты на CVE -->
   <wodle name="vulnerability-detector">
     <disabled>no</disabled>
-    <interval>1d</interval>  <!-- Раз в день -->
+    <interval>1d</interval>
     <run_on_start>yes</run_on_start>
   </wodle>
 </agent_config>
 EOF
 
-# ── Шаг 6: Настроить UFW (если используется) ───────────────────────
-# Агент ИСХОДЯЩИЙ — не нужно открывать порты входящие
-# Но если нужно разрешить исходящие к Manager:
-ufw allow out to 10.9.0.3 port 1514 proto tcp comment "Wazuh Agent"
-ufw allow out to 10.9.0.3 port 1515 proto tcp comment "Wazuh Enrollment"
+# 6. UFW — разрешить исходящие к Manager
+sudo ufw allow out to \${WAZUH_MANAGER} port 1514 proto tcp comment 'Wazuh Agent'   || true
+sudo ufw allow out to \${WAZUH_MANAGER} port 1515 proto tcp comment 'Wazuh Enrol'   || true
 
-# ── Шаг 7: Запустить ───────────────────────────────────────────────
-systemctl daemon-reload
-systemctl enable --now wazuh-agent
-
+# 7. Старт + статус
+sudo systemctl daemon-reload
+sudo systemctl enable --now wazuh-agent
 sleep 5
-/var/ossec/bin/wazuh-control status
+sudo /var/ossec/bin/wazuh-control status
+"@
+$bash | ssh root@$srv bash -s
 
-# ── Шаг 8: Проверка ─────────────────────────────────────────────────
-# Локально: агент должен работать
-systemctl is-active wazuh-agent && echo "OK: Wazuh Agent работает"
-
-# Удалённо: попросить Исполнителя проверить регистрацию:
-# ssh wazuh-vm 'docker exec wazuh-manager /var/ossec/bin/agent_control -l'
-# Должен быть статус "Active" для нашего агента
+# Проверить регистрацию агента на Manager
+ssh msp-wazuh "docker exec wazuh-manager /var/ossec/bin/agent_control -l | head"
 ```
 
 ---
 
-## 2. WAZUH AGENT — WINDOWS
-
-### 2.1 Установка
+## 2. WAZUH AGENT — WINDOWS (FIM для 1С)
 
 ```powershell
-# Запустить: install_wazuh_agent_windows.ps1
-# Или вручную:
+$srv     = 'WIN-AD01'
+$cred    = Get-Credential -UserName "$srv\Administrator"
+$manager = $client.Gold.WazuhManager
+$ver     = $client.Gold.WazuhVersion
 
-param(
-    [string]$WazuhManager = "10.9.0.3",  # IP Manager ЧЕРЕЗ VPN
-    [string]$WazuhVersion = "4.7.5"
-)
+Invoke-Command -ComputerName $srv -Credential $cred -ScriptBlock {
+    param($WazuhManager, $WazuhVersion)
 
-$MsiUrl  = "https://packages.wazuh.com/4.x/windows/wazuh-agent-${WazuhVersion}-1.msi"
-$MsiPath = "$env:TEMP\wazuh-agent.msi"
+    $url = "https://packages.wazuh.com/4.x/windows/wazuh-agent-${WazuhVersion}-1.msi"
+    $msi = "$env:TEMP\wazuh-agent.msi"
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    Invoke-WebRequest -Uri $url -OutFile $msi -UseBasicParsing
 
-# Скачать MSI
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-Invoke-WebRequest -Uri $MsiUrl -OutFile $MsiPath -UseBasicParsing
+    Start-Process msiexec.exe -ArgumentList @(
+        '/i', $msi, '/quiet', '/norestart',
+        "WAZUH_MANAGER=$WazuhManager",
+        "WAZUH_AGENT_NAME=$env:COMPUTERNAME"
+    ) -Wait
 
-$AgentName = $env:COMPUTERNAME
-
-# Установить (тихая установка)
-Start-Process msiexec.exe -ArgumentList @(
-    "/i", $MsiPath,
-    "/quiet",
-    "/norestart",
-    "WAZUH_MANAGER=$WazuhManager",
-    "WAZUH_AGENT_NAME=$AgentName"
-) -Wait
-
-# ── Настроить FIM для 1С и Windows ─────────────────────────────────
-# FIM = File Integrity Monitoring — отслеживает критичные изменения
-$OsSecConf = "C:\Program Files (x86)\ossec-agent\ossec.conf"
-if (Test-Path $OsSecConf) {
-    # Добавить мониторинг 1С директорий
-    $extraConf = @"
+    # FIM для 1С и Windows-критичных директорий
+    $osSec = 'C:\Program Files (x86)\ossec-agent\ossec.conf'
+    if (Test-Path $osSec) {
+        $extra = @"
   <syscheck>
-    <!-- 1С Enterprise — критичные директории -->
     <directories check_all="yes">C:\Program Files\1cv8</directories>
     <directories check_all="yes">C:\Program Files (x86)\1cv8</directories>
-    <!-- Базы данных 1С (без report_changes — слишком много данных) -->
     <directories check_all="yes" report_changes="no">C:\Users\*\AppData\Roaming\1C</directories>
-    <!-- Windows hosts файл (часто модифицируется вредоносами) -->
     <directories check_all="yes">C:\Windows\System32\drivers\etc</directories>
-    <!-- Исключения: лог-файлы и tmp — меняются постоянно, не алертить -->
-    <ignore type="sregex">.log$</ignore>
-    <ignore type="sregex">.tmp$</ignore>
+    <ignore type="sregex">.log`$</ignore>
+    <ignore type="sregex">.tmp`$</ignore>
   </syscheck>
 "@
-    Add-Content -Path $OsSecConf -Value $extraConf
-    Write-Host "FIM конфигурация для 1С добавлена"
-}
+        Add-Content -Path $osSec -Value $extra
+    }
 
-# Запустить службу
-Start-Service OssecSvc -ErrorAction SilentlyContinue
-Set-Service OssecSvc -StartupType Automatic
-
-Get-Service OssecSvc | Select-Object Name, Status, StartType
-
-Remove-Item $MsiPath -Force
-Write-Host "Wazuh Agent установлен"
+    Start-Service OssecSvc -ErrorAction SilentlyContinue
+    Set-Service   OssecSvc -StartupType Automatic
+    Remove-Item $msi -Force
+    Get-Service OssecSvc | Select-Object Name, Status, StartType
+} -ArgumentList $manager, $ver
 ```
 
 ---
 
-## 3. KASPERSKY ENDPOINT SECURITY — DEPLOY
+## 3. KASPERSKY ENDPOINT SECURITY — РАЗВЁРТЫВАНИЕ
 
-### 3.1 Способ установки: GPO (рекомендуется)
+### 3.1. Через GPO (рекомендуется)
 
 ```
-КАК РАБОТАЕТ KES DEPLOYMENT:
-1. Исполнитель настраивает KSC (Kaspersky Security Center) → см. SOP_executor_gold.md §5
-2. Из KSC скачивается инсталляционный пакет KES (.msi)
-3. Пакет кладётся в SYSVOL на Domain Controller
-4. Через GPO (Group Policy) пакет устанавливается на все ПК/серверы
-5. KES автоматически подключается к KSC для получения политик
+Логика:
+  1. У Исполнителя в KSC создан installer-пакет KES (.msi).
+  2. .msi кладётся в SYSVOL на DC.
+  3. GPO Software Installation раздаёт MSI на нужные OU.
+  4. KES сам подключается к KSC за политикой и лицензией.
 
-ПОЧЕМУ НЕ РУЧНОЙ СКРИПТ:
-- GPO — стандартный способ развёртывания в AD-среде
-- Автоматически применяется к новым ПК в OU
-- Централизованный контроль обновлений и политик
+Почему не ручной скрипт:
+  - GPO — стандарт в AD-среде.
+  - Автоматически применяется к новым ПК в OU.
+  - Централизованный контроль политик через KSC.
 ```
 
-### 3.2 GPO-деплой (скрипт для Domain Controller)
+С Win10 — через Invoke-Command на Domain Controller:
 
 ```powershell
-# kes_deploy_gpo.ps1 — Создание GPO для установки KES
-# Запускать на Domain Controller от Domain Admin
-#
-# ПРЕДВАРИТЕЛЬНЫЕ ТРЕБОВАНИЯ:
-# 1. KSC развёрнут у Исполнителя → SOP_executor_gold.md §5
-# 2. Пакет KES скачан из KSC и скопирован в SYSVOL
-# 3. Лицензия активирована на KSC
+$dc   = 'WIN-DC01'
+$cred = Get-Credential -UserName 'CORP\msp-admin'
+$msi  = $client.Gold.KesMsiSysvol
+$ou   = $client.Gold.KesOuPath
 
-$KesMsiPath = "\\domain.local\SYSVOL\domain.local\msp-tools\kes_setup.msi"
+Invoke-Command -ComputerName $dc -Credential $cred -ScriptBlock {
+    param($KesMsi, $TargetOU)
+    Import-Module ActiveDirectory, GroupPolicy
 
-# Создать GPO для установки KES
-$Gpo = New-GPO -Name "MSP-KES-Deploy"
+    if (-not (Get-GPO -Name 'MSP-KES-Deploy' -ErrorAction SilentlyContinue)) {
+        $gpo = New-GPO -Name 'MSP-KES-Deploy'
+        New-GPLink -Name 'MSP-KES-Deploy' -Target $TargetOU
+    }
 
-# Привязать к OU с серверами (заменить на реальный путь OU)
-New-GPLink -Name "MSP-KES-Deploy" -Target "OU=Servers,DC=domain,DC=local"
-
-Write-Host "GPO MSP-KES-Deploy создан и привязан"
-Write-Host "ВАЖНО: добавить .msi через GPMC → Software Installation вручную"
-Write-Host "Путь MSI: $KesMsiPath"
-Write-Host "KES установится при следующем gpupdate /force"
+    Write-Output "GPO 'MSP-KES-Deploy' создан и привязан к $TargetOU"
+    Write-Output "Добавьте MSI ($KesMsi) через GPMC -> Software Installation"
+    Write-Output "KES установится при следующем 'gpupdate /force' на клиентах"
+} -ArgumentList $msi, $ou
 ```
 
-### 3.3 Ручная установка (если нет AD)
+### 3.2. Ручная установка (если домена нет)
 
 ```powershell
-# Только если нет домена — иначе использовать GPO!
-# Скачать KES с сайта Kaspersky или из KSC
+$srv  = 'STANDALONE-SRV'
+$cred = Get-Credential -UserName "$srv\Administrator"
+$kes  = '\\fileserver\share\kes_setup.exe'
+$ini  = '\\fileserver\share\kes.ini'
 
-$KesInstaller = "\\fileserver\share\kes_setup.exe"
-$KesIni = "\\fileserver\share\kes.ini"  # Файл ответов для тихой установки
-
-Start-Process -FilePath $KesInstaller -ArgumentList "/s /i $KesIni" -Wait -NoNewWindow
-Write-Host "KES установлен. Проверить: Get-Service 'AVP*'"
+Invoke-Command -ComputerName $srv -Credential $cred -ScriptBlock {
+    param($KesExe, $KesIni)
+    Start-Process -FilePath $KesExe -ArgumentList "/s /i $KesIni" -Wait -NoNewWindow
+    Get-Service 'AVP*' | Select-Object Name, Status, StartType
+} -ArgumentList $kes, $ini
 ```
 
 ---
 
 ## 4. KES — МОНИТОРИНГ ЧЕРЕЗ WINDOWS_EXPORTER
 
-### 4.1 Скрипт monitor_kes.ps1
+`monitor_kes.ps1` пишет `kaspersky.prom` в `textfile_collector` Windows-сервера —
+`windows_exporter` подхватывает файл и отдаёт метрики Prometheus.
 
 ```powershell
-# monitor_kes.ps1 — Генерация метрик KES для Prometheus
-# Размещение: C:\msp-scripts\monitor_kes.ps1
-# Запуск: через Task Scheduler каждые 5 минут
-# Результат: файл C:\Program Files\windows_exporter\textfile_collector\kaspersky.prom
-#
-# КАК РАБОТАЕТ:
-# windows_exporter читает .prom файлы из textfile_collector
-# и отдаёт их как метрики Prometheus
-# Исполнитель видит статус антивируса в Grafana
+$srv  = 'WIN-AD01'
+$cred = Get-Credential -UserName "$srv\Administrator"
 
+Invoke-Command -ComputerName $srv -Credential $cred -ScriptBlock {
+    $ScriptDir = 'C:\msp-scripts'
+    New-Item -ItemType Directory -Force -Path $ScriptDir | Out-Null
+
+    $script = @'
 $MetricsDir = "C:\Program Files\windows_exporter\textfile_collector"
 $OutFile    = "$MetricsDir\kaspersky.prom"
 $Hostname   = $env:COMPUTERNAME
 
-# ── Статус службы KES ───────────────────────────────────────────────
-# Имя службы KES обычно начинается с "AVP"
-$kesSvc = Get-Service -Name "AVP*" -ErrorAction SilentlyContinue | Select-Object -First 1
-$kesRunning = if ($kesSvc -and $kesSvc.Status -eq "Running") { 1 } else { 0 }
+# Статус службы
+$kes        = Get-Service -Name 'AVP*' -ErrorAction SilentlyContinue | Select-Object -First 1
+$kesRunning = if ($kes -and $kes.Status -eq 'Running') { 1 } else { 0 }
 
-# ── Дата последнего обновления баз ─────────────────────────────────
-# Читаем из реестра Kaspersky
-$kesRegPath = "HKLM:\SOFTWARE\KasperskyLab\*\*\Statistics\*"
+# Дата последнего обновления баз
 $lastUpdate = try {
-    $reg = Get-ItemProperty $kesRegPath -ErrorAction Stop
-    $ts = $reg.LastSuccessfulUpdate
+    $reg = Get-ItemProperty 'HKLM:\SOFTWARE\KasperskyLab\*\*\Statistics\*' -ErrorAction Stop
+    $ts  = $reg.LastSuccessfulUpdate
     if ($ts) { [DateTimeOffset]::FromFileTime($ts).ToUnixTimeSeconds() } else { 0 }
 } catch { 0 }
 
-# Возраст баз в часах (если >48 — алерт!)
 $dbAgeHours = if ($lastUpdate -gt 0) {
     [math]::Round(([DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - $lastUpdate) / 3600, 1)
 } else { -1 }
 
-# ── Записать метрики ───────────────────────────────────────────────
+if (-not (Test-Path $MetricsDir)) { New-Item -ItemType Directory -Force -Path $MetricsDir | Out-Null }
+
 @"
 # HELP kaspersky_service_running 1=running 0=stopped
 # TYPE kaspersky_service_running gauge
@@ -309,79 +286,81 @@ kaspersky_service_running{host="$Hostname"} $kesRunning
 # HELP kaspersky_database_age_hours Age of antivirus databases in hours
 # TYPE kaspersky_database_age_hours gauge
 kaspersky_database_age_hours{host="$Hostname"} $dbAgeHours
-# HELP kaspersky_last_update_timestamp Unix timestamp of last database update
+# HELP kaspersky_last_update_timestamp Unix timestamp of last DB update
 # TYPE kaspersky_last_update_timestamp gauge
 kaspersky_last_update_timestamp{host="$Hostname"} $lastUpdate
 "@ | Set-Content $OutFile -Encoding UTF8
-```
+'@
+    Set-Content -Path "$ScriptDir\monitor_kes.ps1" -Value $script -Encoding UTF8
 
-### 4.2 Task Scheduler для monitor_kes.ps1
+    $action  = New-ScheduledTaskAction -Execute 'powershell.exe' `
+        -Argument '-NonInteractive -ExecutionPolicy Bypass -File "C:\msp-scripts\monitor_kes.ps1"'
+    $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) `
+        -RepetitionInterval (New-TimeSpan -Minutes 5)
+    $settings= New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 2)
 
-```powershell
-# Добавить в Task Scheduler (выполнить один раз):
-$Action  = New-ScheduledTaskAction -Execute "powershell.exe" `
-    -Argument "-NonInteractive -ExecutionPolicy Bypass -File `"C:\msp-scripts\monitor_kes.ps1`""
-$Trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 5)
-$Settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 2) -DontStopOnIdleEnd
-
-Register-ScheduledTask -TaskName "MSP-KES-Monitor" `
-    -Action $Action -Trigger $Trigger -Settings $Settings `
-    -User "SYSTEM" -RunLevel Highest -Force | Out-Null
-
-Write-Host "Task MSP-KES-Monitor зарегистрирован (каждые 5 мин)"
+    Register-ScheduledTask -TaskName 'MSP-KES-Monitor' `
+        -Action $action -Trigger $trigger -Settings $settings `
+        -User 'SYSTEM' -RunLevel Highest -Force | Out-Null
+}
 ```
 
 ---
 
 ## 5. ВЕРИФИКАЦИЯ GOLD CLIENT
 
-```bash
-#!/bin/bash
-# Запускать на каждом Linux-сервере после установки Gold
+```powershell
+function Test-MspGoldClient {
+    param([Parameter(Mandatory)]$Client)
 
-echo "=== ВЕРИФИКАЦИЯ GOLD CLIENT ==="
-echo "Сервер: $(hostname) | Дата: $(date)"
+    Test-MspSilverClient -Client $Client | Out-Null
 
-# ── Bronze + Silver проверки ────────────────────────────────────────
-echo ""
-echo "─── Bronze компоненты ───"
-echo -n "  WireGuard VPN... "; sudo wg show wg0-msp &>/dev/null && echo "OK" || echo "FAIL"
-echo -n "  node_exporter... "; systemctl is-active node_exporter &>/dev/null && echo "OK" || echo "FAIL"
-echo -n "  Restic timer... "; systemctl is-active restic-backup.timer &>/dev/null && echo "OK" || echo "FAIL"
+    foreach ($s in $Client.Servers) {
+        Write-Host "`n=== Gold checks · $($s.Host) ($($s.OS)) ===" -ForegroundColor Cyan
 
-echo ""
-echo "─── Silver компоненты ───"
-echo -n "  Promtail... "; systemctl is-active promtail &>/dev/null && echo "OK" || echo "FAIL"
-echo -n "  Puppet Agent... "; systemctl is-active puppet &>/dev/null && echo "OK" || echo "FAIL"
+        if ($s.OS -eq 'linux') {
+            $check = @'
+echo -n "wazuh-agent active ..... "
+systemctl is-active --quiet wazuh-agent && echo OK || echo FAIL
 
-# ── Gold проверки ───────────────────────────────────────────────────
-echo ""
-echo "─── Gold компоненты ───"
-echo -n "  Wazuh Agent... "; systemctl is-active wazuh-agent 2>/dev/null && echo "OK" || echo "FAIL"
+echo -n "wazuh-control status ... "
+sudo /var/ossec/bin/wazuh-control status 2>/dev/null | grep -q "wazuh-modulesd running" && echo OK || echo WARN
 
-echo -n "  Wazuh модули... "
-/var/ossec/bin/wazuh-control status 2>/dev/null | grep -q "wazuh-modulesd running" && \
-    echo "OK" || echo "WARN (проверить вручную)"
+echo -n "VPN -> Manager ........... "
+ping -c 2 -W 3 10.9.0.3 >/dev/null && echo OK || echo FAIL
+'@
+            $check | ssh root@$($s.Host) bash -s
+        }
+        else {
+            $cred = Get-Credential -UserName "$($s.Host)\Administrator" -Message "WinRM creds"
+            Invoke-Command -ComputerName $s.Host -Credential $cred -ScriptBlock {
+                @{
+                    'OssecSvc'         = (Get-Service OssecSvc -ErrorAction SilentlyContinue).Status
+                    'Kaspersky (AVP)'  = (Get-Service 'AVP*'    -ErrorAction SilentlyContinue | Select-Object -First 1).Status
+                    'KES metrics file' = (Test-Path 'C:\Program Files\windows_exporter\textfile_collector\kaspersky.prom')
+                    'Monitor task'     = (Get-ScheduledTask -TaskName 'MSP-KES-Monitor' -ErrorAction SilentlyContinue).State
+                }
+            } | Format-Table -AutoSize
+        }
+    }
 
-echo ""
-echo "=== ВЕРИФИКАЦИЯ ЗАВЕРШЕНА ==="
+    Write-Host "`n--- Wazuh Manager view ---" -ForegroundColor Cyan
+    ssh msp-wazuh "docker exec wazuh-manager /var/ossec/bin/agent_control -l | head -20"
+}
 
-# Windows-проверки (запустить отдельно в PowerShell):
-# Get-Service "OssecSvc" | Select-Object Status       → Wazuh Agent
-# Get-Service "AVP*" | Select-Object Name, Status     → Kaspersky
-# type "C:\Program Files\windows_exporter\textfile_collector\kaspersky.prom"
+Test-MspGoldClient -Client $client
 ```
 
 ---
 
-## 6. TROUBLESHOOTING GOLD CLIENT
+## 6. TROUBLESHOOTING
 
-| Проблема | Диагностика | Решение |
-|---|---|---|
-| Wazuh Agent не подключается | `/var/ossec/bin/wazuh-control status` | Проверить VPN: `ping 10.9.0.3`; проверить адрес Manager в `ossec.conf`: `grep address /var/ossec/etc/ossec.conf` |
-| FIM не показывает изменения | `/var/ossec/bin/wazuh-control status` | Проверить что syscheck не disabled: `grep -A5 syscheck /var/ossec/etc/shared/agent.conf` |
-| KES не устанавливается через GPO | `gpresult /r /scope computer` | `gpupdate /force`, проверить путь MSI в SYSVOL, проверить что OU правильный |
-| KES не работает после установки | `Get-Service "AVP*"` | Запустить: `Start-Service AVP*`; проверить лицензию в KSC |
-| KES базы устарели | См. `kaspersky.prom` метрику `kaspersky_database_age_hours` | Обновить вручную через KSC или: `"C:\Program Files\Kaspersky Lab\KES\avp.com" UPDATE` |
-| monitor_kes.ps1 не пишет метрики | Проверить Task Scheduler | `Get-ScheduledTask -TaskName "MSP-KES-Monitor"`; проверить путь к textfile_collector |
-| Wazuh Agent — сертификат ошибка | `/var/ossec/bin/wazuh-control status` | `rm /var/ossec/etc/sslmanager.cert`, перезапустить агент: `systemctl restart wazuh-agent` |
+| Проблема                                | Диагностика с Win10                                                                              | Решение                                                                                          |
+|-----------------------------------------|--------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------|
+| Wazuh Agent (Linux) не подключается     | `ssh root@srv 'sudo /var/ossec/bin/wazuh-control status'`                                        | `ssh root@srv 'ping -c2 10.9.0.3 && grep address /var/ossec/etc/ossec.conf'`                     |
+| FIM не показывает изменения             | `ssh root@srv 'grep -A5 syscheck /var/ossec/etc/shared/agent.conf'`                              | Убедиться `<disabled>no</disabled>`; `ssh root@srv 'sudo systemctl restart wazuh-agent'`         |
+| Wazuh Agent (Windows) не стартует       | `Invoke-Command ... { Get-Service OssecSvc \| fl }`                                              | `Invoke-Command ... { Start-Service OssecSvc; Get-EventLog -LogName Application -Source ossec }` |
+| KES не устанавливается через GPO        | `Invoke-Command -ComputerName WIN-CLIENT ... { gpresult /r /scope computer }`                     | На клиенте `gpupdate /force`; проверить путь MSI в SYSVOL и таргет OU                            |
+| KES установлен, но не запущен           | `Invoke-Command ... { Get-Service 'AVP*' }`                                                       | `Invoke-Command ... { Start-Service 'AVP*' }`; проверить лицензию в KSC                          |
+| KES базы устарели                       | `ssh msp-bastion 'curl -s http://10.9.0.2:9101/metrics \| grep kaspersky_database_age_hours'`     | Обновить через KSC или: `Invoke-Command ... { & 'C:\Program Files\Kaspersky Lab\KES\avp.com' UPDATE }` |
+| `monitor_kes.ps1` не пишет метрики      | `Invoke-Command ... { Get-ScheduledTask MSP-KES-Monitor \| Get-ScheduledTaskInfo }`               | Перепроверить путь к textfile_collector; проверить, что `windows_exporter` запущен               |

@@ -1,10 +1,15 @@
-# SOP — Gold · Клиент + Исполнитель (УСТАРЕВШИЙ — используйте SOP_client_gold.md + SOP_executor_gold.md)
+# SOP — Gold · Клиент + Исполнитель (УСТАРЕВШИЙ)
 # Версия 2.0 | Апрель 2026
 # ═══════════════════════════════════════════════════════════════════
 #
-# ВНИМАНИЕ: Этот файл УСТАРЕЛ. Используйте:
-#   Клиент:    3_Gold/CLIENT/SOP_client_gold.md
-#   Исполнитель: 3_Gold/EXECUTOR/SOP_executor_gold.md
+# ⚠️  ВНИМАНИЕ: Этот файл УСТАРЕЛ и сохранён только для исторической
+#     справки. Текст ниже использует bash-инструкции образца Linux-
+#     админ-станции.
+#
+#     Актуальные SOPs v3.0 (PowerShell-first, Windows 10 admin
+#     workstation, Yandex Cloud) находятся в:
+#       Клиент:      3_Gold/CLIENT/SOP_client_gold.md
+#       Исполнитель: 3_Gold/EXECUTOR/SOP_executor_gold.md
 #
 # Gold = Silver + безопасность (Wazuh SIEM) + Kaspersky + тикет-система
 # + приоритетный SLA P1 до 1 часа + стратегические сессии

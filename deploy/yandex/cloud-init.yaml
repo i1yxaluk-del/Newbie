@@ -92,17 +92,20 @@ runcmd:
   # 5. Docker group для ubuntu
   - usermod -aG docker ubuntu
 
-  # 6. Firewall: SSH + HTTP/S + почтовые порты Stalwart
+  # 6. Firewall: SSH + HTTP/S + почтовые порты Stalwart (submit-only режим).
+  #    Порт 25 НЕ открываем — Yandex Cloud блокирует TCP/25 на публичных
+  #    IP VPC. Inbound MX-приём не работает (MX-запись домена должна
+  #    указывать на внешний провайдер: Yandex 360, Mailgun routes и т.п.).
+  #    См. deploy/yandex/STALWART_RELAY_MODE.md
   - ufw default deny incoming
   - ufw default allow outgoing
   - ufw allow 22/tcp     comment 'SSH'
   - ufw allow 80/tcp     comment 'Caddy HTTP / ACME challenge'
   - ufw allow 443/tcp    comment 'Caddy HTTPS / лендинг + API'
-  - ufw allow 25/tcp     comment 'Stalwart SMTP MX (приём почты)'
-  - ufw allow 465/tcp    comment 'Stalwart SMTPS submission'
+  - ufw allow 465/tcp    comment 'Stalwart SMTPS submission (implicit TLS)'
   - ufw allow 587/tcp    comment 'Stalwart STARTTLS submission'
-  - ufw allow 143/tcp    comment 'Stalwart IMAP'
-  - ufw allow 993/tcp    comment 'Stalwart IMAPS'
+  - ufw allow 143/tcp    comment 'Stalwart IMAP STARTTLS'
+  - ufw allow 993/tcp    comment 'Stalwart IMAPS (TLS)'
   - ufw allow 4190/tcp   comment 'Stalwart ManageSieve'
   - ufw --force enable
 

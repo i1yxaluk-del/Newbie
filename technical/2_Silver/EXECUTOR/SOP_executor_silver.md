@@ -1,112 +1,167 @@
 # SOP — Silver · Сторона ИСПОЛНИТЕЛЯ
-# Версия 2.0 | Апрель 2026
+# Версия 3.0 | PowerShell-first (Windows 10 admin workstation)
 # ═══════════════════════════════════════════════════════════════════
 #
 # Silver добавляет к Bronze:
-#   - Automation VM (отдельная или на той же машине при <8 клиентах)
+#   - Automation VM (Puppet Server + Ansible control node)
 #   - Loki (централизованное логирование)
-#   - Puppet Server (desired state control)
-#   - Ansible Control Node (автоматизация)
 #   - расширенная отчётность
 #
+# Все команды cloud-CLI и SSH-вызовы выполняются с Win10-станции
+# администратора (PowerShell 5.1+). Серверная часть остаётся Linux.
+#
+# Перед чтением убедитесь что прошли `SOP_executor_bronze.md` —
+# здесь используются те же переменные окружения ($Env:MSP_*),
+# вспомогательные функции (`msp-bash`, `Add-MspClient`,
+# `New-MspBackupBucket`), репозиторий `~/.msp-secrets/`.
 # ═══════════════════════════════════════════════════════════════════
 
 ## СОДЕРЖАНИЕ
 
-1. Архитектура Исполнителя (Silver)
-2. Automation VM — развёртывание
+0. Что добавляет Silver к Bronze
+1. Архитектура Silver
+2. Automation VM — развёртывание из PowerShell
 3. Loki — централизованные логи
-4. Puppet Server — desired state
+4. Puppet Server (на Automation VM)
 5. Ansible Control Node
-6. Playbooks — deploy_bronze + deploy_silver
+6. Управление конфигурациями в Git
 7. Обслуживание Silver
 
 ---
 
-## 1. АРХИТЕКТУРА SILVER (ИСПОЛНИТЕЛЬ)
+## 0. ЧТО ДОБАВЛЯЕТ SILVER
+
+| Компонент          | Где                          | Зачем                                        |
+|--------------------|------------------------------|-----------------------------------------------|
+| Loki + Promtail    | Monitoring VM (контейнер)    | Централизованные логи всех клиентов          |
+| Puppet Server      | Automation VM (новая)        | Desired state — гарантирует базовый конфиг   |
+| Ansible Control    | Automation VM (тот же хост)  | Идемпотентные плейбуки для deploy/rollback   |
+| Git (IaC)          | Automation VM                | Версионирование всех конфигов                |
+| Расширенный отчёт  | Monitoring VM (тот же cron)  | Включает Loki, Puppet drift, Ansible runs    |
+
+Все сервисы внутри VPN `10.9.0.0/24`. Внешние порты не открываем.
+
+---
+
+## 1. АРХИТЕКТУРА SILVER
 
 ```
-YANDEX CLOUD
-┌──────────────────────────────────────────────────────────────────┐
-│ Monitoring VM (4 vCPU 100%, 8 GB, 50 GB SSD)                    │
-│ ├── Prometheus :9090                                              │
-│ ├── Alertmanager :9093                                           │
-│ ├── Grafana :3000 (только через VPN)                             │
-│ ├── Loki :3100 ← NEW                                             │
-│ ├── node-exporter                                                │
-│ └── cAdvisor                                                     │
-│                                                                  │
-│ Automation VM (2 vCPU 100%, 4 GB, 40 GB SSD) ← NEW             │
-│ ├── Puppet Server :8140                                          │
-│ ├── Ansible Control Node                                         │
-│ └── Git репозиторий конфигураций                                 │
-│                                                                  │
-│ Bastion VM (2 vCPU 5%, 2 GB, 20 GB SSD) — как в Bronze          │
-│ └── WireGuard :51820                                             │
-│                                                                  │
-│ Object Storage (S3)                                              │
-│ └── backup-CLIENT_NAME/ (restic репозитории)                    │
-└──────────────────────────────────────────────────────────────────┘
+WINDOWS 10 АДМИН-СТАНЦИЯ                    YANDEX CLOUD
+┌─────────────────────────┐                 ┌──────────────────────────────────────────────────────────────────┐
+│  PowerShell             │  yc CLI / SSH   │ Monitoring VM (4 vCPU 100%, 8 GB, 50 GB SSD)                    │
+│   yc CLI                │ ───────────────▶│ ├── Prometheus :9090                                              │
+│   OpenSSH client        │                 │ ├── Alertmanager :9093                                           │
+│   Invoke-Command        │                 │ ├── Grafana :3000 (только через VPN)                             │
+└─────────────────────────┘                 │ ├── Loki :3100  ← NEW                                            │
+                                            │ ├── node-exporter / cAdvisor                                     │
+                                            │                                                                  │
+                                            │ Automation VM (2 vCPU 100%, 4 GB, 40 GB SSD)  ← NEW             │
+                                            │ ├── Puppet Server :8140                                          │
+                                            │ ├── Ansible Control Node                                         │
+                                            │ └── Git репозиторий /opt/ansible                                 │
+                                            │                                                                  │
+                                            │ Bastion VM (2 vCPU 5%, 2 GB, 20 GB SSD) — как в Bronze          │
+                                            │ └── WireGuard :51820                                             │
+                                            │                                                                  │
+                                            │ Object Storage (S3)                                              │
+                                            │ └── backup-CLIENT_NAME/  (restic репозитории)                    │
+                                            └──────────────────────────────────────────────────────────────────┘
 ```
 
-**Стоимость Silver инфраструктуры Исполнителя:**
+**Стоимость Silver-инфраструктуры:**
 ```
-Monitoring VM (4 vCPU/8GB/50GB SSD):  ~3 800 ₽/мес
-Automation VM (2 vCPU/4GB/40GB SSD):  ~1 900 ₽/мес
-Bastion VM    (2 vCPU 5%/2GB/20GB):   ~600 ₽/мес
-Object Storage (~200 ГБ):              ~200 ₽/мес
-────────────────────────────────────────────────────
-Итого:                                 ~6 500 ₽/мес
+Monitoring VM (4 vCPU/8GB/50GB SSD):    ~3 800 ₽/мес
+Automation VM (2 vCPU/4GB/40GB SSD):    ~1 900 ₽/мес
+Bastion VM    (2 vCPU 5%/2GB/20GB):       ~600 ₽/мес
+Object Storage (~200 ГБ):                  ~200 ₽/мес
+─────────────────────────────────────────────────────
+Итого:                                    ~6 500 ₽/мес
 ```
 
 ---
 
-## 2. AUTOMATION VM — РАЗВЁРТЫВАНИЕ
+## 2. AUTOMATION VM — РАЗВЁРТЫВАНИЕ ИЗ POWERSHELL
 
-```bash
-# Создать Automation VM
-yc compute instance create \
-  --name msp-automation \
-  --zone ru-central1-a \
-  --network-interface subnet-name=default-vpc,nat-ip-version=none \
-  --create-boot-disk \
-    image-family=ubuntu-2204-lts,\
-    size=40,\
-    type=network-ssd \
-  --cores 2 \
-  --core-fraction 100 \
-  --memory 4 \
-  --ssh-key ~/.ssh/id_ed25519.pub \
-  --preemptible  # Убрать для production!
+### 2.1. Создать VM
 
-# Получить внутренний IP (нет публичного — только через Bastion)
-AUTO_IP=$(yc compute instance get msp-automation --format json | jq -r '.network_interfaces[0].primary_v4_address.address')
-echo "Automation VM internal IP: $AUTO_IP"
+```powershell
+$Env:MSP_AUTO_NAME = 'msp-automation'
 
-# Подключиться через Bastion (через VPN)
-ssh ubuntu@$AUTO_IP
+yc compute instance create `
+    --name $Env:MSP_AUTO_NAME `
+    --folder-id $Env:MSP_FOLDER_ID `
+    --zone $Env:MSP_ZONE `
+    --network-interface "subnet-name=default,nat-ip-version=none" `
+    --create-boot-disk "image-family=ubuntu-2204-lts,size=40GB,type=network-ssd" `
+    --cores 2 `
+    --core-fraction 100 `
+    --memory 4GB `
+    --ssh-key "$Env:MSP_SSH_KEY.pub"
+# Для теста добавьте --preemptible. Для production не использовать.
 
-# ── Базовая настройка ─────────────────────────────────────────────
+$vm = yc compute instance get $Env:MSP_AUTO_NAME --format json | ConvertFrom-Json
+$Env:MSP_AUTO_IP = $vm.network_interfaces[0].primary_v4_address.address
+Write-Host "Automation VM internal IP: $Env:MSP_AUTO_IP"
+```
+
+> Automation VM не имеет публичного IP. Доступ — через Bastion (Monitoring VM) по VPN.
+
+### 2.2. Подключение через Bastion (`ProxyJump`)
+
+Добавьте в `$env:USERPROFILE\.ssh\config`:
+```text
+Host msp-bastion
+  HostName    <MSP_VM_IP>
+  User        ubuntu
+  IdentityFile ~/.ssh/id_ed25519_yc
+
+Host msp-automation
+  HostName    <MSP_AUTO_IP>
+  User        ubuntu
+  IdentityFile ~/.ssh/id_ed25519_yc
+  ProxyJump   msp-bastion
+```
+
+Затем:
+```powershell
+ssh msp-automation
+```
+
+### 2.3. Базовая настройка VM (через ProxyJump)
+
+```powershell
+$bash = @'
+set -euo pipefail
 sudo apt update && sudo apt upgrade -y
 sudo apt install -y git curl wget python3 python3-pip ansible jq
 
-# ── Java для Puppet Server ────────────────────────────────────────
-sudo apt install -y default-jre-headless  # OpenJDK
+# Java для Puppet Server
+sudo apt install -y default-jre-headless
 java -version
+'@
+$bash | ssh msp-automation bash -s
+```
+
+Helper для повторного запуска bash на Automation VM:
+```powershell
+function msp-auto-bash {
+    param([Parameter(Mandatory)][string]$Script)
+    $Script | ssh msp-automation bash -s
+}
 ```
 
 ---
 
-## 3. LOKI — ЦЕНТРАЛИЗОВАННЫЕ ЛОГИ
+## 3. LOKI — ЦЕНТРАЛИЗОВАННЫЕ ЛОГИ (на Monitoring VM)
 
-### 3.1 Добавить Loki в docker-compose.yml (Monitoring VM)
+### 3.1. Развернуть Loki через docker compose
 
-```bash
-# На Monitoring VM:
+```powershell
+$bash = @'
+set -euo pipefail
 cd /opt/monitoring
-
-# Добавить Loki конфигурацию
 mkdir -p loki
+
 cat > loki/loki-config.yml << 'EOF'
 auth_enabled: false
 
@@ -124,15 +179,12 @@ common:
       rules_directory:  /loki/rules
   replication_factor: 1
   ring:
-    kvstore:
-      store: inmemory
+    kvstore: { store: inmemory }
 
 query_range:
   results_cache:
     cache:
-      embedded_cache:
-        enabled: true
-        max_size_mb: 128
+      embedded_cache: { enabled: true, max_size_mb: 128 }
 
 schema_config:
   configs:
@@ -140,24 +192,19 @@ schema_config:
       store: tsdb
       object_store: filesystem
       schema: v13
-      index:
-        prefix: index_
-        period: 24h
+      index: { prefix: index_, period: 24h }
 
 storage_config:
-  filesystem:
-    directory: /loki/storage
+  filesystem: { directory: /loki/storage }
 
 limits_config:
-  # Хранение логов по умолчанию
-  retention_period: 720h       # 30 дней
-  max_query_length: 721h
+  retention_period: 720h
+  max_query_length:  721h
   max_query_parallelism: 32
   ingestion_rate_mb: 64
   ingestion_burst_size_mb: 128
   per_stream_rate_limit: 64MB
   per_stream_rate_limit_burst: 128MB
-  # Разрешить запросы старше retention
   allow_structured_metadata: true
 
 compactor:
@@ -171,84 +218,75 @@ ruler:
   alertmanager_url: http://alertmanager:9093
 EOF
 
-# Запустить с Silver профилем (включает Loki)
 docker compose --profile silver up -d loki
-
-# Проверить
 sleep 5
-curl -s http://localhost:3100/ready && echo "Loki OK"
+curl -fsS http://localhost:3100/ready && echo "Loki OK"
 
-# Добавить Loki datasource в Grafana (автоматически через provisioning)
+# Datasource Grafana
 cat > grafana/provisioning/datasources/loki.yml << 'EOF'
 apiVersion: 1
 datasources:
   - name: Loki
     type: loki
     access: proxy
-    url: http://loki:3100
+    url:  http://loki:3100
     isDefault: false
     editable: false
     jsonData:
       maxLines: 1000
       timeout: 60
 EOF
-
-# Перезапустить Grafana для применения datasource
 docker compose restart grafana
+'@
+$bash | ssh -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP bash -s
 ```
 
-### 3.2 Полезные LogQL запросы (шпаргалка)
+### 3.2. Шпаргалка LogQL
 
 ```logql
 # Все ошибки клиента за 24ч
 {client="company1"} |= "error" | logfmt
 
-# Брутфорс SSH — неудачные попытки входа
+# Брутфорс SSH
 {job="auth", client="company1"} |= "Failed password" | regexp `from (?P<ip>\S+) port`
 
-# Ошибки Nginx у конкретного клиента
+# Nginx 5xx у клиента
 {job="nginx", client="company1", status=~"5.."} | logfmt
 
 # Объём входящих логов по клиентам
 sum by (client) (rate({client=~".+"}[5m]))
 
-# Поиск определённого IP во всех логах клиента
-{client="company1"} |= "1.2.3.4"
-
-# Ошибки PostgreSQL
-{job="postgresql", client="company1"} |= "ERROR" | logfmt | line_format "{{.log}}"
+# PostgreSQL ошибки
+{job="postgresql", client="company1"} |= "ERROR" | logfmt
 ```
 
 ---
 
 ## 4. PUPPET SERVER
 
-### 4.1 Установка на Automation VM
+Все блоки `bash` выполняются на Automation VM через `msp-auto-bash`.
 
-```bash
-# На Automation VM:
+### 4.1. Установка пакетов
 
-# ── Добавить репозиторий ──────────────────────────────────────────
+```powershell
+msp-auto-bash @'
+set -euo pipefail
 CODENAME=$(lsb_release -cs)
-wget -qO /tmp/puppet8-release.deb \
-    "https://apt.puppetlabs.com/puppet8-release-${CODENAME}.deb"
+wget -qO /tmp/puppet8-release.deb "https://apt.puppetlabs.com/puppet8-release-${CODENAME}.deb"
 sudo dpkg -i /tmp/puppet8-release.deb
 sudo apt update -q
 sudo apt install -y puppetserver
 
-# ── Настроить JVM память ──────────────────────────────────────────
-# Silver: 2GB JVM достаточно для <20 клиентов
+# JVM 2GB для Silver (<20 клиентов)
 sudo sed -i 's/JAVA_ARGS=.*/JAVA_ARGS="-Xms2g -Xmx2g"/' /etc/default/puppetserver
 
-# ── Конфигурация Puppet Server ────────────────────────────────────
-sudo tee /etc/puppetlabs/puppet/puppet.conf << EOF
+sudo tee /etc/puppetlabs/puppet/puppet.conf >/dev/null << EOF
 [main]
-certname   = puppet-server.internal
-server     = puppet-server.internal
+certname    = puppet-server.internal
+server      = puppet-server.internal
 environment = production
 
 [master]
-# Алиасы (клиенты подключаются по имени puppet-server.internal)
 dns_alt_names = puppet-server,puppet-server.internal,10.9.0.2
 
 [agent]
@@ -256,202 +294,81 @@ server      = puppet-server.internal
 runinterval = 1800
 EOF
 
-# ── Добавить запись в /etc/hosts для DNS-резолвинга ───────────────
 echo "10.9.0.2 puppet-server.internal puppet-server" | sudo tee -a /etc/hosts
+sudo ufw allow from 10.9.0.0/24 to any port 8140 proto tcp comment "Puppet clients" || true
 
-# ── Настроить UFW ─────────────────────────────────────────────────
-sudo ufw allow from 10.9.0.0/24 to any port 8140 proto tcp comment "Puppet clients"
-
-# ── Запустить ─────────────────────────────────────────────────────
 sudo systemctl enable --now puppetserver
-sleep 10  # Дать время на инициализацию JVM
-
-sudo systemctl status puppetserver
+sleep 10
+sudo systemctl --no-pager status puppetserver | head -10
 curl -sk https://localhost:8140/status/v1/simple && echo "Puppet Server OK"
+'@
 ```
 
-### 4.2 Модули Puppet для MSP
+### 4.2. Структура Puppet-модулей
 
-```bash
-# Создать структуру модулей
+```powershell
+msp-auto-bash @'
+set -euo pipefail
 sudo mkdir -p /etc/puppetlabs/code/environments/production/{modules,manifests,hiera}
 sudo chown -R ubuntu:ubuntu /etc/puppetlabs/code/
 
-# ── Модуль: base_linux ────────────────────────────────────────────
 mkdir -p /etc/puppetlabs/code/environments/production/modules/base_linux/manifests
-
-cat > /etc/puppetlabs/code/environments/production/modules/base_linux/manifests/init.pp << 'EOF'
-# Класс base_linux — применяется ко ВСЕМ Linux-серверам
-# Обеспечивает базовые настройки, которые не должны отклоняться
-class base_linux (
-  String  $timezone           = 'Europe/Moscow',
-  Array   $ntp_servers        = ['0.ru.pool.ntp.org', '1.ru.pool.ntp.org'],
-  Boolean $disable_root_ssh   = true,
-  Boolean $disable_password_auth = true,
-) {
-
-  # Часовой пояс
-  exec { 'set_timezone':
-    command => "/bin/timedatectl set-timezone ${timezone}",
-    onlyif  => "/bin/test \"$(timedatectl show --property=Timezone --value)\" != \"${timezone}\"",
-  }
-
-  # Базовые пакеты (должны быть установлены)
-  package { ['chrony', 'curl', 'fail2ban', 'htop', 'jq', 'ufw']:
-    ensure => present,
-  }
-
-  # Chrony (NTP) должен работать
-  service { 'chrony':
-    ensure  => running,
-    enable  => true,
-    require => Package['chrony'],
-  }
-
-  # SSH hardening — не допускать root-входа
-  if $disable_root_ssh {
-    file_line { 'ssh_no_root':
-      path   => '/etc/ssh/sshd_config',
-      line   => 'PermitRootLogin no',
-      match  => '^#?PermitRootLogin',
-      notify => Service['sshd'],
-    }
-  }
-
-  if $disable_password_auth {
-    file_line { 'ssh_no_password':
-      path   => '/etc/ssh/sshd_config',
-      line   => 'PasswordAuthentication no',
-      match  => '^#?PasswordAuthentication',
-      notify => Service['sshd'],
-    }
-  }
-
-  service { 'sshd':
-    ensure => running,
-    enable => true,
-  }
-
-  # MOTD — информация об обслуживании
-  file { '/etc/motd':
-    ensure  => file,
-    content => "
-╔════════════════════════════════════════╗
-║  Сервер под управлением MSPShield      ║
-║  Все изменения конфигурации            ║
-║  отслеживаются системой мониторинга.   ║
-╚════════════════════════════════════════╝
-
-",
-  }
-}
-EOF
-
-# ── Модуль: hardening ─────────────────────────────────────────────
 mkdir -p /etc/puppetlabs/code/environments/production/modules/hardening/manifests
-
-cat > /etc/puppetlabs/code/environments/production/modules/hardening/manifests/init.pp << 'EOF'
-class hardening {
-
-  # Sysctl: сетевая безопасность
-  $sysctl_params = {
-    'net.ipv4.conf.all.accept_redirects'    => 0,
-    'net.ipv4.conf.all.send_redirects'      => 0,
-    'net.ipv4.conf.all.rp_filter'           => 1,
-    'net.ipv4.conf.all.accept_source_route' => 0,
-    'net.ipv4.conf.all.log_martians'        => 1,
-    'kernel.randomize_va_space'             => 2,
-    'kernel.dmesg_restrict'                 => 1,
-    'kernel.kptr_restrict'                  => 2,
-    'fs.suid_dumpable'                      => 0,
-  }
-
-  $sysctl_params.each |String $param, Integer $value| {
-    exec { "sysctl_${param}":
-      command => "/sbin/sysctl -w ${param}=${value}",
-      onlyif  => "/bin/bash -c 'test \"$(/sbin/sysctl -n ${param})\" != \"${value}\"'",
-    }
-  }
-
-  # fail2ban должен быть запущен
-  service { 'fail2ban':
-    ensure  => running,
-    enable  => true,
-    require => Package['fail2ban'],
-  }
-}
-EOF
-
-# ── Модуль: monitoring_agents ─────────────────────────────────────
 mkdir -p /etc/puppetlabs/code/environments/production/modules/monitoring_agents/manifests
+'@
+```
 
-cat > /etc/puppetlabs/code/environments/production/modules/monitoring_agents/manifests/init.pp << 'EOF'
-# КЛЮЧЕВОЙ МОДУЛЬ: агенты мониторинга не должны быть отключены
-class monitoring_agents {
+### 4.3. Модули `base_linux`, `hardening`, `monitoring_agents`
 
-  # node_exporter должен быть запущен
-  service { 'node_exporter':
-    ensure => running,
-    enable => true,
-  }
+> Полные манифесты лежат в репозитории
+> `i1yxaluk-del/Newbie:technical/2_Silver/EXECUTOR/puppet-modules/`. Залейте их
+> на Automation VM через `scp`:
 
-  # Бэкап таймер должен быть включён
-  service { 'restic-backup.timer':
-    ensure => running,
-    enable => true,
-  }
+```powershell
+cd $env:USERPROFILE\Newbie\technical\2_Silver\EXECUTOR
+scp -r .\puppet-modules\* ubuntu@msp-automation:/etc/puppetlabs/code/environments/production/modules/
+```
 
-  # promtail (если Silver+)
-  if lookup('tier', undef, undef, 'bronze') != 'bronze' {
-    service { 'promtail':
-      ensure => running,
-      enable => true,
-    }
-  }
-}
-EOF
+Краткое описание:
 
-# ── site.pp — главный манифест ────────────────────────────────────
+- **`base_linux`** — taimezone Europe/Moscow, chrony, ufw, fail2ban,
+  отключение root-SSH/password auth, MOTD «под управлением MSP».
+- **`hardening`** — sysctl (rp_filter, kptr_restrict и т.д.), fail2ban.
+- **`monitoring_agents`** — гарантирует, что `node_exporter`,
+  `restic-backup.timer` и `promtail` (Silver+) запущены.
+
+### 4.4. `site.pp`
+
+```powershell
+msp-auto-bash @'
 cat > /etc/puppetlabs/code/environments/production/manifests/site.pp << 'EOF'
 # site.pp — точка входа Puppet
-# Определяет какие классы применяются к каким узлам
-
-# Все Linux-узлы получают базовую конфигурацию
 node default {
   include base_linux
   include hardening
   include monitoring_agents
 }
-
-# Специфичные серверы (по certname или facts)
-# node /^web-/ {
-#   include base_linux
-#   include hardening
-#   include monitoring_agents
-#   # Специфика для веб-серверов
-# }
 EOF
 
-# Проверить синтаксис
 puppet parser validate /etc/puppetlabs/code/environments/production/manifests/site.pp
 puppet parser validate /etc/puppetlabs/code/environments/production/modules/base_linux/manifests/init.pp
-
-echo "✓ Puppet конфигурация готова"
+echo "Puppet OK"
+'@
 ```
 
 ---
 
 ## 5. ANSIBLE CONTROL NODE
 
-### 5.1 Структура Ansible
+### 5.1. Структура каталога
 
-```bash
-# На Automation VM:
+```powershell
+msp-auto-bash @'
+set -euo pipefail
 mkdir -p /opt/ansible/{roles,playbooks,inventory/group_vars,files}
 cd /opt/ansible
 
-# Ansible конфигурация
-cat > /opt/ansible/ansible.cfg << 'EOF'
+cat > ansible.cfg << 'EOF'
 [defaults]
 inventory       = ./inventory
 roles_path      = ./roles
@@ -468,199 +385,57 @@ pipelining      = true
 control_path    = /tmp/ansible-ssh-%%h-%%p-%%r
 EOF
 
-# ── Коллекции для Windows ─────────────────────────────────────────
+# Коллекции для Windows-таргетов
 ansible-galaxy collection install ansible.windows community.general
 pip3 install pywinrm requests-kerberos
+'@
 ```
 
-### 5.2 Плейбук deploy_bronze.yml
+### 5.2. Плейбук `deploy_bronze.yml` и `deploy_silver.yml`
 
-```bash
-cat > /opt/ansible/playbooks/deploy_bronze.yml << 'EOF'
----
-# deploy_bronze.yml — Развёртывание агентов Bronze на серверы клиента
-# Запуск: ansible-playbook playbooks/deploy_bronze.yml -i inventory/clients/CLIENT/hosts -v
+> Файлы лежат в репо
+> `technical/2_Silver/EXECUTOR/ansible-playbooks/`. Залейте scp-ом:
 
-- name: "Bronze Client Setup — Linux Servers"
-  hosts: client_linux
-  become: yes
-  gather_facts: yes
-  vars_files:
-    - "{{ playbook_dir }}/../inventory/clients/{{ client_slug }}/vars.yml"
-
-  pre_tasks:
-    - name: Проверить доступность сервера
-      ansible.builtin.ping:
-
-    - name: Вывести информацию о сервере
-      ansible.builtin.debug:
-        msg: "{{ inventory_hostname }} | {{ ansible_distribution }} {{ ansible_distribution_version }} | {{ ansible_processor_vcpus }} vCPU | {{ (ansible_memtotal_mb / 1024) | round(1) }} GB RAM"
-
-  tasks:
-    - name: Обновить apt cache
-      ansible.builtin.apt:
-        update_cache: yes
-        cache_valid_time: 3600
-
-    - name: Установить базовые пакеты
-      ansible.builtin.apt:
-        name: [curl, wget, git, htop, jq, ufw, fail2ban]
-        state: present
-
-    - name: Установить node_exporter
-      ansible.builtin.include_role:
-        name: node_exporter
-      tags: [node_exporter, monitoring]
-
-    - name: Установить restic
-      ansible.builtin.include_role:
-        name: restic_backup
-      tags: [restic, backup]
-
-    - name: Настроить UFW
-      community.general.ufw:
-        rule: allow
-        from_ip: "10.9.0.0/24"
-        port: "{{ item }}"
-        proto: tcp
-      loop: [9100, 9080]
-      tags: [firewall]
-
-  post_tasks:
-    - name: Верификация node_exporter
-      ansible.builtin.uri:
-        url: "http://localhost:9100/metrics"
-        status_code: 200
-      register: ne_check
-      failed_when: ne_check.status != 200
-      tags: [verify]
-
-    - name: Показать результат
-      ansible.builtin.debug:
-        msg: "✅ {{ inventory_hostname }} — Bronze компоненты установлены"
-      tags: [verify]
-
-- name: "Bronze Client Setup — Windows Servers"
-  hosts: client_windows
-  gather_facts: yes
-  vars_files:
-    - "{{ playbook_dir }}/../inventory/clients/{{ client_slug }}/vars.yml"
-
-  tasks:
-    - name: Установить windows_exporter
-      ansible.builtin.include_role:
-        name: windows_exporter
-      tags: [windows_exporter, monitoring]
-
-    - name: Установить restic (Windows)
-      ansible.builtin.include_role:
-        name: restic_backup_windows
-      tags: [restic, backup]
-
-    - name: Верификация windows_exporter
-      ansible.windows.win_uri:
-        url: "http://localhost:9182/metrics"
-        method: GET
-        status_code: 200
-      tags: [verify]
-EOF
+```powershell
+cd $env:USERPROFILE\Newbie\technical\2_Silver\EXECUTOR
+scp -r .\ansible-playbooks\* ubuntu@msp-automation:/opt/ansible/playbooks/
 ```
 
-### 5.3 Плейбук deploy_silver.yml
+### 5.3. Запуск плейбуков из PowerShell
 
-```bash
-cat > /opt/ansible/playbooks/deploy_silver.yml << 'EOF'
----
-# deploy_silver.yml — Дополнительные компоненты Silver
-# Запуск: ansible-playbook playbooks/deploy_silver.yml -i inventory/clients/CLIENT/hosts -v
+```powershell
+function Invoke-MspAnsiblePlaybook {
+    param(
+        [Parameter(Mandatory)][string]$ClientSlug,
+        [ValidateSet('deploy_bronze','deploy_silver')][string]$Playbook,
+        [string]$Tags
+    )
+    $tagArg = if ($Tags) { "--tags $Tags" } else { '' }
+    ssh msp-automation `
+        "cd /opt/ansible && ansible-playbook playbooks/$Playbook.yml " +
+        "-i inventory/clients/$ClientSlug/hosts " +
+        "-e client_slug=$ClientSlug $tagArg -v"
+}
 
-- name: "Silver Client Setup — Linux"
-  hosts: client_linux
-  become: yes
-  gather_facts: yes
-  vars_files:
-    - "{{ playbook_dir }}/../inventory/clients/{{ client_slug }}/vars.yml"
-
-  pre_tasks:
-    - name: Проверить что Bronze уже установлен
-      ansible.builtin.uri:
-        url: "http://localhost:9100/metrics"
-        status_code: 200
-      register: bronze_check
-      failed_when: bronze_check.status != 200
-
-  tasks:
-    - name: Установить Promtail
-      ansible.builtin.include_role:
-        name: promtail
-      tags: [promtail, logging]
-
-    - name: Установить Puppet Agent
-      ansible.builtin.include_role:
-        name: puppet_agent
-      tags: [puppet]
-
-    - name: Запросить сертификат Puppet
-      ansible.builtin.command:
-        cmd: /opt/puppetlabs/bin/puppet agent --test --waitforcert 60
-      register: puppet_cert
-      failed_when: false  # Ожидаем ошибку до подписания сертификата
-      changed_when: puppet_cert.rc == 0
-      tags: [puppet]
-
-    - name: Сообщить о необходимости подписать сертификат
-      ansible.builtin.debug:
-        msg: |
-          ⚠️ Подписать сертификат Puppet на Puppet Server:
-          puppetserver ca sign --certname {{ inventory_hostname }}
-      when: puppet_cert.rc != 0
-      tags: [puppet]
-
-  post_tasks:
-    - name: Проверить Promtail
-      ansible.builtin.uri:
-        url: "http://localhost:9080/ready"
-        status_code: 200
-      tags: [verify]
-
-    - name: Финальный статус Silver
-      ansible.builtin.debug:
-        msg: "✅ {{ inventory_hostname }} — Silver компоненты установлены"
-      tags: [verify]
-
-- name: "Подписать Puppet сертификаты (на Puppet Server)"
-  hosts: localhost
-  gather_facts: false
-
-  tasks:
-    - name: Список ожидающих сертификатов
-      ansible.builtin.command: puppetserver ca list
-      register: puppet_pending
-      changed_when: false
-      ignore_errors: true
-      tags: [puppet]
-
-    - name: Показать ожидающие сертификаты
-      ansible.builtin.debug:
-        var: puppet_pending.stdout_lines
-      tags: [puppet]
-EOF
+# Примеры:
+Invoke-MspAnsiblePlaybook -ClientSlug company1 -Playbook deploy_bronze
+Invoke-MspAnsiblePlaybook -ClientSlug company1 -Playbook deploy_silver -Tags promtail,puppet
 ```
 
 ---
 
 ## 6. УПРАВЛЕНИЕ КОНФИГУРАЦИЯМИ В GIT
 
-```bash
-# Инициализировать Git-репозиторий для IaC
+```powershell
+msp-auto-bash @'
+set -euo pipefail
 cd /opt/ansible
 git init
 git config user.email "msp@your-domain.ru"
-git config user.name "MSPShield Automation"
+git config user.name  "MSPShield Automation"
 
-# Создать .gitignore
 cat > .gitignore << 'EOF'
-# Секреты никогда не в Git!
+# Секреты никогда не в Git
 *.key
 *.pem
 *-keys.json
@@ -669,64 +444,86 @@ vault_password
 inventory/clients/*/vars_secret.yml
 inventory/clients/*/s3-keys.json
 
-# Логи
+# Логи и временные файлы
 *.log
 *.retry
-
-# Python
 __pycache__/
 *.pyc
-
-# Временные файлы
 .tmp/
 EOF
 
-# Первый коммит
 git add .
-git commit -m "Initial MSP Infrastructure as Code setup"
+git commit -m "Initial MSP IaC setup"
+echo "Git repo initialized in /opt/ansible"
+'@
+```
 
-echo "✓ Git репозиторий инициализирован в /opt/ansible"
-echo "Следующий шаг: добавить remote для бэкапа кода"
-echo "  git remote add origin git@github.com:YOUR_USER/msp-config.git"
+Bootstrap remote (с Windows-станции, через GitHub PAT или deploy-key):
+
+```powershell
+$repo = 'git@github.com:i1yxaluk-del/msp-iac.git'
+ssh msp-automation @"
+cd /opt/ansible
+git remote add origin $repo || git remote set-url origin $repo
+git push -u origin main
+"@
 ```
 
 ---
 
 ## 7. ОБСЛУЖИВАНИЕ SILVER
 
-### Мониторинг Puppet Server
+### 7.1. Puppet Server
 
-```bash
-# Список всех зарегистрированных агентов
-puppetserver ca list --all
+```powershell
+# Список зарегистрированных агентов и pending-сертификатов
+ssh msp-automation 'sudo puppetserver ca list --all'
 
-# Подписать все ожидающие сертификаты
-puppetserver ca sign --all
+# Подписать все pending
+ssh msp-automation 'sudo puppetserver ca sign --all'
 
 # Отозвать сертификат (при удалении клиента)
-puppetserver ca revoke --certname client.domain
-
-# Статус JVM
-curl -sk https://localhost:8140/status/v1/services | python3 -m json.tool
+ssh msp-automation 'sudo puppetserver ca revoke --certname client.domain'
 
 # Лог Puppet Server
-journalctl -u puppetserver -f
+ssh msp-automation 'sudo journalctl -u puppetserver -f --no-pager'
 ```
 
-### Мониторинг Loki
+### 7.2. Loki
 
-```bash
-# Статус Loki
-curl -s http://localhost:3100/ready
-curl -s http://localhost:3100/metrics | grep loki_ingester
+```powershell
+$ip = $Env:MSP_VM_IP
+ssh -i $Env:MSP_SSH_KEY ubuntu@$ip 'curl -s http://localhost:3100/ready'
+ssh -i $Env:MSP_SSH_KEY ubuntu@$ip 'curl -s http://localhost:3100/metrics | grep loki_ingester | head'
 
-# Статистика хранилища
-curl -s http://localhost:3100/loki/api/v1/series \
-    -G -d 'start=1h' -d 'match[]={client=~".+"}' | python3 -m json.tool
+# Тестовый LogQL запрос
+$query = '{client="company1"} |= "error"'
+$encoded = [uri]::EscapeDataString($query)
+$now = [int][double]::Parse((Get-Date -UFormat %s))
+$start = $now - 3600
+ssh -i $Env:MSP_SSH_KEY ubuntu@$ip "curl -s 'http://localhost:3100/loki/api/v1/query_range?query=$encoded&start=$start&end=$now' | python3 -m json.tool | head -40"
+```
 
-# Тестовый запрос через API
-curl -s "http://localhost:3100/loki/api/v1/query_range" \
-    -G -d 'query={client="company1"}' \
-    -d 'start=1h' \
-    -d 'limit=10'
+### 7.3. Ansible
+
+```powershell
+# Health-check всех клиентов
+ssh msp-automation 'cd /opt/ansible && ansible all -m ping -i inventory/clients/company1/hosts'
+
+# Сухой запуск playbook (check mode)
+ssh msp-automation `
+    'cd /opt/ansible && ansible-playbook playbooks/deploy_silver.yml -i inventory/clients/company1/hosts --check --diff -v'
+```
+
+### 7.4. Снапшоты обеих VM
+
+```powershell
+foreach ($name in @($Env:MSP_VM_NAME, $Env:MSP_AUTO_NAME)) {
+    $diskId = (yc compute instance get $name --folder-id $Env:MSP_FOLDER_ID --format json | ConvertFrom-Json).boot_disk.disk_id
+    yc compute snapshot create `
+        --name "$name-$(Get-Date -Format yyyyMMdd-HHmm)" `
+        --source-disk-id $diskId `
+        --folder-id $Env:MSP_FOLDER_ID `
+        --async
+}
 ```

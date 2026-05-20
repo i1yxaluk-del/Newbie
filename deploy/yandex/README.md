@@ -4,7 +4,7 @@
 
 - **Лендинг** (React static) + **Backend** (FastAPI + MongoDB)
 - **Caddy** — авто-HTTPS через Let's Encrypt
-- **Stalwart Mail Server** — admin@, sales@, alert@ ящики
+- **Stalwart Mail Server** — admin@, sales@, alert@ ящики (submit-only режим 465/587, см. [STALWART_RELAY_MODE.md](STALWART_RELAY_MODE.md))
 
 Запускается одной командой PowerShell на Windows 10.
 
@@ -39,7 +39,7 @@ cd Newbie
                                  │
             ┌────────────────────┼───────────────────────┐
             │                    │                       │
-        :443 HTTPS         :25,587,465,...           :22 SSH
+        :443 HTTPS         :465/587/993/...          :22 SSH
             │                    │                       │
        ┌────▼────┐         ┌─────▼─────┐                 │
        │  Caddy  │         │  Stalwart │                 │
@@ -67,7 +67,7 @@ cd Newbie
 - 1 × VM (`msp-cloud-vm`, по умолчанию 2 vCPU / 4 GB RAM / 50 GB SSD, прерываемая)
 - 1 × VPC сеть (`msp-net`)
 - 1 × Subnet (`msp-subnet`, 10.10.0.0/24)
-- 1 × Security Group (`msp-sg`) — открыты 22/80/443 + почтовые
+- 1 × Security Group (`msp-sg`) — открыты 22/80/443 + 465/587/143/993/4190 (Stalwart submit-only). **TCP/25 НЕ открыт** — Yandex Cloud блокирует на уровне платформы.
 - Public IP (один на ВМ)
 
 **Стоимость:**
@@ -223,77 +223,83 @@ ssh -i $SshKey ubuntu@$IP "cat ~/msp-deploy-secrets.txt"
 ssh -i $SshKey ubuntu@$IP "shred -u ~/msp-deploy-secrets.txt"
 ```
 
-### 5.5. Тестовый письма (через MX, локально)
+### 5.5. Тестовая отправка письма (через локальный submit)
+
+```powershell
+# С Windows-станции — отправка через 465 SMTPS с auth
+$secret = ssh -i "$env:USERPROFILE\.ssh\id_ed25519_yc" ubuntu@<vm-ip> `
+    "grep '^sales@' ~/msp-deploy-secrets.txt"
+# (далее любой SMTP-клиент с auth: Outlook, Thunderbird, swaks, scripts)
+```
 
 ```bash
-# На ВМ
-echo "Test from local" | mail -s "Hello sales" sales@mcp-claude.online
+# Или с самой ВМ — через docker exec и stalwart-cli
+docker compose -f /opt/msp/Newbie/deploy/yandex/docker-compose.yml \
+  exec stalwart stalwart-cli queue message send \
+  --from alert@mcp-claude.online --to admin@mcp-claude.online \
+  --subject "local-submit test" --body "ok"
 docker compose -f /opt/msp/Newbie/deploy/yandex/docker-compose.yml \
   logs stalwart | tail -20
 ```
 
-### 5.6. Тест извне
-
-С любого Gmail-ящика отправьте письмо на `sales@mcp-claude.online`.
-Письмо должно появиться в IMAP-папке INBOX. Откройте Thunderbird:
+### 5.6. Чтение почты в Thunderbird/Outlook
 
 - **Сервер:** `mail.mcp-claude.online`
-- **Тип:** IMAP, порт 993, SSL/TLS
+- **IMAP:** порт 993 / SSL/TLS
+- **SMTP submission:** порт 465 (implicit TLS) или 587 (STARTTLS)
 - **Логин:** `sales@mcp-claude.online`
 - **Пароль:** из `msp-deploy-secrets.txt`
 
+Входящие письма из интернета **прилетают через внешний MX-провайдер**
+(Yandex 360 / Mailgun routes) → forwards на наш :587 → Stalwart кладёт
+в локальные ящики. Конфигурация — в [STALWART_RELAY_MODE.md](STALWART_RELAY_MODE.md).
+
 ---
 
-## 6. ⚠️ Yandex Cloud блокирует исходящий :25
+## 6. ⚠️ Yandex Cloud блокирует TCP/25 на публичных IP VPC
 
-По умолчанию **новые аккаунты YC не могут отправлять SMTP на :25 в интернет.**
-Это анти-спам. Последствия:
+**Цитата из ответа Yandex Cloud support:**
 
-| Что | Работает? |
-|-----|-----------|
-| Приём почты (входящий :25) | ✅ да |
+> Yandex Cloud автоматически блокирует трафик, который отправляется с
+> публичных IP-адресов Virtual Private Cloud на TCP-порт 25 любых
+> серверов в интернете и в Yandex Compute Cloud. Выдать адрес с
+> открытым портом 25 сейчас не получится по техническим причинам.
+> Для альтернативного решения предлагаем перенастроить почтовый сервер
+> на открытые почтовые порты — 465 и 587.
+
+### Что это значит для нас
+
+| Сценарий | Работает? |
+|----------|-----------|
+| MX-приём почты на наш публичный IP (`:25`) | ❌ нет |
+| Прямой outbound с нашей VM на чужой `:25` (Gmail/Outlook/Mail.ru) | ❌ нет |
+| Submission auth на наш Stalwart `:465` / `:587` | ✅ да |
 | Локальная доставка между ящиками `*@mcp-claude.online` | ✅ да |
-| Письма Grafana/Wazuh → `alert@mcp-claude.online` | ✅ да (через :587 локально) |
-| Отправка `sales@mcp-claude.online` → `client@gmail.com` | ❌ нет (пока :25 заблокирован) |
+| Grafana/Wazuh/Alertmanager → Stalwart `:587` (внутри VM) | ✅ да |
+| Outbound через smarthost (Yandex 360 / Mailgun) на их `:465`/`:587` | ✅ да |
+| Чтение ящиков через IMAPS `:993` | ✅ да |
 
-### Решение А: попросить YC разблокировать (рекомендованный путь)
+### Архитектурное решение — submit-only Stalwart + внешний MX
 
-1. Зайти в [https://console.cloud.yandex.ru/](https://console.cloud.yandex.ru/)
-2. Поддержка → Создать тикет
-3. Тема: «Разблокировать исходящий SMTP (порт 25) для VM».
-4. Текст:
-   ```
-   Прошу разблокировать исходящий :25 на ВМ msp-cloud-vm в каталоге msp-cloud
-   для отправки транзакционных писем нашим клиентам с домена
-   mcp-claude.online (B2B IT-услуги, юр. лицо ИП [имя]).
+Stalwart **не работает как MX**. Inbound почта приходит через внешнего
+провайдера (Yandex 360 / Mailgun routes / Cloudflare Email Routing),
+который принимает её на свой `:25` и пересылает к нам на `:587`.
 
-   SPF / DKIM / DMARC настроены. Antifrood-меры: rate limiting в Stalwart
-   на 100 писем/час/account, лог всех отправлений.
+Outbound — через smarthost на `:465`/`:587` к тому же провайдеру.
 
-   Согласен с правилами анти-спама YC.
-   ```
-5. Обычно одобряют за 1-3 дня.
+Полный пошаговый план настройки (DNS, smarthost, DKIM, проверка):
+[STALWART_RELAY_MODE.md](STALWART_RELAY_MODE.md).
 
-### Решение Б: использовать smarthost-релей
+### Если YC всё же разблокирует `:25`
 
-Если YC не разблокировал или нужно срочно — настройте Stalwart на отправку через внешний SMTP:
+Иногда YC support одобряет разблокировку по обоснованному тикету
+(B2B-юрлицо, SPF/DKIM/DMARC настроены, anti-spam меры в Stalwart). По
+состоянию на 2025-11 это **редкость**, а ответ «выдать IP с открытым :25
+не получится по техническим причинам» — стандартный.
 
-**Mailgun** (5000 писем/мес бесплатно):
-```
-Stalwart admin UI → Settings → SMTP → Outbound → Smarthost:
-  Host:     smtp.eu.mailgun.org
-  Port:     587
-  Username: postmaster@<your-mailgun-domain>
-  Password: <api-key>
-```
-
-**Brevo** (300 писем/день бесплатно):
-```
-  Host:     smtp-relay.brevo.com
-  Port:     587
-  Username: <ваш-логин-brevo>
-  Password: <smtp-key-brevo>
-```
+Если разблокировка произошла — секция «Откат» в
+[STALWART_RELAY_MODE.md](STALWART_RELAY_MODE.md)
+описывает, как вернуть классическую MX-схему.
 
 ---
 
@@ -319,11 +325,12 @@ Stalwart admin UI → Settings → SMTP → Outbound → Smarthost:
 
 ### 8.1. Grafana → SMTP-алерты на alert@
 
-В `/etc/grafana/grafana.ini`:
+В `/etc/grafana/grafana.ini` (Grafana на нашей VM подключается к Stalwart
+по **внутреннему** docker-compose имени, без выхода в публичную сеть):
 ```ini
 [smtp]
 enabled = true
-host = mail.mcp-claude.online:587
+host = stalwart:587
 user = alert@mcp-claude.online
 password = <из msp-deploy-secrets.txt>
 from_address = alert@mcp-claude.online
@@ -333,11 +340,11 @@ startTLS_policy = MandatoryStartTLS
 
 ### 8.2. Wazuh → SMTP
 
-В `/var/ossec/etc/ossec.conf`:
+В `/var/ossec/etc/ossec.conf` (Wazuh на той же VM — также внутреннее имя):
 ```xml
 <global>
   <email_notification>yes</email_notification>
-  <smtp_server>mail.mcp-claude.online</smtp_server>
+  <smtp_server>stalwart</smtp_server>
   <email_from>alert@mcp-claude.online</email_from>
   <email_to>admin@mcp-claude.online</email_to>
 </global>
@@ -352,7 +359,7 @@ receivers:
     email_configs:
       - to: 'alert@mcp-claude.online'
         from: 'alert@mcp-claude.online'
-        smarthost: 'mail.mcp-claude.online:587'
+        smarthost: 'stalwart:587'
         auth_username: 'alert@mcp-claude.online'
         auth_password: '<password>'
         require_tls: true
@@ -442,14 +449,19 @@ curl -v http://localhost:8001/api/health
 
 ```bash
 docker compose logs stalwart | tail -100
-# С другого сервера:
-swaks --to test@mcp-claude.online --from postmaster@example.com --server mail.mcp-claude.online -p 25
+
+# С другого сервера (только submission, не MX):
+swaks --to sales@mcp-claude.online --from postmaster@example.com \
+      --server mail.mcp-claude.online -p 587 --tls --auth \
+      --auth-user sales@mcp-claude.online --auth-password '...'
 ```
 
 **Возможные причины:**
-- DNS MX-запись не пропагнулась
-- PTR-запись не установлена (см. §11)
+- DNS A-запись `mail.<domain>` не пропагнулась
+- Caddy не успел выпустить сертификат (`journalctl -u caddy -f`)
 - Stalwart wizard не пройден (зайдите через SSH tunnel в admin UI и завершите setup)
+- Внешний MX-провайдер ещё не forwards-ит почту нам (проверьте логи в его UI)
+- **НЕ пытайтесь** проверять через `:25` извне — YC блокирует, это ожидаемо
 
 ### 10.4. SSH "Permission denied"
 
@@ -620,6 +632,7 @@ dig +short -x <public-ip>
 - Раз в 3 месяца — `docker compose pull && docker compose up -d` для обновления mongo/stalwart
 - Раз в неделю — `tail -100 /var/log/caddy/access.log` на странные запросы
 - DKIM ротация — через WebUI Stalwart, раз в 6 месяцев
+- Smarthost-пароль (Yandex 360 / Mailgun) — ротация раз в 6 месяцев
 
 ---
 

@@ -472,6 +472,56 @@ export MSP_DOMAIN=mcp-claude.online
 bash /opt/msp/Newbie/deploy/yandex/setup-on-vm.sh
 ```
 
+### 10.6. PowerShell: «Непредвиденная лексема» / «Отсутствует закрывающий знак "}"»
+
+Симптом — при запуске `.\deploy\yandex\deploy.ps1` сыпятся ошибки парсера
+вида:
+
+```
+deploy.ps1:96  знак:21
++ function Write-Ok   { param([string]$Text) Write-Host "  вњ“ $Text" ...
+                       ~
+Отсутствует закрывающий знак "}" в блоке операторов или определении типа.
+```
+
+`вњ“` / `РџРѕСЃР»Рµ` / `в”Њв”Ђ` в выводе ошибок — это мусор от того, что
+PowerShell 5.1 на русской Windows 10 прочитал UTF-8 файл как Windows-1251.
+
+**Причина.** `deploy.ps1` в репозитории сохранён в UTF-8 **с BOM** (`EF BB BF`)
+именно для совместимости с PowerShell 5.1. Если файл был обработан
+посредником (некоторые сторонние Git-клиенты, текст-эдиторы, антивирусы,
+zip-распаковщики), BOM мог быть удалён — и тогда парсер ломается на
+первом же Unicode-символе (✓, ─, ┌, кириллица).
+
+**Решение.**
+
+1. Свежий клон через стандартный `git` сохранит BOM:
+   ```powershell
+   git clone https://github.com/i1yxaluk-del/Newbie C:\msp\Newbie
+   ```
+
+2. Проверить BOM:
+   ```powershell
+   $bytes = [System.IO.File]::ReadAllBytes("deploy\yandex\deploy.ps1")
+   "{0:X2} {1:X2} {2:X2}" -f $bytes[0], $bytes[1], $bytes[2]
+   # должно быть: EF BB BF
+   ```
+
+3. Если BOM пропал — восстановите его:
+   ```powershell
+   $text = [System.IO.File]::ReadAllText("deploy\yandex\deploy.ps1",
+            [System.Text.UTF8Encoding]::new($false))
+   [System.IO.File]::WriteAllText("deploy\yandex\deploy.ps1", $text,
+            [System.Text.UTF8Encoding]::new($true))   # $true = with BOM
+   ```
+
+4. Альтернатива (если ставить BOM нечем) — запускайте под **PowerShell 7+**
+   (`pwsh.exe`), он по умолчанию читает скрипты как UTF-8 без BOM:
+   ```powershell
+   winget install --id Microsoft.PowerShell -e
+   pwsh -File .\deploy\yandex\deploy.ps1
+   ```
+
 ---
 
 ## 11. Установка PTR-записи (обратная DNS)

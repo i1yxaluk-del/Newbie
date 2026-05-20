@@ -1,0 +1,12 @@
+# PowerShell 5.1 на русской Windows 10 читает .ps1 без BOM как Windows-1251
+# и ломается на первом UTF-8 символе. Поэтому держим .ps1 как бинарный файл —
+# git не должен трогать ни кодировку, ни line endings.
+*.ps1 binary
+
+# Остальные shell/yaml/conf файлы — нормальные текстовые с LF (исполняются на Ubuntu)
+*.sh   text eol=lf
+*.yaml text eol=lf
+*.yml  text eol=lf
+*.conf text eol=lf
+Caddyfile text eol=lf
+Dockerfile* text eol=lf

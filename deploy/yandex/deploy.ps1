@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Автоматическое развёртывание МСП Облако в Yandex Cloud.
 
@@ -77,6 +77,15 @@ param(
 # Глобальные настройки
 # ═══════════════════════════════════════════════════════════════════
 $ErrorActionPreference = "Stop"
+
+# Принудительно ставим UTF-8 для консоли — иначе на русской Windows 10 PowerShell 5.1
+# покажет крокозябры вместо кириллицы и Unicode box-drawing.
+try {
+    $OutputEncoding = New-Object System.Text.UTF8Encoding $false
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    [Console]::InputEncoding  = [System.Text.Encoding]::UTF8
+    if (Get-Command chcp -ErrorAction SilentlyContinue) { chcp 65001 > $null }
+} catch { }
 $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $DeployDir = $PSScriptRoot
 $StateFile = Join-Path $DeployDir ".deploy-state.json"

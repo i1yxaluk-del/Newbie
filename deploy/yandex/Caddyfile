@@ -1,32 +1,62 @@
 # ═══════════════════════════════════════════════════════════════════
-# Caddyfile — terminate HTTPS, авто-SSL через Let's Encrypt.
+# Caddyfile — реверс-прокси с авто-HTTPS через Let's Encrypt
+# ═══════════════════════════════════════════════════════════════════
 #
-# Файл устанавливается в /etc/caddy/Caddyfile скриптом setup-on-vm.sh.
-# Поле {$MSP_DOMAIN} подставляется через `caddy fmt` / env-substitution
-# при запуске Caddy (мы экспортим MSP_DOMAIN в caddy.service).
+# КУДА: /etc/caddy/Caddyfile на ВМ (устанавливается setup-on-vm.sh)
+# КТО: пользователь caddy (системный сервис caddy.service)
 #
-# После старта Caddy:
-#   1. Делает HTTP-01 challenge на :80 для обоих хостов
-#   2. Получает сертификат от Let's Encrypt
-#   3. Кладёт сертификат в /var/lib/caddy/.local/share/caddy
-#   4. Слушает :443 с TLS
-#   5. /api/*   → 127.0.0.1:8001 (backend)
-#      /       → /var/www/landing (фронт SPA, fallback на index.html)
+# Подстановка домена:
+#   {$MSP_DOMAIN} заменяется через sed в setup-on-vm.sh на реальный
+#   домен (например msp-claude.online). Caddy НЕ поддерживает env-var
+#   подстановку напрямую в именах серверных блоков — sudo сбрасывает
+#   переменные окружения, поэтому делаем sed перед запуском.
 #
-# ВАЖНО: DNS A-record для домена должен указывать на public IP ВМ
-# до того как Caddy начнёт получать сертификат. Иначе ACME-challenge
-# не пройдёт. Caddy ретраит каждые 10 минут.
+# Как работает HTTPS:
+#   1. Caddy запускается, читает Caddyfile
+#   2. Для каждого домена без префикса http:// — включает авто-HTTPS
+#   3. Делает ACME-запрос к Let's Encrypt (HTTP-01 challenge на :80)
+#   4. Получает сертификат, кладёт в /var/lib/caddy/.local/share/caddy/
+#   5. Продлевает автоматически за 30 дней до истечения
+#
+# ВАЖНО (урок из деплоя):
+#   - DNS A-запись ДОЛЖНА указывать на IP ВМ ДО запуска Caddy,
+#     иначе ACME challenge не пройдёт (NXDOMAIN → ошибка)
+#   - Домен в Caddyfile должен ТОЧНО совпадать с DNS! У нас была
+#     опечатка mcp-claude.online вместо msp-claude.online — certs
+#     не получались, а ошибка была незаметна.
+#   - Блок acme_ca ниже FORCИРУЕТ production Let's Encrypt.
+#     Без него Caddy при ошибке откатывается на staging-сервер,
+#     и staging-сертификаты НЕ доверенные браузерами.
+#   - Сталwart использует Caddy-сертификаты через bind-mount
+#     /var/lib/caddy → /etc/stalwart-certs:ro в docker-compose.
 # ═══════════════════════════════════════════════════════════════════
 
-# www → apex редирект (apex обрабатывается следующим блоком)
+# Глобальные настройки — применяются ко всем сайтам
+{
+    # Принудительно используем production ACME-сервер Let's Encrypt.
+    # Без этого Caddy при первой ошибке переключается на
+    # acme-staging-v02.api.letsencrypt.org — staging-сертификаты
+    # НЕ валидны для браузеров! После этого нужно чистить кэш:
+    #   sudo rm -rf /var/lib/caddy/.local/share/caddy/acme
+    #   sudo systemctl restart caddy
+    acme_ca https://acme-v02.api.letsencrypt.org/directory
+}
+
+# www → apex редирект (канонический URL без www)
 www.{$MSP_DOMAIN} {
     redir https://{$MSP_DOMAIN}{uri} permanent
 }
 
-# mail.{domain} — Caddy получает сертификат от Let's Encrypt,
-# Stalwart использует его (Caddy mount-ит cert-store в Stalwart-контейнер RO).
-# Сам Caddy для mail-сабдомена возвращает 404 — мы тут не хостим веб-морду
-# (админка Stalwart открывается через SSH tunnel на 127.0.0.1:8080).
+# mail.{domain} — Caddy получает Let's Encrypt сертификат для
+# почтового домена, а Stalwart читает его из bind-mount.
+# Сам Caddy для mail-сабдомена возвращает 404 — веб-морды
+# тут нет. Админка Stalwart доступна ТОЛЬКО через SSH-туннель:
+#   ssh -L 8080:127.0.0.1:8080 ubuntu@<IP>
+#   → http://localhost:8080/admin
+#
+# ВАЖНО: A-запись mail.$DOMAIN → <IP> должна существовать в DNS
+# ДО добавления этого блока, иначе cert не получится.
+# Если DNS ещё не настроен — закомментируй весь блок mail.
 mail.{$MSP_DOMAIN} {
     log {
         output file /var/log/caddy/access.log {
@@ -37,8 +67,10 @@ mail.{$MSP_DOMAIN} {
     respond "MSP Cloud mail — admin only via SSH tunnel" 404
 }
 
+# ─── Основной сайт ─────────────────────────────────────────────
 {$MSP_DOMAIN} {
-    # Логи в JSON для последующей агрегации (Loki / Grafana при наличии)
+
+    # Логи в JSON для последующей агрегации (Loki / Grafana)
     log {
         output file /var/log/caddy/access.log {
             roll_size 50mb
@@ -48,27 +80,34 @@ mail.{$MSP_DOMAIN} {
         format json
     }
 
-    # Сжатие
+    # Сжатие ответов (zstd — лучший, gzip — для старых клиентов)
     encode zstd gzip
 
-    # Безопасные дефолты
+    # Безопасные HTTP-заголовки (security headers)
     header {
-        # HSTS — браузер запоминает что сайт только HTTPS на год
+        # HSTS — браузер запоминает «только HTTPS» на 1 год.
+        # ВАЖНО: включать ТОЛЬКО после проверки что HTTPS работает,
+        # иначе пользователи не смогут зайти по HTTP.
         Strict-Transport-Security "max-age=31536000; includeSubDomains"
-        # Защита от MIME-sniffing
+
+        # Запрет MIME-sniffing — браузер не угадывает тип файла
         X-Content-Type-Options "nosniff"
-        # Анти-кликджекинг
+
+        # Анти-кликджекинг — сайт нельзя встроить в iframe
         X-Frame-Options "DENY"
-        # Контроль реферера
+
+        # Контроль реферера — отправляем только для same-origin
         Referrer-Policy "strict-origin-when-cross-origin"
-        # Скрыть `Server: Caddy`
+
+        # Скрываем «Server: Caddy» — не выдаём версию сервера
         -Server
     }
 
-    # API → backend (FastAPI uvicorn в Docker, проброшен на 127.0.0.1:8001)
+    # API → backend (FastAPI + uvicorn в Docker)
+    # Порт 8001 проброшен как 127.0.0.1:8001:8001 в docker-compose
     handle /api/* {
         reverse_proxy 127.0.0.1:8001 {
-            # Передаём реальный IP клиента
+            # Передаём реальный IP клиента (иначе backend видит 127.0.0.1)
             header_up X-Real-IP {remote_host}
             header_up X-Forwarded-For {remote_host}
             header_up X-Forwarded-Proto {scheme}
@@ -79,7 +118,9 @@ mail.{$MSP_DOMAIN} {
         }
     }
 
-    # Prometheus metrics — отдаём только из локальной сети VM
+    # Prometheus metrics (/metrics) — доступен ТОЛЬКО с приватных IP.
+    # Внешние запросы получают 403. Это нужно чтобы Prometheus
+    # внутри monitoring-сети мог собирать метрики backend.
     @metrics {
         path /metrics
         not remote_ip 127.0.0.1/8 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16
@@ -90,7 +131,9 @@ mail.{$MSP_DOMAIN} {
         reverse_proxy 127.0.0.1:8001
     }
 
-    # Статика лендинга — SPA fallback на index.html для React-router
+    # Статика лендинга — SPA (Single Page Application)
+    # try_files: если файл есть — отдаём, иначе index.html
+    # (нужно для React Router — все маршруты отдают index.html)
     handle {
         root * /var/www/landing
         try_files {path} /index.html

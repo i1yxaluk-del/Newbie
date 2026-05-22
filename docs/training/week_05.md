@@ -13,6 +13,10 @@
 - [ ] Завести test-tenant на тестовом bastion: сгенерить ключи,
       подключиться с ноутбука, пройти pinog 10.10.0.1.
 - [ ] Прочитать R-08 (VPN tunnel down) и разобрать пошагово.
+- [ ] ⚠️ **Урок из деплоя:** На test-VM проверить SSH-опции для
+      preemptible: `-o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL`.
+      Обсудить с owner почему это важно (host keys меняются при рестарте,
+      без static IP DNS устаревает). См. `deploy/yandex/README.md` §10.0.3.
 
 ## Production
 

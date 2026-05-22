@@ -1,683 +1,575 @@
 ﻿<#
 .SYNOPSIS
     Автоматическое развёртывание МСП Облако в Yandex Cloud.
+    Теперь с правильным выводом ошибок и уникальными именами ресурсов.
 
-.DESCRIPTION
-    Создаёт ВМ в Yandex Cloud, ставит на неё Docker + Caddy + Stalwart Mail
-    + бэкенд (FastAPI + MongoDB) + фронт (React static), и выводит IP-адрес
-    для установки в DNS.
-
-    Скрипт идемпотентный: повторный запуск пересоздаёт только те ресурсы,
-    которых не существует. Для полного пересоздания см. -Recreate.
-
-.PARAMETER Domain
-    Домен сайта. Default: mcp-claude.online.
-
-.PARAMETER Zone
-    Yandex Cloud зона. Default: ru-central1-a.
-
-.PARAMETER VmName
-    Имя ВМ. Default: msp-cloud-vm.
-
-.PARAMETER VmCores
-    Количество vCPU. Default: 2.
-
-.PARAMETER VmMemoryGb
-    Память в GB. Default: 4.
-
-.PARAMETER VmDiskGb
-    Размер boot-диска в GB. Default: 50 (хватит на фронт + бэк + Stalwart mail).
-
-.PARAMETER Preemptible
-    Прерываемая ВМ (cheaper, может рестартовать раз в сутки). Default: $true.
-
-.PARAMETER Recreate
-    Удалить старую ВМ и создать с нуля. ВНИМАНИЕ: потеряет данные MongoDB!
-
-.PARAMETER SkipMail
-    Не настраивать Stalwart почту. Только лендинг + бэк.
-
-.EXAMPLE
-    PS C:\msp\Newbie> .\deploy\yandex\deploy.ps1
-    Развернуть с дефолтами (mcp-claude.online, ru-central1-a).
-
-.EXAMPLE
-    PS C:\msp\Newbie> .\deploy\yandex\deploy.ps1 -Recreate
-    Удалить старую ВМ и создать с нуля.
-
-.NOTES
-    Требует:
-      - Windows 10 build 1803+ (OpenSSH client встроен)
-      - PowerShell 5.1+ (что есть в Win10 по умолчанию)
-      - Интернет
-      - Yandex Cloud аккаунт с привязанной картой
-
-    OAuth токен Yandex Cloud получается автоматически: скрипт открывает
-    браузер на странице авторизации, пользователь даёт согласие, копирует
-    токен в окно скрипта. Токен сохраняется в %USERPROFILE%\.yc-config\
-    через yc CLI, в файлы скрипта НЕ записывается.
-
-    Логи деплоя: %TEMP%\msp-deploy-*.log
+.УРОКИ ДЕПЛОЯ (читай перед изменением скрипта):
+  - Домен: БУКВЫ ДОЛЖНЫ СОВПАДАТЬ С DNS! У нас была опечатка
+    mcp-claude.online вместо msp-claude.online → Caddy получил
+    staging-сертификаты LE, браузеры их не приняли, потрачено 2 часа.
+  - Static IP: preemptible-ВМ получает НОВЫЙ IP при каждом рестарте.
+    Резервируем static IP (189.73₽/мес) и привязываем к ВМ через
+    add-one-to-one-nat — так DNS A-записи не устаревают.
+  - UserKnownHostsFile=NUL: preemptible-ВМ меняет host keys при рестарте.
+    Без этого SSH на Win10/OpenSSH ломается с REMOTE HOST IDENTIFICATION HAS CHANGED.
+  - yc через cmd /c: PowerShell 5.1 не может корректно обработать
+    stderr от yc (пишет ErrorRecord). Команда `cmd /c "yc ... 2>&1"`
+    сливает stderr в stdout, и PS видит чистый текст.
+  - SCP через WireGuard: ненадёжно (таймауты). Используйте
+    echo BASE64 | base64 -d > file через SSH для маленьких файлов,
+    или архив zip через scp без WireGuard.
 #>
 
 [CmdletBinding()]
 param(
-    [string]$Domain = "mcp-claude.online",
+    # ВАЖНО: дефолт домена ТОЧНО совпадает с DNS A-записью!
+    # Была опечатка mcp-claude.online → NXDOMAIN для LE.
+    [string]$Domain = "msp-claude.online",
     [string]$Zone = "ru-central1-a",
     [string]$VmName = "msp-cloud-vm",
     [int]$VmCores = 2,
     [int]$VmMemoryGb = 4,
     [int]$VmDiskGb = 50,
     [bool]$Preemptible = $true,
+    # Резервировать static IP? (+189.73₽/мес, но IP переживает рестарт ВМ)
+    [bool]$UseStaticIp = $true,
     [switch]$Recreate,
     [switch]$SkipMail
 )
 
-# ═══════════════════════════════════════════════════════════════════
-# Глобальные настройки
-# ═══════════════════════════════════════════════════════════════════
 $ErrorActionPreference = "Stop"
+$env:YC_CLI_INITIALIZATION_SILENCE = "true"   # убираем предупреждение yc
 
-# Принудительно ставим UTF-8 для консольного вывода — иначе на русской Windows 10
-# PowerShell 5.1 покажет крокозябры вместо кириллицы и Unicode box-drawing.
-#
-# ОСТОРОЖНО: на Win10 PS5.1 PSReadLine 2.x ломается, если внутри скрипта изменить
-# [Console]::InputEncoding или вызвать `chcp 65001` — следующий prompt бросает
-# ArgumentOutOfRangeException (parameter: times). См. PSReadLine#468, PSReadLine#2189.
-# Поэтому:
-#   1) трогаем только OutputEncoding (его достаточно для отображения кириллицы);
-#   2) каждое присваивание в отдельном try, чтобы одно падение не утаскивало другие;
-#   3) сохраняем прежнее значение и восстанавливаем через try/finally в самом низу.
+# Фикс UTF-8 для консоли (безопасно)
 $script:__PrevOutputEncoding = $OutputEncoding
 $script:__PrevConsoleOutputEncoding = $null
 try { $script:__PrevConsoleOutputEncoding = [Console]::OutputEncoding } catch { }
 try { $OutputEncoding = [System.Text.UTF8Encoding]::new($false) } catch { }
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
 
-# Любые ошибки внутри скрипта должны восстановить OutputEncoding обратно — иначе
-# текущий PowerShell-сеанс остаётся с UTF-8 и PSReadLine может сломаться.
 try {
-$RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
-$DeployDir = $PSScriptRoot
-$StateFile = Join-Path $DeployDir ".deploy-state.json"
-$LogFile = Join-Path $env:TEMP ("msp-deploy-{0}.log" -f (Get-Date -Format "yyyyMMdd-HHmmss"))
-$SshKeyPath = Join-Path $env:USERPROFILE ".ssh\id_ed25519_yc"
-$SshKeyPubPath = "$SshKeyPath.pub"
+    $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
+    $DeployDir = $PSScriptRoot
+    $StateFile = Join-Path $DeployDir ".deploy-state.json"
+    $LogFile = Join-Path $env:TEMP ("msp-deploy-{0}.log" -f (Get-Date -Format "yyyyMMdd-HHmmss"))
+    $SshKeyPath = Join-Path $env:USERPROFILE ".ssh\id_ed25519_yc"
+    $SshKeyPubPath = "$SshKeyPath.pub"
 
-# Цветной вывод стадий
-function Write-Stage {
-    param([int]$Num, [int]$Total, [string]$Text)
-    Write-Host ""
-    Write-Host ("═══ [{0}/{1}] {2} ═══" -f $Num, $Total, $Text) -ForegroundColor Cyan
-    Add-Content -Path $LogFile -Value ("[{0}] STAGE {1}/{2}: {3}" -f (Get-Date -Format "HH:mm:ss"), $Num, $Total, $Text)
-}
+    # Полный путь к ssh.exe — PowerShell 5.1 может не иметь его в PATH.
+    # Проверяем System32\OpenSSH первым, затем PATH.
+    $SshExe = $null
+    $sysSsh = "C:\Windows\System32\OpenSSH\ssh.exe"
+    if (Test-Path $sysSsh) { $SshExe = $sysSsh }
+    elseif (Get-Command ssh -ErrorAction SilentlyContinue) { $SshExe = (Get-Command ssh).Source }
+    else { Write-Fail "ssh.exe не найден. Установите OpenSSH Client."; exit 1 }
 
-function Write-Info { param([string]$Text) Write-Host "  $Text" -ForegroundColor Gray; Add-Content -Path $LogFile -Value "  $Text" }
-function Write-Ok   { param([string]$Text) Write-Host "  ✓ $Text" -ForegroundColor Green; Add-Content -Path $LogFile -Value "  OK: $Text" }
-function Write-Warn { param([string]$Text) Write-Host "  ! $Text" -ForegroundColor Yellow; Add-Content -Path $LogFile -Value "  WARN: $Text" }
-function Write-Fail { param([string]$Text) Write-Host "  ✗ $Text" -ForegroundColor Red; Add-Content -Path $LogFile -Value "  FAIL: $Text" }
+    # Общие SSH-опции для preemptible ВМ:
+    #   UserKnownHostsFile=NUL — не сохранять host keys (ВМ меняет их при рестарте)
+    #   StrictHostKeyChecking=no — не спрашивать подтверждение
+    $SshOpts = "-o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL"
 
-# Безопасное форматирование поля для рамки заголовка: усекает или паддит
-# до фиксированной ширины. Замена паттерна `" " * (W - $s.Length)` —
-# тот падает с ArgumentOutOfRangeException (parameter: times), если строка
-# оказывается длиннее ширины (а $LogFile в $env:TEMP легко выходит за 52
-# символа на типичной Windows-машине).
-function Format-BoxField {
-    param([string]$Value, [int]$Width = 52)
-    if ($null -eq $Value) { $Value = "" }
-    if ($Value.Length -gt $Width) {
-        # Хвост важнее головы для путей — оставляем "конец" со штампом времени.
-        if ($Width -le 3) { return $Value.Substring($Value.Length - $Width) }
-        return "..." + $Value.Substring($Value.Length - $Width + 3)
+    # ═══════════════════════════════════════════════════════════════════
+    # Функция безопасного вызова yc с выводом реальной ошибки
+    # ═══════════════════════════════════════════════════════════════════
+    function Invoke-Yc {
+        param(
+            [Parameter(ValueFromRemainingArguments=$true)]
+            [string[]]$Arguments
+        )
+        $cmdLine = "yc " + ($Arguments -join " ")
+        Write-Debug "EXEC: $cmdLine"
+        # Выполняем через cmd /c, перенаправляя stderr в stdout (2>&1)
+        $output = cmd /c "$cmdLine 2>&1"
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "`n❌ Ошибка при выполнении yc команды:" -ForegroundColor Red
+            Write-Host $output -ForegroundColor Red
+            throw "yc command failed with exit code ${LASTEXITCODE}: $cmdLine"
+        }
+        return $output
     }
-    return $Value.PadRight($Width)
-}
 
-function Save-State {
-    param([hashtable]$State)
-    $State | ConvertTo-Json -Depth 5 | Out-File -FilePath $StateFile -Encoding utf8
-}
-
-function Load-State {
-    if (Test-Path $StateFile) {
-        return Get-Content -Path $StateFile -Raw | ConvertFrom-Json
+    # Вспомогательные функции вывода
+    function Write-Stage { param([int]$Num, [int]$Total, [string]$Text)
+        Write-Host ""
+        Write-Host ("═══ [{0}/{1}] {2} ═══" -f $Num, $Total, $Text) -ForegroundColor Cyan
+        Add-Content -Path $LogFile -Value ("[{0}] STAGE {1}/{2}: {3}" -f (Get-Date -Format "HH:mm:ss"), $Num, $Total, $Text)
     }
-    return $null
-}
+    function Write-Info { param([string]$Text) Write-Host "  $Text" -ForegroundColor Gray; Add-Content -Path $LogFile -Value "  $Text" }
+    function Write-Ok   { param([string]$Text) Write-Host "  ✓ $Text" -ForegroundColor Green; Add-Content -Path $LogFile -Value "  OK: $Text" }
+    function Write-Warn { param([string]$Text) Write-Host "  ! $Text" -ForegroundColor Yellow; Add-Content -Path $LogFile -Value "  WARN: $Text" }
+    function Write-Fail { param([string]$Text) Write-Host "  ✗ $Text" -ForegroundColor Red; Add-Content -Path $LogFile -Value "  FAIL: $Text" }
 
-# ═══════════════════════════════════════════════════════════════════
-# Заголовок
-# ═══════════════════════════════════════════════════════════════════
-Clear-Host
-Write-Host @"
+    function Format-BoxField {
+        param([string]$Value, [int]$Width = 52)
+        if ($null -eq $Value) { $Value = "" }
+        if ($Value.Length -gt $Width) {
+            if ($Width -le 3) { return $Value.Substring($Value.Length - $Width) }
+            return "..." + $Value.Substring($Value.Length - $Width + 3)
+        }
+        return $Value.PadRight($Width)
+    }
 
-  ╔════════════════════════════════════════════════════════════════╗
-  ║   МСП Облако · автоматический деплой в Yandex Cloud           ║
-  ╠════════════════════════════════════════════════════════════════╣
-  ║                                                                ║
-  ║   Домен:    $(Format-BoxField $Domain)║
-  ║   Зона:     $(Format-BoxField $Zone)║
-  ║   ВМ:       $(Format-BoxField "$VmName ($VmCores vCPU / $VmMemoryGb GB / $VmDiskGb GB SSD)")║
-  ║   Тип:      $(Format-BoxField $(if($Preemptible){"прерываемая (дешевле)"}else{"гарантированная"}))║
-  ║   Почта:    $(Format-BoxField $(if($SkipMail){"пропущено"}else{"Stalwart (admin@/sales@/alert@)"}))║
-  ║                                                                ║
-  ║   Логи:     $(Format-BoxField $LogFile)║
-  ║                                                                ║
-  ╚════════════════════════════════════════════════════════════════╝
+    function Save-State { param([hashtable]$State) $State | ConvertTo-Json -Depth 5 | Out-File -FilePath $StateFile -Encoding utf8 }
+    function Load-State { if (Test-Path $StateFile) { return Get-Content -Path $StateFile -Raw | ConvertFrom-Json } else { return $null } }
 
-"@ -ForegroundColor Cyan
+    # ═══════════════════════════════════════════════════════════════════
+    # Заголовок
+    # ═══════════════════════════════════════════════════════════════════
+    Clear-Host
+    Write-Host @"
+`
+  +--------------------------------------------------------------+
+  |   MSP Cloud - auto-deploy to Yandex Cloud                    |
+  +--------------------------------------------------------------+
+  |                                                                |
+  |   Domain:    $(Format-BoxField $Domain)|
+  |   Zone:      $(Format-BoxField $Zone)|
+  |   VM:        $(Format-BoxField "$VmName ($VmCores vCPU / $VmMemoryGb GB / $VmDiskGb GB SSD)")|
+  |   Type:      $(Format-BoxField $(if($Preemptible){"preemptible (cheaper)"}else{"guaranteed"}))|
+  |   Static IP: $(Format-BoxField $(if($UseStaticIp){"YES (+189.73 RUR/mo, survives VM restart)"}else{"NO (IP changes on restart)"}))|
+  |   Mail:      $(Format-BoxField $(if($SkipMail){"skipped"}else{"Stalwart (admin@/sales@/alert@)"}))|
+  |                                                                |
+  |   Log:       $(Format-BoxField $LogFile)|
+  |                                                                |
+  +--------------------------------------------------------------+
+`@ -ForegroundColor Cyan
 
-# ═══════════════════════════════════════════════════════════════════
-# Стадия 1: yc CLI + SSH client
-# ═══════════════════════════════════════════════════════════════════
-Write-Stage 1 8 "Проверка yc CLI и SSH"
+    # ═══════════════════════════════════════════════════════════════════
+    # Стадия 1: yc CLI + SSH client
+    # ═══════════════════════════════════════════════════════════════════
+    Write-Stage 1 8 "Проверка yc CLI и SSH"
 
-# yc CLI
-$ycCmd = Get-Command yc -ErrorAction SilentlyContinue
-if (-not $ycCmd) {
-    Write-Info "yc CLI не найден, устанавливаю..."
-    $ycInstaller = Join-Path $env:TEMP "yc-install.ps1"
-    try {
-        Invoke-WebRequest -Uri "https://storage.yandexcloud.net/yandexcloud-yc/install.ps1" -OutFile $ycInstaller -UseBasicParsing
-        & powershell -ExecutionPolicy Bypass -File $ycInstaller -n
-        # Добавляем в PATH текущей сессии
-        $env:Path += ";$env:USERPROFILE\yandex-cloud\bin"
-        $ycCmd = Get-Command yc -ErrorAction SilentlyContinue
-        if (-not $ycCmd) {
-            Write-Fail "yc CLI не установился. Скачайте вручную: https://yandex.cloud/ru/docs/cli/quickstart"
+    # yc CLI установка
+    $ycCmd = Get-Command yc -ErrorAction SilentlyContinue
+    if (-not $ycCmd) {
+        Write-Info "yc CLI не найден, устанавливаю..."
+        $ycInstaller = Join-Path $env:TEMP "yc-install.ps1"
+        try {
+            Invoke-WebRequest -Uri "https://storage.yandexcloud.net/yandexcloud-yc/install.ps1" -OutFile $ycInstaller -UseBasicParsing
+            & powershell -ExecutionPolicy Bypass -File $ycInstaller -n
+            $env:Path += ";$env:USERPROFILE\yandex-cloud\bin"
+            $ycCmd = Get-Command yc -ErrorAction SilentlyContinue
+            if (-not $ycCmd) { throw "yc CLI not found after installation" }
+            Write-Ok "yc CLI установлен"
+        } catch {
+            Write-Fail "Не удалось установить yc CLI: $_"
             exit 1
         }
-        Write-Ok "yc CLI установлен"
-    } catch {
-        Write-Fail "Не удалось скачать yc-installer: $_"
-        Write-Info "Скачайте вручную: https://yandex.cloud/ru/docs/cli/quickstart"
-        exit 1
+    } else {
+        $ver = Invoke-Yc version | Select-Object -First 1
+        Write-Ok "yc CLI: $ver"
     }
-} else {
-    Write-Ok "yc CLI: $(yc version 2>&1 | Select-Object -First 1)"
-}
 
-# SSH client / SCP client (Windows 10 1803+ built-in: C:\Windows\System32\OpenSSH).
-#
-# Get-Command может не найти ssh, если:
-#   (a) запущен 32-битный PowerShell (видит SysWOW64, а OpenSSH лежит в System32);
-#   (b) Optional Feature был включён в той же сессии — PATH не обновлён до перезахода;
-#   (c) ssh скрыт самописным alias-ом в $PROFILE.
-# Поэтому проверяем три источника и при необходимости добавляем в PATH сами.
-function Resolve-OpenSshTool {
-    param([string]$Name)   # "ssh" или "scp"
-
-    # 1. Стандартный поиск по PATH (с .exe — без .exe Get-Command иногда мажет).
-    $cmd = @(Get-Command "$Name.exe" -ErrorAction SilentlyContinue)
-    if ($cmd.Count -gt 0) { return $cmd[0].Source }
-
-    # 2. Без .exe — на случай нестандартного $env:PATHEXT.
-    $cmd = @(Get-Command $Name -CommandType Application -ErrorAction SilentlyContinue)
-    if ($cmd.Count -gt 0) { return $cmd[0].Source }
-
-    # 3. Прямые кандидаты в стандартных местах установки OpenSSH (только на Windows).
-    if ($env:SystemRoot) {
-        $candidates = @(
-            (Join-Path $env:SystemRoot "System32\OpenSSH\$Name.exe"),
-            (Join-Path $env:SystemRoot "Sysnative\OpenSSH\$Name.exe")   # на случай 32-битного PS
-        )
-        if (${env:ProgramFiles})      { $candidates += (Join-Path ${env:ProgramFiles}      "OpenSSH\$Name.exe") }
-        if (${env:ProgramFiles(x86)}) { $candidates += (Join-Path ${env:ProgramFiles(x86)} "OpenSSH\$Name.exe") }
-        foreach ($c in $candidates) {
-            if ($c -and (Test-Path $c)) { return $c }
+    # SSH client (проверка без вызова ssh -V, чтобы избежать ложных ошибок)
+    # ВАЖНО: на Windows 10 ssh.exe может быть в System32\OpenSSH, но не в PATH.
+    # Мы уже нашли $SshExe выше.
+    $scpPath = Get-Command scp -ErrorAction SilentlyContinue
+    if (-not $scpPath) {
+        $sysScp = "C:\Windows\System32\OpenSSH\scp.exe"
+        if (Test-Path $sysScp) {
+            $env:Path += ";C:\Windows\System32\OpenSSH"
+            $scpPath = Get-Command scp -ErrorAction SilentlyContinue
         }
     }
-    return $null
-}
+    Write-Ok "SSH client: $SshExe"
+    if (-not $scpPath) { Write-Warn "SCP client не найден — файлы будут загружаться через base64+SSH" }
+    else { Write-Ok "SCP client: $($scpPath.Source)" }
 
-$sshPath = Resolve-OpenSshTool "ssh"
-$scpPath = Resolve-OpenSshTool "scp"
+    # ═══════════════════════════════════════════════════════════════════
+    # Стадия 2: Авторизация и создание уникального каталога
+    # ═══════════════════════════════════════════════════════════════════
+    Write-Stage 2 8 "Авторизация в Yandex Cloud и подготовка каталога"
 
-if (-not $sshPath) {
-    Write-Fail "SSH client не найден."
-    Write-Info "Проверял: Get-Command ssh.exe, C:\Windows\System32\OpenSSH\ssh.exe и стандартные пути."
-    Write-Info "Если OpenSSH Client уже установлен — закройте PowerShell, откройте новое окно и повторите."
-    Write-Info "Иначе: Settings -> Apps -> Optional features -> OpenSSH Client (или: Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0)."
-    exit 1
-}
-if (-not $scpPath) {
-    Write-Fail "SCP client не найден (обычно идёт вместе с OpenSSH Client)."
-    Write-Info "Переустановите Optional Feature 'OpenSSH Client'."
-    exit 1
-}
-
-# Если ssh нашёлся не через PATH — добавим его директорию в PATH текущего процесса,
-# чтобы все последующие вызовы 'ssh' / 'scp' работали без явных путей.
-$sshDir = Split-Path -Parent $sshPath
-if (-not (($env:PATH -split ";") -contains $sshDir)) {
-    $env:PATH = "$sshDir;$env:PATH"
-    Write-Info "Добавил $sshDir в PATH текущей сессии."
-}
-
-Write-Ok "SSH client: $(& $sshPath -V 2>&1)"
-Write-Ok "SCP client: $scpPath"
-
-# ═══════════════════════════════════════════════════════════════════
-# Стадия 2: OAuth + профиль yc
-# ═══════════════════════════════════════════════════════════════════
-Write-Stage 2 8 "Авторизация в Yandex Cloud"
-
-# Проверяем существует ли активный профиль
-$ycProfile = & yc config list 2>&1 | Out-String
-if ($LASTEXITCODE -ne 0 -or $ycProfile -notmatch "token:") {
-    Write-Info "Нет активного yc-профиля. Открываю браузер для OAuth..."
-
-    $oauthUrl = "https://oauth.yandex.com/authorize?response_type=token&client_id=1a6990aa636648e9b2ef855fa7bec2fb"
-    Start-Process $oauthUrl
-
-    Write-Host ""
-    Write-Host "  В браузере:" -ForegroundColor Yellow
-    Write-Host "    1. Нажмите 'Разрешить'" -ForegroundColor Yellow
-    Write-Host "    2. Скопируйте OAuth-токен из адресной строки или со страницы" -ForegroundColor Yellow
-    Write-Host ""
-    $token = Read-Host -Prompt "  Вставьте OAuth-токен"
-
-    if ([string]::IsNullOrWhiteSpace($token)) {
-        Write-Fail "Пустой токен. Прерываю."
-        exit 1
+    # Проверяем/создаём профиль yc
+    $ycProfile = Invoke-Yc config list
+    $ycProfileStr = $ycProfile -join "`n"
+    if ($ycProfileStr -notmatch "token:") {
+        Write-Info "Нет активного yc-профиля. Открываю браузер для OAuth..."
+        $oauthUrl = "https://oauth.yandex.com/authorize?response_type=token&client_id=1a6990aa636648e9b2ef855fa7bec2fb"
+        Start-Process $oauthUrl
+        Write-Host ""
+        Write-Host "  В браузере:" -ForegroundColor Yellow
+        Write-Host "    1. Нажмите 'Разрешить'" -ForegroundColor Yellow
+        Write-Host "    2. Скопируйте OAuth-токен из адресной строки" -ForegroundColor Yellow
+        Write-Host ""
+        $token = Read-Host -Prompt "  Вставьте OAuth-токен"
+        if ([string]::IsNullOrWhiteSpace($token)) { Write-Fail "Пустой токен"; exit 1 }
+        Invoke-Yc config profile create msp-cloud | Out-Null
+        Invoke-Yc config profile activate msp-cloud | Out-Null
+        Invoke-Yc config set token $token | Out-Null
+        Write-Ok "Профиль 'msp-cloud' создан"
+    } else {
+        Write-Ok "yc-профиль активен"
     }
 
-    # Создаём профиль 'msp-cloud'
-    & yc config profile create msp-cloud 2>&1 | Out-Null
-    & yc config profile activate msp-cloud 2>&1 | Out-Null
-    & yc config set token $token 2>&1 | Out-Null
+    # Получаем облако
+    $cloudsJson = Invoke-Yc resource-manager cloud list --format json
+    $clouds = $cloudsJson | ConvertFrom-Json
+    if (-not $clouds -or $clouds.Count -eq 0) {
+        Write-Fail "Нет облака. Создайте вручную в https://console.cloud.yandex.ru/"
+        exit 1
+    }
+    $cloudId = $clouds[0].id
+    Invoke-Yc config set cloud-id $cloudId | Out-Null
+    Write-Info "Cloud: $($clouds[0].name) ($cloudId)"
 
-    Write-Ok "Профиль 'msp-cloud' создан, токен сохранён в %USERPROFILE%\.yc-config\"
-} else {
-    Write-Ok "yc-профиль активен"
-}
+    # --- Уникальное имя каталога ---
+    $state = Load-State
+    if ($state -and $state.folderName -and -not $Recreate) {
+        $folderName = $state.folderName
+        Write-Info "Использую существующий каталог из state: $folderName"
+    } else {
+        $folderName = "msp-cloud-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+        Write-Info "Будет создан новый каталог: $folderName"
+    }
 
-# Создаём облако и каталог если их нет (для совсем новых аккаунтов yc cloud create требуется)
-$clouds = & yc resource-manager cloud list --format json 2>$null | ConvertFrom-Json
-if (-not $clouds -or $clouds.Count -eq 0) {
-    Write-Fail "У вас нет облака в Yandex Cloud. Зайдите в https://console.cloud.yandex.ru/ и создайте облако вручную (привязка карты)."
-    exit 1
-}
+    # Проверяем, существует ли уже каталог с таким именем
+    $foldersJson = Invoke-Yc resource-manager folder list --cloud-id $cloudId --format json
+    $folders = $foldersJson | ConvertFrom-Json
+    $folder = $folders | Where-Object { $_.name -eq $folderName } | Select-Object -First 1
 
-$cloudId = $clouds[0].id
-& yc config set cloud-id $cloudId 2>&1 | Out-Null
-Write-Info "Cloud: $($clouds[0].name) ($cloudId)"
+    if (-not $folder) {
+        Write-Info "Создаю каталог '$folderName'..."
+        Invoke-Yc resource-manager folder create --name $folderName --cloud-id $cloudId | Out-Null
+        $folderJson = Invoke-Yc resource-manager folder get --name $folderName --cloud-id $cloudId --format json
+        $folder = $folderJson | ConvertFrom-Json
+        Write-Ok "Каталог создан: $folderName ($($folder.id))"
+    } else {
+        Write-Ok "Каталог уже существует: $folderName ($($folder.id))"
+    }
+    $folderId = $folder.id
+    Invoke-Yc config set folder-id $folderId | Out-Null
+    Invoke-Yc config set compute-default-zone $Zone | Out-Null
 
-# Каталог (folder)
-$folders = & yc resource-manager folder list --cloud-id $cloudId --format json 2>$null | ConvertFrom-Json
-$folder = $folders | Where-Object { $_.name -eq "msp-cloud" } | Select-Object -First 1
-if (-not $folder) {
-    Write-Info "Создаю каталог 'msp-cloud'..."
-    & yc resource-manager folder create --name msp-cloud --cloud-id $cloudId 2>&1 | Out-Null
-    $folder = & yc resource-manager folder get --name msp-cloud --cloud-id $cloudId --format json | ConvertFrom-Json
-}
-$folderId = $folder.id
-& yc config set folder-id $folderId 2>&1 | Out-Null
-& yc config set compute-default-zone $Zone 2>&1 | Out-Null
-Write-Ok "Folder: msp-cloud ($folderId)"
+    # ═══════════════════════════════════════════════════════════════════
+    # Стадия 3: SSH ключ + VPC + Subnet + Security Group (уникальные имена)
+    # ═══════════════════════════════════════════════════════════════════
+    Write-Stage 3 8 "SSH ключ + сеть"
 
-# ═══════════════════════════════════════════════════════════════════
-# Стадия 3: SSH key + VPC + Subnet + Security Group
-# ═══════════════════════════════════════════════════════════════════
-Write-Stage 3 8 "SSH ключ + сеть"
+    # SSH ключ
+    if (-not (Test-Path $SshKeyPath)) {
+        Write-Info "Генерирую SSH-ключ ed25519..."
+        $sshDir = Split-Path $SshKeyPath -Parent
+        if (-not (Test-Path $sshDir)) { New-Item -ItemType Directory -Path $sshDir | Out-Null }
+        & ssh-keygen -t ed25519 -f $SshKeyPath -N '""' -C "msp-yc-deploy" 2>&1 | Out-Null
+        Write-Ok "SSH ключ создан"
+    } else {
+        Write-Ok "SSH ключ существует"
+    }
+    $sshPubKey = (Get-Content -Path $SshKeyPubPath -Raw).Trim()
 
-# SSH ключ (ed25519, без пароля)
-if (-not (Test-Path $SshKeyPath)) {
-    Write-Info "Генерирую SSH-ключ ed25519 в $SshKeyPath..."
-    $sshDir = Split-Path $SshKeyPath -Parent
-    if (-not (Test-Path $sshDir)) { New-Item -ItemType Directory -Path $sshDir | Out-Null }
-    & ssh-keygen -t ed25519 -f $SshKeyPath -N '""' -C "msp-yc-deploy" 2>&1 | Out-Null
-    Write-Ok "SSH ключ создан"
-} else {
-    Write-Ok "SSH ключ существует: $SshKeyPath"
-}
-$sshPubKey = (Get-Content -Path $SshKeyPubPath -Raw).Trim()
+    # Уникальные имена для сети и подсети (привязываем к имени каталога, чтобы не пересекались)
+    $netName = "msp-net-${folderName}"
+    $subnetName = "msp-subnet-${folderName}"
+    $sgName = "msp-sg-${folderName}"
 
-# VPC
-$networks = & yc vpc network list --folder-id $folderId --format json | ConvertFrom-Json
-$net = $networks | Where-Object { $_.name -eq "msp-net" } | Select-Object -First 1
-if (-not $net) {
-    Write-Info "Создаю VPC 'msp-net'..."
-    & yc vpc network create --name msp-net --folder-id $folderId 2>&1 | Out-Null
-    $net = & yc vpc network get --name msp-net --folder-id $folderId --format json | ConvertFrom-Json
-}
-Write-Ok "VPC: msp-net ($($net.id))"
+    # VPC
+    $networksJson = Invoke-Yc vpc network list --folder-id $folderId --format json
+    $networks = $networksJson | ConvertFrom-Json
+    $net = $networks | Where-Object { $_.name -eq $netName } | Select-Object -First 1
+    if (-not $net) {
+        Write-Info "Создаю VPC '$netName'..."
+        Invoke-Yc vpc network create --name $netName --folder-id $folderId | Out-Null
+        $netJson = Invoke-Yc vpc network get --name $netName --folder-id $folderId --format json
+        $net = $netJson | ConvertFrom-Json
+        Write-Ok "VPC создана: $netName ($($net.id))"
+    } else {
+        Write-Ok "VPC уже существует: $netName ($($net.id))"
+    }
 
-# Subnet
-$subnets = & yc vpc subnet list --folder-id $folderId --format json | ConvertFrom-Json
-$subnet = $subnets | Where-Object { $_.name -eq "msp-subnet" -and $_.zone_id -eq $Zone } | Select-Object -First 1
-if (-not $subnet) {
-    Write-Info "Создаю subnet 'msp-subnet' в $Zone..."
-    & yc vpc subnet create `
-        --name msp-subnet `
-        --network-id $net.id `
-        --zone $Zone `
-        --range 10.10.0.0/24 `
-        --folder-id $folderId 2>&1 | Out-Null
-    $subnet = & yc vpc subnet get --name msp-subnet --folder-id $folderId --format json | ConvertFrom-Json
-}
-Write-Ok "Subnet: msp-subnet ($($subnet.id), 10.10.0.0/24)"
+    # Subnet
+    $subnetsJson = Invoke-Yc vpc subnet list --folder-id $folderId --format json
+    $subnets = $subnetsJson | ConvertFrom-Json
+    $subnet = $subnets | Where-Object { $_.name -eq $subnetName -and $_.zone_id -eq $Zone } | Select-Object -First 1
+    if (-not $subnet) {
+        Write-Info "Создаю subnet '$subnetName' в $Zone..."
+        Invoke-Yc vpc subnet create --name $subnetName --network-id $net.id --zone $Zone --range 10.10.0.0/24 --folder-id $folderId | Out-Null
+        $subnetJson = Invoke-Yc vpc subnet get --name $subnetName --folder-id $folderId --format json
+        $subnet = $subnetJson | ConvertFrom-Json
+        Write-Ok "Subnet создана: $subnetName ($($subnet.id))"
+    } else {
+        Write-Ok "Subnet уже существует: $subnetName ($($subnet.id))"
+    }
 
-# Security Group: SSH + HTTP/S + Mail
-$sgs = & yc vpc security-group list --folder-id $folderId --format json 2>$null | ConvertFrom-Json
-$sg = $sgs | Where-Object { $_.name -eq "msp-sg" } | Select-Object -First 1
-if (-not $sg) {
-    Write-Info "Создаю security group 'msp-sg' (SSH/HTTP/HTTPS + Stalwart 465/587/IMAP)..."
+    # Security Group
+    $sgsJson = Invoke-Yc vpc security-group list --folder-id $folderId --format json
+    $sgs = $sgsJson | ConvertFrom-Json
+    $sg = $sgs | Where-Object { $_.name -eq $sgName } | Select-Object -First 1
+    if (-not $sg) {
+        Write-Info "Создаю security group '$sgName'..."
+        $sgCreateArgs = @(
+            "vpc", "security-group", "create",
+            "--name", $sgName,
+            "--description", "MSP Cloud web and mail",
+            "--network-id", $net.id,
+            "--folder-id", $folderId,
+            "--rule", "direction=ingress,port=22,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=SSH",
+            "--rule", "direction=ingress,port=80,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=HTTP",
+            "--rule", "direction=ingress,port=443,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=HTTPS",
+            "--rule", "direction=ingress,port=465,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=SMTPS",
+            "--rule", "direction=ingress,port=587,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=SMTP-STARTTLS",
+            "--rule", "direction=ingress,port=143,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=IMAP",
+            "--rule", "direction=ingress,port=993,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=IMAPS",
+            "--rule", "direction=ingress,port=4190,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=ManageSieve",
+            "--rule", "direction=egress,from-port=0,to-port=65535,protocol=any,v4-cidrs=[0.0.0.0/0],description=All-outbound",
+            "--format", "json"
+        )
+        & yc $sgCreateArgs 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) { Write-Fail "Не удалось создать security group"; exit 1 }
+        $sgJson = Invoke-Yc vpc security-group get --name $sgName --folder-id $folderId --format json
+        $sg = $sgJson | ConvertFrom-Json
+        Write-Ok "Security group создана: $sgName ($($sg.id))"
+    } else {
+        Write-Ok "Security group уже существует: $sgName ($($sg.id))"
+    }
 
-    # ВНИМАНИЕ: TCP/25 НЕ открываем — Yandex Cloud блокирует :25 на
-    # публичных IP VPC на уровне платформы. Inbound MX через наш IP
-    # работать не будет. Stalwart настроен в submit-only режиме:
-    # принимает 465 (SMTPS) и 587 (STARTTLS), отправляет наружу
-    # через smarthost (Yandex 360 / Mailgun / Brevo) — см.
-    # deploy/yandex/STALWART_RELAY_MODE.md.
+    # ═══════════════════════════════════════════════════════════════════
+    # Стадия 4: Создание ВМ
+    # ═══════════════════════════════════════════════════════════════════
+    Write-Stage 4 8 "Создание ВМ ($VmName)"
 
-    # Создаём с inline-правилами в одном вызове
-    & yc vpc security-group create `
-        --name msp-sg `
-        --description "MSP Cloud: web + mail (465/587/IMAP, no :25)" `
-        --network-id $net.id `
-        --folder-id $folderId `
-        --rule "direction=ingress,port=22,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=SSH" `
-        --rule "direction=ingress,port=80,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=HTTP/ACME" `
-        --rule "direction=ingress,port=443,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=HTTPS" `
-        --rule "direction=ingress,port=465,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=SMTPS-Submission" `
-        --rule "direction=ingress,port=587,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=SMTP-Submission-STARTTLS" `
-        --rule "direction=ingress,port=143,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=IMAP-STARTTLS" `
-        --rule "direction=ingress,port=993,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=IMAPS" `
-        --rule "direction=ingress,port=4190,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=ManageSieve" `
-        --rule "direction=egress,from-port=0,to-port=65535,protocol=any,v4-cidrs=[0.0.0.0/0],description=All-outbound" `
-        2>&1 | Out-Null
+    if ($Recreate) {
+        Write-Warn "Recreate=true → удаляю старую ВМ и весь каталог (ресурсы будут пересозданы)"
+        # Удаляем всё: проще удалить каталог и создать заново
+        Invoke-Yc resource-manager folder delete --id $folderId --force | Out-Null
+        Write-Info "Каталог $folderName удалён. Создаём новый..."
+        # Создаём новый каталог с тем же именем (или новым)
+        Invoke-Yc resource-manager folder create --name $folderName --cloud-id $cloudId | Out-Null
+        $folderJson = Invoke-Yc resource-manager folder get --name $folderName --cloud-id $cloudId --format json
+        $folder = $folderJson | ConvertFrom-Json
+        $folderId = $folder.id
+        Invoke-Yc config set folder-id $folderId | Out-Null
+        # Повторяем создание сети и т.д. (можно рекурсивно вызвать скрипт заново, но проще продолжить с новым folderId)
+        # Для простоты: выходим с сообщением, чтобы пользователь запустил скрипт ещё раз (без -Recreate)
+        Write-Warn "Каталог пересоздан. Пожалуйста, запустите скрипт ещё раз без параметра -Recreate"
+        exit 0
+    }
 
-    $sg = & yc vpc security-group get --name msp-sg --folder-id $folderId --format json | ConvertFrom-Json
-}
-Write-Ok "Security group: msp-sg ($($sg.id))"
+    $vmsJson = Invoke-Yc compute instance list --folder-id $folderId --format json
+    $vms = $vmsJson | ConvertFrom-Json
+    $existingVm = $vms | Where-Object { $_.name -eq $VmName } | Select-Object -First 1
 
-# ═══════════════════════════════════════════════════════════════════
-# Стадия 4: Создание ВМ
-# ═══════════════════════════════════════════════════════════════════
-Write-Stage 4 8 "Создание ВМ ($VmName)"
+    if ($existingVm) {
+        Write-Ok "ВМ уже существует: $VmName ($($existingVm.id))"
+        $vmId = $existingVm.id
+    } else {
+        Write-Info "Подготовка cloud-init..."
+        $cloudInitPath = Join-Path $DeployDir "cloud-init.yaml"
+        $cloudInitContent = Get-Content -Path $cloudInitPath -Raw
+        $cloudInitContent = $cloudInitContent.Replace("__SSH_PUBKEY__", $sshPubKey)
+        $cloudInitTemp = Join-Path $env:TEMP "msp-cloud-init.yaml"
+        [System.IO.File]::WriteAllText($cloudInitTemp, $cloudInitContent, [System.Text.UTF8Encoding]::new($false))
 
-if ($Recreate) {
-    Write-Warn "Recreate=true → удаляю старую ВМ если есть"
-    & yc compute instance delete --name $VmName --folder-id $folderId 2>&1 | Out-Null
-}
+        Write-Info "Создаю ВМ (1-2 минуты)..."
+        $platformId = "standard-v3"
+        $coreFraction = if ($Preemptible) { "50" } else { "100" }
 
-$existingVm = & yc compute instance list --folder-id $folderId --format json 2>$null | ConvertFrom-Json | Where-Object { $_.name -eq $VmName } | Select-Object -First 1
+        $ubuntuImage = Invoke-Yc compute image get-latest-from-family ubuntu-2204-lts --folder-id standard-images --format json
+        $ubuntuImageInfo = $ubuntuImage | ConvertFrom-Json
+        $ubuntuImageId = $ubuntuImageInfo.id
+        Write-Info "Ubuntu image: $ubuntuImageId"
 
-if ($existingVm) {
-    Write-Ok "ВМ уже существует: $VmName ($($existingVm.id))"
-    $vmId = $existingVm.id
-} else {
-    Write-Info "Подготовка cloud-init..."
+        $createArgs = @(
+            "compute", "instance", "create",
+            "--name", $VmName,
+            "--zone", $Zone,
+            "--folder-id", $folderId,
+            "--platform-id", $platformId,
+            "--cores", $VmCores,
+            "--core-fraction", $coreFraction,
+            "--memory", "${VmMemoryGb}GB",
+            "--create-boot-disk", "image-id=${ubuntuImageId},size=${VmDiskGb}GB,type=network-ssd",
+            "--network-interface", "subnet-name=$subnetName,nat-ip-version=ipv4,security-group-ids=$($sg.id)",
+            "--metadata-from-file", "user-data=$cloudInitTemp"
+        )
+        if ($Preemptible) { $createArgs += "--preemptible" }
+        $createArgs += "--format"
+        $createArgs += "json"
 
-    # Подставляем SSH pubkey в cloud-init.yaml
-    $cloudInitPath = Join-Path $DeployDir "cloud-init.yaml"
-    $cloudInitContent = Get-Content -Path $cloudInitPath -Raw
-    $cloudInitContent = $cloudInitContent.Replace("__SSH_PUBKEY__", $sshPubKey)
+        $createOutput = & yc $createArgs 2>&1 | Where-Object { $_ -notmatch '^\.\.\.\d+s' -and $_ -notmatch 'done \(' }
+        $ycret = $LASTEXITCODE
+        if ($ycret -ne 0 -and ($createOutput -match 'ERROR' -or $createOutput -match 'error')) {
+            Write-Fail "Не удалось создать ВМ: $createOutput"
+            exit 1
+        }
+        $vmInfo = $createOutput | ConvertFrom-Json
+        $vmId = $vmInfo.id
+        Write-Ok "ВМ создана: $VmName ($vmId)"
+    }
 
-    $cloudInitTemp = Join-Path $env:TEMP "msp-cloud-init.yaml"
-    [System.IO.File]::WriteAllText($cloudInitTemp, $cloudInitContent, [System.Text.UTF8Encoding]::new($false))
+    # ═══════════════════════════════════════════════════════════════════
+    # Стадия 5: Ожидание public IP + Static IP + SSH
+    # ═══════════════════════════════════════════════════════════════════
+    Write-Stage 5 8 "Ожидание готовности ВМ (RUNNING + Static IP + SSH)"
 
-    Write-Info "Создаю ВМ (это займёт 1-2 минуты)..."
+    $publicIp = $null
+    for ($i = 1; $i -le 30; $i++) {
+        $vmJson = Invoke-Yc compute instance get --id $vmId --format json
+        $vm = $vmJson | ConvertFrom-Json
+        $publicIp = $vm.network_interfaces[0].primary_v4_address.one_to_one_nat.address
+        if ($vm.status -eq "RUNNING" -and $publicIp) {
+            Write-Ok "ВМ RUNNING, ephemeral IP: $publicIp"
+            break
+        }
+        Write-Info "Попытка $i/30 · status=$($vm.status)"
+        Start-Sleep -Seconds 10
+    }
+    if (-not $publicIp) { Write-Fail "ВМ не стала RUNNING за 5 минут"; exit 1 }
 
-    # Ubuntu 22.04 LTS standard image
-    $platformId = "standard-v3"
-    $coreFraction = if ($Preemptible) { "50" } else { "100" }
+    # ── Static IP: привязываем к ВМ ──────────────────────────────────
+    # Preemptible ВМ получает НОВЫЙ IP при каждом рестарте.
+    # Static IP (reserved=true) сохраняется → DNS не устаревает.
+    # Стоимость: 189.73₽/мес (≈1.3₽/час). Без него DNS A-запись
+    # будет указывать на старый IP после каждого рестарта ВМ.
+    $staticIpId = $null
+    if ($UseStaticIp) {
+        Write-Info "Резервирую static IP в зоне $Zone..."
+        $reservedIpsJson = Invoke-Yc vpc address list --folder-id $folderId --format json
+        $reservedIps = $reservedIpsJson | ConvertFrom-Json
+        $existingReserved = $reservedIps | Where-Object { $_.reserved -eq $true -and $_.type -eq "EXTERNAL" } | Select-Object -First 1
 
-    $createCmd = @(
-        "compute", "instance", "create",
-        "--name", $VmName,
-        "--zone", $Zone,
-        "--folder-id", $folderId,
-        "--platform-id", $platformId,
-        "--cores", $VmCores,
-        "--core-fraction", $coreFraction,
-        "--memory", "${VmMemoryGb}GB",
-        "--create-boot-disk", "image-family=ubuntu-2204-lts,size=${VmDiskGb}GB,type=network-ssd",
-        "--network-interface", "subnet-name=msp-subnet,nat-ip-version=ipv4,security-group-ids=$($sg.id)",
-        "--ssh-key", $SshKeyPubPath,
-        "--metadata-from-file", "user-data=$cloudInitTemp"
-    )
-    if ($Preemptible) { $createCmd += "--preemptible" }
+        if ($existingReserved) {
+            $publicIp = $existingReserved.address
+            $staticIpId = $existingReserved.id
+            Write-Ok "Найден зарезервированный static IP: $publicIp ($staticIpId)"
+        } else {
+            $ipName = "msp-static-ip-${folderName}"
+            $createIpOutput = Invoke-Yc vpc address create --name $ipName --folder-id $folderId --zone $Zone --format json
+            $newIp = $createIpOutput | ConvertFrom-Json
+            $publicIp = $newIp.address
+            $staticIpId = $newIp.id
+            Write-Ok "Static IP создан: $publicIp ($staticIpId)"
+        }
 
-    $createOutput = & yc @createCmd --format json 2>&1
+        # Привязываем static IP к ВМ через one-to-one-nat
+        # ВАЖНО: yc compute instance add-one-to-one-nat — асинхронная операция.
+        # PowerShell 5.1 не может корректно обработать stderr от yc,
+        # поэтому используем cmd /c (как и для всех yc-команд).
+        Write-Info "Привязываю static IP $publicIp к ВМ $VmName..."
+        $natCmd = "yc compute instance add-one-to-one-nat $VmName --nat-address $publicIp --network-interface-index 0 --folder-id $folderId --format json 2>&1"
+        $natOutput = cmd /c $natCmd
+        if ($LASTEXITCODE -ne 0) {
+            Write-Warn "add-one-to-one-nat вернул ошибку (возможно IP уже привязан): $natOutput"
+        } else {
+            Write-Ok "Static IP $publicIp привязан к ВМ"
+        }
+    }
+
+    Write-Info "Ждём готовности sshd..."
+    $sshReady = $false
+    for ($i = 1; $i -le 30; $i++) {
+        $sshTest = cmd /c "$SshExe $SshOpts -o ConnectTimeout=5 -i `"$SshKeyPath`" ubuntu@$publicIp echo READY 2>nul"
+        if ($sshTest -match "READY") { $sshReady = $true; Write-Ok "SSH готов"; break }
+        Write-Info "Попытка $i/30 · sshd ещё не отвечает"
+        Start-Sleep -Seconds 10
+    }
+    if (-not $sshReady) { Write-Fail "SSH не отвечает за 5 минут"; exit 1 }
+
+    # Ждём cloud-init
+    Write-Info "Ждём окончания cloud-init..."
+    for ($i = 1; $i -le 60; $i++) {
+        $baseReady = cmd /c "$SshExe $SshOpts -i `"$SshKeyPath`" ubuntu@$publicIp `"test -f /var/log/msp-deploy.base-ready && echo READY`" 2>nul"
+        if ($baseReady -match "READY") { Write-Ok "cloud-init завершён ($i*10s)"; break }
+        if ($i -eq 60) { Write-Warn "cloud-init не завершился за 10 минут, продолжаю..." }
+        Start-Sleep -Seconds 10
+    }
+
+    # Сохраняем state (включая имена уникальных ресурсов и static IP)
+    Save-State -State @{
+        domain      = $Domain
+        folderId    = $folderId
+        folderName  = $folderName
+        netName     = $netName
+        subnetName  = $subnetName
+        sgName      = $sgName
+        vmId        = $vmId
+        vmName      = $VmName
+        publicIp    = $publicIp
+        staticIpId  = $staticIpId
+        useStaticIp = $UseStaticIp
+        zone        = $Zone
+        created     = (Get-Date -Format "o")
+    }
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Стадия 6: Загрузка кода через SCP
+    # ═══════════════════════════════════════════════════════════════════
+    Write-Stage 6 8 "Загрузка кода через SCP"
+
+    $archive = Join-Path $env:TEMP "msp-repo.zip"
+    if (Test-Path $archive) { Remove-Item $archive -Force }
+    $sevenZip = $null
+    if (Test-Path "C:\Program Files\7-Zip\7z.exe") { $sevenZip = "C:\Program Files\7-Zip\7z.exe" }
+    elseif (Get-Command 7z -ErrorAction SilentlyContinue) { $sevenZip = "7z" }
+    if (-not $sevenZip) { Write-Fail "7-Zip не найден. Установите 7-Zip или добавьте в PATH."; exit 1 }
+    Push-Location $RepoRoot
+    & $sevenZip a -tzip -mx5 $archive . "-x!.git" "-x!node_modules" "-x!frontend\build" "-x!__pycache__" "-x!.pytest_cache" "-x!*.pyc" "-x!.deploy-state.json" 2>&1 | Out-Null
+    Pop-Location
+    if (-not (Test-Path $archive)) { Write-Fail "Архив не создан"; exit 1 }
+    $archiveSize = (Get-Item $archive).Length / 1MB
+    Write-Ok "Архив создан: $([math]::Round($archiveSize,1)) MB"
+
+    Write-Info "Загружаю на ВМ (scp)..."
+    # ВАЖНО: SCP через WireGuard может таймаутиться. Если не работает —
+    # используйте base64+SSH для маленьких файлов: echo BASE64 | ssh ... "base64 -d > file"
+    cmd /c "scp $SshOpts -i `"$SshKeyPath`" `"$archive`" ubuntu@${publicIp}:/tmp/msp-repo.zip 2>nul"
+    if ($LASTEXITCODE -ne 0) { Write-Fail "SCP не сработал"; exit 1 }
+
+    Write-Info "Распаковка на ВМ..."
+    cmd /c "$SshExe $SshOpts -i `"$SshKeyPath`" ubuntu@${publicIp} `"sudo apt-get install -y unzip 2>/dev/null && mkdir -p /opt/msp/Newbie && cd /opt/msp/Newbie && unzip -o /tmp/msp-repo.zip && sudo chmod +x /opt/msp/Newbie/deploy/yandex/setup-on-vm.sh`" 2>nul"
+    if ($LASTEXITCODE -ne 0) { Write-Fail "Распаковка не удалась"; exit 1 }
+    Write-Ok "Код загружен в /opt/msp/Newbie"
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Стадия 7: Запуск setup-on-vm.sh
+    # ═══════════════════════════════════════════════════════════════════
+    Write-Stage 7 8 "Установка приложения на ВМ (build + docker compose up)"
+
+    Write-Info "Запускаю setup-on-vm.sh (3-5 минут)..."
+    $setupCmd = "export MSP_DOMAIN=$Domain && bash /opt/msp/Newbie/deploy/yandex/setup-on-vm.sh 2>&1"
+    cmd /c "$SshExe $SshOpts -i `"$SshKeyPath`" ubuntu@$publicIp `"$setupCmd`" 2>nul" | Tee-Object -FilePath $LogFile -Append
     if ($LASTEXITCODE -ne 0) {
-        Write-Fail "Не удалось создать ВМ:"
-        Write-Host $createOutput
+        Write-Fail "setup-on-vm.sh завершился с ошибкой. Смотри $LogFile"
         exit 1
     }
+    Write-Ok "Приложение установлено и запущено"
 
-    $vmInfo = $createOutput | ConvertFrom-Json
-    $vmId = $vmInfo.id
-    Write-Ok "ВМ создана: $VmName ($vmId)"
-}
+    # ═══════════════════════════════════════════════════════════════════
+    # Стадия 8: Финальный healthcheck + вывод инструкций
+    # ═══════════════════════════════════════════════════════════════════
+    Write-Stage 8 8 "Финальная проверка + DNS инструкции"
 
-# ═══════════════════════════════════════════════════════════════════
-# Стадия 5: Ждём public IP + SSH
-# ═══════════════════════════════════════════════════════════════════
-Write-Stage 5 8 "Ожидание готовности ВМ (RUNNING + SSH)"
-
-$publicIp = $null
-for ($i = 1; $i -le 30; $i++) {
-    $vm = & yc compute instance get --id $vmId --format json | ConvertFrom-Json
-    $publicIp = $vm.network_interfaces[0].primary_v4_address.one_to_one_nat.address
-    if ($vm.status -eq "RUNNING" -and $publicIp) {
-        Write-Ok "ВМ RUNNING, public IP: $publicIp"
-        break
+    $healthOutput = cmd /c "$SshExe $SshOpts -i `"$SshKeyPath`" ubuntu@$publicIp `"curl -sS http://127.0.0.1:8001/api/health`" 2>nul"
+    Write-Info "  /api/health → $healthOutput"
+    if (-not $SkipMail) {
+        $stalwartCheck = cmd /c "$SshExe $SshOpts -i `"$SshKeyPath`" ubuntu@$publicIp `"curl -fsS -o /dev/null -w '%%{http_code}' http://127.0.0.1:8080/`" 2>nul"
+        Write-Info "  Stalwart admin :8080 → HTTP $stalwartCheck"
     }
-    Write-Info "Попытка $i/30 · status=$($vm.status)"
-    Start-Sleep -Seconds 10
-}
 
-if (-not $publicIp) {
-    Write-Fail "ВМ не стала RUNNING за 5 минут"
-    exit 1
-}
-
-# Ждём SSH
-Write-Info "Ждём готовности sshd..."
-$sshReady = $false
-for ($i = 1; $i -le 30; $i++) {
-    $sshTest = & ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 -i $SshKeyPath ubuntu@$publicIp "echo READY" 2>$null
-    if ($sshTest -eq "READY") {
-        Write-Ok "SSH готов"
-        $sshReady = $true
-        break
+    # Вывод финальной информации
+    Write-Host ""
+    Write-Host "  +--------------------------------------------------------------+" -ForegroundColor Green
+    Write-Host "  |                  DEPLOY COMPLETE                              |" -ForegroundColor Green
+    Write-Host "  +--------------------------------------------------------------+" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "  Public IP:  $publicIp $(if($UseStaticIp){"(static, ID: $staticIpId)"}else{"(ephemeral)"})" -ForegroundColor Yellow
+    Write-Host "  Folder:     $folderName" -ForegroundColor Cyan
+    Write-Host "  Network:    $netName" -ForegroundColor DarkGray
+    if ($UseStaticIp) {
+        Write-Host ""
+        Write-Host "  DNS A records (Namecheap):" -ForegroundColor Yellow
+        Write-Host "    @   -> $publicIp" -ForegroundColor White
+        Write-Host "    www -> $publicIp" -ForegroundColor White
+        Write-Host "    mail -> $publicIp" -ForegroundColor White
     }
-    Write-Info "Попытка $i/30 · sshd ещё не отвечает"
-    Start-Sleep -Seconds 10
-}
-
-if (-not $sshReady) {
-    Write-Fail "SSH не отвечает за 5 минут"
-    exit 1
-}
-
-# Ждём окончания cloud-init (base-ready marker)
-Write-Info "Ждём окончания cloud-init (Docker / Caddy / Node устанавливаются)..."
-for ($i = 1; $i -le 60; $i++) {
-    $baseReady = & ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $SshKeyPath ubuntu@$publicIp "test -f /var/log/msp-deploy.base-ready && echo READY" 2>$null
-    if ($baseReady -eq "READY") {
-        Write-Ok "cloud-init завершён ($i*10s)"
-        break
-    }
-    if ($i -eq 60) {
-        Write-Warn "cloud-init не завершился за 10 минут, продолжаю — возможно базовая установка ещё идёт"
-    }
-    Start-Sleep -Seconds 10
-}
-
-# Сохраняем state
-Save-State -State @{
-    domain      = $Domain
-    folderId    = $folderId
-    vmId        = $vmId
-    vmName      = $VmName
-    publicIp    = $publicIp
-    zone        = $Zone
-    created     = (Get-Date -Format "o")
-}
-
-# ═══════════════════════════════════════════════════════════════════
-# Стадия 6: Загрузка кода
-# ═══════════════════════════════════════════════════════════════════
-Write-Stage 6 8 "Загрузка кода через SCP"
-
-Write-Info "Создаю tarball без node_modules / .git / build..."
-$tarball = Join-Path $env:TEMP "msp-repo.tar.gz"
-if (Test-Path $tarball) { Remove-Item $tarball -Force }
-
-# tar входит в Windows 10 1803+
-Push-Location $RepoRoot
-& tar `
-    --exclude=".git" `
-    --exclude="node_modules" `
-    --exclude="frontend/build" `
-    --exclude="__pycache__" `
-    --exclude=".pytest_cache" `
-    --exclude="*.pyc" `
-    --exclude=".deploy-state.json" `
-    -czf $tarball .
-Pop-Location
-
-if (-not (Test-Path $tarball)) {
-    Write-Fail "tar не создал tarball"
-    exit 1
-}
-$tarSize = (Get-Item $tarball).Length / 1MB
-Write-Ok ("Tarball создан: {0:N1} MB" -f $tarSize)
-
-Write-Info "Загружаю на ВМ (scp)..."
-& scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $SshKeyPath $tarball ubuntu@${publicIp}:/tmp/msp-repo.tar.gz 2>&1 | Out-Null
-if ($LASTEXITCODE -ne 0) {
-    Write-Fail "SCP не сработал"
-    exit 1
-}
-
-Write-Info "Распаковка на ВМ..."
-$unpackCmd = "mkdir -p /opt/msp/Newbie && tar xzf /tmp/msp-repo.tar.gz -C /opt/msp/Newbie && chmod +x /opt/msp/Newbie/deploy/yandex/setup-on-vm.sh"
-& ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $SshKeyPath ubuntu@$publicIp $unpackCmd
-if ($LASTEXITCODE -ne 0) {
-    Write-Fail "Распаковка не удалась"
-    exit 1
-}
-Write-Ok "Код загружен в /opt/msp/Newbie"
-
-# ═══════════════════════════════════════════════════════════════════
-# Стадия 7: Запуск setup-on-vm.sh
-# ═══════════════════════════════════════════════════════════════════
-Write-Stage 7 8 "Установка приложения на ВМ (build + docker compose up)"
-
-Write-Info "Запускаю setup-on-vm.sh (yarn build, .env, docker compose)... это 3-5 минут"
-
-$setupCmd = "export MSP_DOMAIN=$Domain && bash /opt/msp/Newbie/deploy/yandex/setup-on-vm.sh 2>&1"
-& ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $SshKeyPath ubuntu@$publicIp $setupCmd 2>&1 | Tee-Object -FilePath $LogFile -Append
-
-if ($LASTEXITCODE -ne 0) {
-    Write-Fail "setup-on-vm.sh завершился с ошибкой. Смотри $LogFile"
-    Write-Info "Для отладки: ssh -i `"$SshKeyPath`" ubuntu@$publicIp"
-    Write-Info "Логи на ВМ: tail -100 /var/log/msp-deploy.log"
-    exit 1
-}
-
-Write-Ok "Приложение установлено и запущено"
-
-# ═══════════════════════════════════════════════════════════════════
-# Стадия 8: Финальный healthcheck + вывод инструкций
-# ═══════════════════════════════════════════════════════════════════
-Write-Stage 8 8 "Финальная проверка + DNS инструкции"
-
-# Локальный (по IP) /api/health — проверка что бэк жив
-Write-Info "Локальный healthcheck (по IP, без HTTPS)..."
-$healthCmd = "curl -sS http://127.0.0.1:8001/api/health"
-$healthOutput = & ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $SshKeyPath ubuntu@$publicIp $healthCmd 2>&1
-Write-Info "  /api/health → $healthOutput"
-
-# Stalwart admin доступен?
-if (-not $SkipMail) {
-    $stalwartCheck = & ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i $SshKeyPath ubuntu@$publicIp "curl -fsS -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/ 2>&1" 2>&1
-    Write-Info "  Stalwart admin :8080 → HTTP $stalwartCheck"
-}
-
-# Финальный вывод
-Write-Host ""
-Write-Host @"
-
-  ╔════════════════════════════════════════════════════════════════╗
-  ║                  ✓ ДЕПЛОЙ ЗАВЕРШЁН                            ║
-  ╚════════════════════════════════════════════════════════════════╝
-
-"@ -ForegroundColor Green
-
-Write-Host "  Public IP: " -NoNewline -ForegroundColor White
-Write-Host $publicIp -ForegroundColor Yellow -BackgroundColor DarkGray
-Write-Host ""
-Write-Host "  ┌─ DNS-записи: добавьте у регистратора домена $Domain ─────────" -ForegroundColor White
-Write-Host ""
-Write-Host "  Тип   Имя                              Значение" -ForegroundColor DarkGray
-Write-Host "  ───   ──────────────────────────────   ────────────────────────────────" -ForegroundColor DarkGray
-Write-Host ("  A     {0,-32}   {1}" -f $Domain, $publicIp) -ForegroundColor White
-Write-Host ("  A     www.{0,-28}   {1}" -f $Domain, $publicIp) -ForegroundColor White
-if (-not $SkipMail) {
-Write-Host ("  A     mail.{0,-27}   {1}" -f $Domain, $publicIp) -ForegroundColor White
-Write-Host ""
-Write-Host "  ВНИМАНИЕ · Yandex Cloud блокирует TCP/25 — MX к нашему IP НЕ работает." -ForegroundColor Yellow
-Write-Host "  Stalwart работает в submit-only режиме (465/587). Варианты MX:" -ForegroundColor Yellow
-Write-Host ""
-Write-Host "  Вариант A · внешний MX-провайдер (рекомендуется)" -ForegroundColor White
-Write-Host "    MX-запись делегируйте в Yandex 360 для бизнеса / Mail.ru для бизнеса /" -ForegroundColor DarkGray
-Write-Host "    Mailgun routes. Провайдер примет почту и forwards на наш :587." -ForegroundColor DarkGray
-Write-Host "    Подробно: deploy/yandex/STALWART_RELAY_MODE.md" -ForegroundColor DarkGray
-Write-Host ""
-Write-Host "  Вариант B · полностью внешний почтовый хостинг (без локальных ящиков)" -ForegroundColor White
-Write-Host "    MX + IMAP на стороне Yandex 360. Stalwart остаётся только для" -ForegroundColor DarkGray
-Write-Host "    исходящих алертов внутренних сервисов через smarthost." -ForegroundColor DarkGray
-Write-Host ""
-Write-Host "  DNS-записи (SPF/DMARC соответствуют выбранному варианту):" -ForegroundColor White
-Write-Host ("  TXT   {0,-32}   v=spf1 a ip4:{1} include:_spf.yandex.net -all" -f $Domain, $publicIp) -ForegroundColor White
-Write-Host ("  TXT   _dmarc.{0,-26}   v=DMARC1; p=quarantine; rua=mailto:admin@{1}" -f $Domain, $Domain) -ForegroundColor White
-Write-Host ""
-Write-Host "  DKIM (после первого деплоя):" -ForegroundColor DarkGray
-Write-Host "    1. SSH tunnel в Stalwart admin:" -ForegroundColor DarkGray
-Write-Host "         ssh -L 8080:localhost:8080 -i `"$SshKeyPath`" ubuntu@$publicIp" -ForegroundColor Yellow
-Write-Host "         → http://localhost:8080/admin" -ForegroundColor DarkGray
-Write-Host "    2. Settings → Domains → $Domain → Generate DKIM key" -ForegroundColor DarkGray
-Write-Host "    3. Скопируйте TXT-запись и добавьте в DNS" -ForegroundColor DarkGray
-Write-Host "    4. Settings → SMTP → Outbound → Relay host" -ForegroundColor DarkGray
-Write-Host "         host: smtp.yandex.ru   port: 465   tls: implicit" -ForegroundColor DarkGray
-Write-Host "         user: alert@$Domain  password: <Yandex 360 application password>" -ForegroundColor DarkGray
-}
-Write-Host ""
-Write-Host "  ┌─ После DNS-propagation (5-30 мин) ──────────────────────────" -ForegroundColor White
-Write-Host "    https://$Domain                     · лендинг" -ForegroundColor Cyan
-Write-Host "    https://$Domain/admin               · админка лидов" -ForegroundColor Cyan
-Write-Host "    https://$Domain/api/health          · health-чек" -ForegroundColor Cyan
-if (-not $SkipMail) {
-Write-Host "    SMTPS submit: mail.$Domain:465 (implicit TLS) · клиенты/скрипты" -ForegroundColor Cyan
-Write-Host "    SMTP  submit: mail.$Domain:587 (STARTTLS)     · Grafana/Wazuh алерты" -ForegroundColor Cyan
-Write-Host "    IMAP  read:   mail.$Domain:993 (TLS)          · Thunderbird/Outlook"  -ForegroundColor Cyan
-Write-Host "    Outbound к интернету идёт через smarthost (см. Stalwart admin UI)" -ForegroundColor DarkGray
-}
-Write-Host ""
-Write-Host "  ┌─ ВАЖНО ─────────────────────────────────────────────────────" -ForegroundColor Yellow
-Write-Host "    Пароли (ADMIN_TOKEN, Stalwart admin, mailbox passwords) на ВМ:" -ForegroundColor Yellow
-Write-Host "      ssh -i `"$SshKeyPath`" ubuntu@$publicIp cat msp-deploy-secrets.txt" -ForegroundColor Yellow
-Write-Host "    Скопируйте этот файл к себе и удалите его с ВМ:" -ForegroundColor Yellow
-Write-Host "      ssh -i `"$SshKeyPath`" ubuntu@$publicIp shred -u msp-deploy-secrets.txt" -ForegroundColor Yellow
-Write-Host ""
-Write-Host "  Логи деплоя: $LogFile" -ForegroundColor DarkGray
-Write-Host "  State:       $StateFile (не коммитить!)" -ForegroundColor DarkGray
-Write-Host ""
-
-# В отдельный stdout-блок выводим только IP — для скриптов/CI
-[Console]::Out.Flush()
-Write-Host "PUBLIC_IP=$publicIp" -ForegroundColor White
+    Write-Host ""
+    Write-Host "  Deploy log: $LogFile" -ForegroundColor DarkGray
+    Write-Host "  State file: $StateFile" -ForegroundColor DarkGray
+    Write-Host ""
+    Write-Host "PUBLIC_IP=$publicIp" -ForegroundColor White
 
 } finally {
-    try {
-        if ($null -ne $script:__PrevConsoleOutputEncoding) {
-            [Console]::OutputEncoding = $script:__PrevConsoleOutputEncoding
-        }
-    } catch { }
+    # Восстановление кодировки
+    try { if ($null -ne $script:__PrevConsoleOutputEncoding) { [Console]::OutputEncoding = $script:__PrevConsoleOutputEncoding } } catch { }
     try { $OutputEncoding = $script:__PrevOutputEncoding } catch { }
 }

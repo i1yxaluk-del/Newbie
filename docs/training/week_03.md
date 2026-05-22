@@ -14,6 +14,10 @@
 - [ ] Построить в тестовом Grafana свой dashboard: CPU, memory,
       disk-usage, network для одной VM.
 - [ ] Разобрать 3 последних alert'а в истории, что с ними делали.
+- [ ] ⚠️ **Урок из деплоя:** Прочитать `deploy/yandex/README.md` §10.0.1
+      про cAdvisor + Docker overlayfs. Проверить на test-VM что
+      `docker info --format '{{.Driver}}'` = `overlay2` (если `overlayfs`
+      — cAdvisor не видит контейнеры, нужен `daemon.json`).
 
 ## Production задачи
 
@@ -33,6 +37,7 @@
 1. Различие `rate()` vs `irate()` vs `increase()`?
 2. Как устроен Alertmanager routing (`route` tree)?
 3. Зачем `for: 10m` в правиле alert'а?
+4. Почему cAdvisor может не видеть Docker-контейнеры и как это починить?
 
 ## DoD
 

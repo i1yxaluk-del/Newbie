@@ -311,6 +311,14 @@ sysctl vm.max_map_count  # Должно быть 262144
 # Базовые пакеты
 sudo apt update && sudo apt install -y docker.io docker-compose-plugin curl git jq
 
+# УРОК ИЗ ДЕПЛОЯ: Docker 29+ на Ubuntu 22.04 по умолчанию использует overlayfs
+# storage driver (containerd snapshotter). cAdvisor не может читать
+# layerdb/mounts/ с этим драйвером → контейнеры невидимы в Grafana.
+# Фикс: явно указать overlay2 В ДО первого запуска контейнеров.
+sudo mkdir -p /etc/docker
+echo '{"storage-driver": "overlay2"}' | sudo tee /etc/docker/daemon.json
+sudo systemctl restart docker
+
 sudo usermod -aG docker ubuntu
 newgrp docker
 ```

@@ -1,6 +1,6 @@
 #cloud-config
 # ═══════════════════════════════════════════════════════════════════
-# Yandex Cloud · базовый bootstrap ВМ под МСП Облако (mcp-claude.online).
+# Yandex Cloud · базовый bootstrap ВМ под МСП Облако (msp-claude.online).
 # Этот файл — только ОС-уровень: установка Docker, Node, Caddy, git.
 # Само приложение (код, .env, билд, запуск контейнеров) выкладывается
 # через SSH из PowerShell-обёртки `deploy.ps1` после готовности VM.
@@ -51,15 +51,33 @@ write_files:
     owner: root:root
     permissions: '0644'
 
+  # Docker daemon config — принудительно overlay2 вместо overlayfs.
+  # ВАЖНО: Ubuntu 22.04 + Docker 29+ по умолчанию использует overlayfs
+  # (containerd snapshotter). cAdvisor не может читать layerdb/mounts/
+  # с этим драйвером — все контейнеры невидимы в Grafana.
+  # Фикс: storage-driver: overlay2 → классический overlay2 с layerdb.
+  # Побочный эффект: Docker пересоздаёт хранилище при первом рестарте
+  # (образы нужно re-pull, volumes не теряются).
+  - path: /etc/docker/daemon.json
+    content: |
+      {"storage-driver": "overlay2"}
+    owner: root:root
+    permissions: '0644'
+
 # Запуск установки. Каждая команда логируется в /var/log/cloud-init-output.log.
 runcmd:
   # 1. Docker repo + Docker Engine + Compose v2 plugin
+  # ВАЖНО: $VERSION_CODENAME раскрывается cloud-init корректно,
+  # но если cloud-init не подставляет — замени на jammy (Ubuntu 22.04).
+  # Мы столкнулись с багом: на некоторых образах YC переменная
+  # $VERSION_CODENAME пустая → docker.list содержит пустое имя
+  # дистрибутива → apt-get update падает. Фикс: хардкод jammy.
   - install -m 0755 -d /etc/apt/keyrings
   - curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
   - chmod a+r /etc/apt/keyrings/docker.asc
   - |
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
-    https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" \
+    https://download.docker.com/linux/ubuntu jammy stable" \
     > /etc/apt/sources.list.d/docker.list
 
   # 2. Caddy official repo (автоматический SSL через Let's Encrypt)

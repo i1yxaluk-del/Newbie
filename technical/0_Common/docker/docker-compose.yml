@@ -180,24 +180,31 @@ services:
   # CADVISOR (метрики Docker-контейнеров)
   # ──────────────────────────────────────────────────────────────
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:${CADVISOR_VERSION:-v0.49.1}
+    image: gcr.io/cadvisor/cadvisor:${CADVISOR_VERSION:-v0.51.0}
     container_name: msp-cadvisor
     restart: unless-stopped
     profiles: [monitoring, silver, gold]
     privileged: true
+    devices:
+      - /dev/kmsg:/dev/kmsg
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
       - /sys:/sys:ro
-      - /var/lib/docker:/var/lib/docker:ro
+      # УРОК ИЗ ДЕПЛОЯ: /var/lib/docker/ монтируем в /rootfs/var/lib/docker
+      # (НЕ в /var/lib/docker!) — cAdvisor ищет layerdb по /rootfs/var/lib/docker/...
+      # Также ОБЯЗАТЕЛЬНО монтировать docker.sock — без него cAdvisor
+      # не может читать метрики через Docker API (особенно с overlay2 driver).
+      - /var/lib/docker/:/rootfs/var/lib/docker:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
       - /dev/disk:/dev/disk:ro
     command:
       - "--housekeeping_interval=30s"
-      - "--max_housekeeping_interval=35s"
-      - "--event_storage_event_limit=default=0"
-      - "--event_storage_age_limit=default=0"
-      - "--disable_metrics=percpu,sched,tcp,udp,accelerator,hugetlb,referenced_memory,cpu_topology,resctrl"
       - "--docker_only=true"
+      # УРОК ИЗ ДЕПЛОЯ: длинный список --disable_metrics ломает запуск
+      # cAdvisor (печатает help и exit). Оставляем минимум:
+      - "--disable_metrics=percpu,sched,tcp,udp"
+      - "--docker_env_metadata_whitelist="
     networks: [monitoring]
     deploy:
       resources:

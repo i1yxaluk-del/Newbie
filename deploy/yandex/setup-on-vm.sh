@@ -23,7 +23,11 @@ WEB_ROOT="/var/www/landing"
 SECRETS_FILE="$HOME/msp-deploy-secrets.txt"
 LOG_FILE="/var/log/msp-deploy.log"
 
-DOMAIN="${MSP_DOMAIN:-mcp-claude.online}"
+DOMAIN="${MSP_DOMAIN:-msp-claude.online}"
+# ВАЖНО: дефолт домена должен ТОЧНО совпадать с DNS!
+# У нас была опечатка mcp-claude.online вместо msp-claude.online —
+# Caddy получил staging-сертификаты, а браузеры их не приняли.
+# Если меняешь дефолт — проверь что A-запись в DNS указывает на IP ВМ.
 
 log() {
   echo "[$(date -u +%H:%M:%S)] $*" | tee -a "$LOG_FILE"
@@ -172,10 +176,18 @@ log "  Фронт залит в $WEB_ROOT ($(du -sh "$WEB_ROOT" | cut -f1))"
 # ─── 4. Caddyfile ──────────────────────────────────────────────────
 log "▶ Caddyfile установка..."
 
-# Подкладываем наш Caddyfile с подстановкой $MSP_DOMAIN через окружение
-sudo cp "$DEPLOY_DIR/Caddyfile" /etc/caddy/Caddyfile
+# Подкладываем наш Caddyfile с подстановкой {$MSP_DOMAIN} → реальный домен.
+# ВАЖНО: Caddy НЕ поддерживает env-var подстановку в именах серверных
+# блоков (sudo сбрасывает переменные окружения). Поэтому делаем sed:
+sudo sed -i "s/{\$MSP_DOMAIN}/$DOMAIN/g" /etc/caddy/Caddyfile
 
-# Экспортим MSP_DOMAIN в окружение caddy через systemd drop-in
+# Проверяем что не осталось неразрешённых плейсхолдеров
+if grep -q '{\$MSP_DOMAIN}' /etc/caddy/Caddyfile; then
+  log "ERROR: в Caddyfile остался плейсхолдер {\$MSP_DOMAIN} — sed не сработал"
+  grep '{\$MSP_DOMAIN}' /etc/caddy/Caddyfile | tee -a "$LOG_FILE"
+  exit 1
+fi
+
 sudo mkdir -p /etc/systemd/system/caddy.service.d
 sudo tee /etc/systemd/system/caddy.service.d/override.conf > /dev/null <<EOF
 [Service]
@@ -184,7 +196,6 @@ EOF
 
 sudo systemctl daemon-reload
 
-# Валидация конфига перед reload
 if sudo caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile 2>&1 | tee -a "$LOG_FILE"; then
   sudo systemctl restart caddy
   log "  Caddy перезапущен"

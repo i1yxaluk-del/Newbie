@@ -22,12 +22,12 @@ cd Newbie
 .\deploy\yandex\deploy.ps1
 
 # 3. Получите public IP в выводе и пропишите в DNS:
-#     A    mcp-claude.online      → <IP>
-#     A    www.mcp-claude.online  → <IP>
-#     A    mail.mcp-claude.online → <IP>
+#     A    msp-claude.online      → <IP>
+#     A    www.msp-claude.online  → <IP>
+#     A    mail.msp-claude.online → <IP>
 
 # 4. Через 10-30 минут (после DNS propagation) откройте:
-#     https://mcp-claude.online
+#     https://msp-claude.online
 ```
 
 ---
@@ -65,15 +65,28 @@ cd Newbie
 
 **Ресурсы Yandex Cloud:**
 - 1 × VM (`msp-cloud-vm`, по умолчанию 2 vCPU / 4 GB RAM / 50 GB SSD, прерываемая)
+- 1 × Static IP (reserved, обязателен для preemptible — см. стоимость ниже)
 - 1 × VPC сеть (`msp-net`)
 - 1 × Subnet (`msp-subnet`, 10.10.0.0/24)
 - 1 × Security Group (`msp-sg`) — открыты 22/80/443 + 465/587/143/993/4190 (Stalwart submit-only). **TCP/25 НЕ открыт** — Yandex Cloud блокирует на уровне платформы.
-- Public IP (один на ВМ)
 
-**Стоимость:**
-- Прерываемая (preemptible): **~400-500 ₽/мес**
-- Гарантированная: **~1100-1300 ₽/мес**
-- Public IP: ~125 ₽/мес (отдельно)
+**Стоимость (реальные данные из деплоя, май 2026):**
+
+| Компонент | Спеки | ₽/мес |
+|---|---|---:|
+| Preemptible VM | 2 vCPU 50%, 4 GB, 50 GB SSD | ~1 486 |
+| Static IP (reserved) | обязателен для preemptible (иначе IP меняется при рестарте) | ~190 |
+| **Итого** | | **~1 676** |
+
+> ⚠️ Preemptible VM может быть остановлена YC в любой момент. При рестарте
+> IP сохраняется только если зарезервирован static IP (+190₽/мес). Без static IP
+> DNS A-записи устаревают после каждого рестарта.
+
+**Альтернатива:** гарантированная (regular) VM с теми же спеками — ~1 300₽/мес + static IP = ~1 490₽/мес (дороже preemptible, но без риска остановки).
+
+**Для сравнения (из тарифов):**
+- Bronze отпускная цена: 20 000–30 000 ₽/мес
+- Инфра-расход: ~1 700₽ → маржа ≈ 91–94% (без учёта труда)
 
 ---
 
@@ -104,7 +117,7 @@ cd C:\путь\к\репозиторию\Newbie
 ```
 
 Развернёт:
-- Домен: `mcp-claude.online`
+- Домен: `msp-claude.online`
 - Зона: `ru-central1-a`
 - ВМ: 2 vCPU (50% guarantee) / 4 GB / 50 GB SSD, прерываемая
 - Mail: Stalwart с 3 ящиками (admin@, sales@, alert@)
@@ -113,7 +126,7 @@ cd C:\путь\к\репозиторию\Newbie
 
 ```powershell
 .\deploy\yandex\deploy.ps1 `
-    -Domain "mcp-claude.online" `
+    -Domain "msp-claude.online" `
     -Zone "ru-central1-b" `
     -VmCores 4 `
     -VmMemoryGb 8 `
@@ -158,13 +171,13 @@ cd C:\путь\к\репозиторию\Newbie
 
 | Тип | Имя | Значение |
 |-----|-----|----------|
-| `A` | `mcp-claude.online` | `<public IP из вывода скрипта>` |
-| `A` | `www.mcp-claude.online` | `<public IP>` |
-| `A` | `mail.mcp-claude.online` | `<public IP>` |
-| `MX` | `mcp-claude.online` | `10 mail.mcp-claude.online` |
-| `TXT` | `mcp-claude.online` | `v=spf1 a mx ip4:<public IP> -all` |
-| `TXT` | `_dmarc.mcp-claude.online` | `v=DMARC1; p=quarantine; rua=mailto:admin@mcp-claude.online` |
-| `TXT` | `default._domainkey.mcp-claude.online` | *(см. 5.2)* |
+| `A` | `msp-claude.online` | `<public IP из вывода скрипта>` |
+| `A` | `www.msp-claude.online` | `<public IP>` |
+| `A` | `mail.msp-claude.online` | `<public IP>` |
+| `MX` | `msp-claude.online` | `10 mail.msp-claude.online` |
+| `TXT` | `msp-claude.online` | `v=spf1 a mx ip4:<public IP> -all` |
+| `TXT` | `_dmarc.msp-claude.online` | `v=DMARC1; p=quarantine; rua=mailto:admin@msp-claude.online` |
+| `TXT` | `default._domainkey.msp-claude.online` | *(см. 5.2)* |
 
 ### 5.2. Получите DKIM-ключ из Stalwart
 
@@ -182,10 +195,10 @@ ssh -L 8080:localhost:8080 -i $SshKey ubuntu@$IP
 - Логин: `admin`
 - Пароль: из файла на ВМ (`cat ~/msp-deploy-secrets.txt`)
 
-В Settings → Domains → mcp-claude.online → **Generate DKIM**.
+В Settings → Domains → msp-claude.online → **Generate DKIM**.
 Stalwart выдаст TXT-запись вида:
 ```
-default._domainkey.mcp-claude.online   TXT   "v=DKIM1; k=rsa; p=MIGfMA0GCSq..."
+default._domainkey.msp-claude.online   TXT   "v=DKIM1; k=rsa; p=MIGfMA0GCSq..."
 ```
 Скопируйте её к регистратору домена.
 
@@ -194,17 +207,17 @@ default._domainkey.mcp-claude.online   TXT   "v=DKIM1; k=rsa; p=MIGfMA0GCSq..."
 В том же admin WebUI:
 
 1. **Settings → Accounts → Add User**
-   - `admin@mcp-claude.online` — пароль из `msp-deploy-secrets.txt`
-   - `sales@mcp-claude.online`
-   - `alert@mcp-claude.online`
+   - `admin@msp-claude.online` — пароль из `msp-deploy-secrets.txt`
+   - `sales@msp-claude.online`
+   - `alert@msp-claude.online`
 
-2. **Settings → Domains → mcp-claude.online**
+2. **Settings → Domains → msp-claude.online**
    - Убедитесь что **status = active**
    - **MX records → Verify** должен показать ✓
 
 3. **Settings → TLS → Certificates → Add Manual Certificate**
-   - Путь к cert: `/etc/stalwart-certs/certificates/acme-v02.api.letsencrypt.org-directory/mail.mcp-claude.online/mail.mcp-claude.online.crt`
-   - Путь к key: `/etc/stalwart-certs/certificates/acme-v02.api.letsencrypt.org-directory/mail.mcp-claude.online/mail.mcp-claude.online.key`
+   - Путь к cert: `/etc/stalwart-certs/certificates/acme-v02.api.letsencrypt.org-directory/mail.msp-claude.online/mail.msp-claude.online.crt`
+   - Путь к key: `/etc/stalwart-certs/certificates/acme-v02.api.letsencrypt.org-directory/mail.msp-claude.online/mail.msp-claude.online.key`
 
    (Каталог появится после того как Caddy получит сертификат — это происходит автоматически в первые 1-2 минуты после propagation A-записи `mail.<domain>`.)
 
@@ -236,7 +249,7 @@ $secret = ssh -i "$env:USERPROFILE\.ssh\id_ed25519_yc" ubuntu@<vm-ip> `
 # Или с самой ВМ — через docker exec и stalwart-cli
 docker compose -f /opt/msp/Newbie/deploy/yandex/docker-compose.yml \
   exec stalwart stalwart-cli queue message send \
-  --from alert@mcp-claude.online --to admin@mcp-claude.online \
+  --from alert@msp-claude.online --to admin@msp-claude.online \
   --subject "local-submit test" --body "ok"
 docker compose -f /opt/msp/Newbie/deploy/yandex/docker-compose.yml \
   logs stalwart | tail -20
@@ -244,10 +257,10 @@ docker compose -f /opt/msp/Newbie/deploy/yandex/docker-compose.yml \
 
 ### 5.6. Чтение почты в Thunderbird/Outlook
 
-- **Сервер:** `mail.mcp-claude.online`
+- **Сервер:** `mail.msp-claude.online`
 - **IMAP:** порт 993 / SSL/TLS
 - **SMTP submission:** порт 465 (implicit TLS) или 587 (STARTTLS)
-- **Логин:** `sales@mcp-claude.online`
+- **Логин:** `sales@msp-claude.online`
 - **Пароль:** из `msp-deploy-secrets.txt`
 
 Входящие письма из интернета **прилетают через внешний MX-провайдер**
@@ -274,7 +287,7 @@ docker compose -f /opt/msp/Newbie/deploy/yandex/docker-compose.yml \
 | MX-приём почты на наш публичный IP (`:25`) | ❌ нет |
 | Прямой outbound с нашей VM на чужой `:25` (Gmail/Outlook/Mail.ru) | ❌ нет |
 | Submission auth на наш Stalwart `:465` / `:587` | ✅ да |
-| Локальная доставка между ящиками `*@mcp-claude.online` | ✅ да |
+| Локальная доставка между ящиками `*@msp-claude.online` | ✅ да |
 | Grafana/Wazuh/Alertmanager → Stalwart `:587` (внутри VM) | ✅ да |
 | Outbound через smarthost (Yandex 360 / Mailgun) на их `:465`/`:587` | ✅ да |
 | Чтение ящиков через IMAPS `:993` | ✅ да |
@@ -314,7 +327,7 @@ Outbound — через smarthost на `:465`/`:587` к тому же прова
 1. **Не шлите 1000 писем сразу.** Начните с 10-20 в день, через неделю — 50, через 2 — 100.
 2. **Попросите получателей** вытащить из спама + добавить в адресную книгу.
 3. **Постучитесь в Postmaster Tools:**
-   - Google: https://postmaster.google.com — добавьте `mcp-claude.online`
+   - Google: https://postmaster.google.com — добавьте `msp-claude.online`
    - Microsoft SNDS: https://sendersupport.olc.protection.outlook.com/snds/
    - Mail.ru Postmaster: https://postmaster.mail.ru/
 4. **Регулярно проверяйте blacklist'ы**: https://mxtoolbox.com/blacklists.aspx
@@ -331,9 +344,9 @@ Outbound — через smarthost на `:465`/`:587` к тому же прова
 [smtp]
 enabled = true
 host = stalwart:587
-user = alert@mcp-claude.online
+user = alert@msp-claude.online
 password = <из msp-deploy-secrets.txt>
-from_address = alert@mcp-claude.online
+from_address = alert@msp-claude.online
 from_name = MSP Grafana
 startTLS_policy = MandatoryStartTLS
 ```
@@ -345,8 +358,8 @@ startTLS_policy = MandatoryStartTLS
 <global>
   <email_notification>yes</email_notification>
   <smtp_server>stalwart</smtp_server>
-  <email_from>alert@mcp-claude.online</email_from>
-  <email_to>admin@mcp-claude.online</email_to>
+  <email_from>alert@msp-claude.online</email_from>
+  <email_to>admin@msp-claude.online</email_to>
 </global>
 ```
 
@@ -357,10 +370,10 @@ startTLS_policy = MandatoryStartTLS
 receivers:
   - name: 'msp-email'
     email_configs:
-      - to: 'alert@mcp-claude.online'
-        from: 'alert@mcp-claude.online'
+      - to: 'alert@msp-claude.online'
+        from: 'alert@msp-claude.online'
         smarthost: 'stalwart:587'
-        auth_username: 'alert@mcp-claude.online'
+        auth_username: 'alert@msp-claude.online'
         auth_password: '<password>'
         require_tls: true
 ```
@@ -372,8 +385,11 @@ receivers:
 ### 9.1. SSH на ВМ
 
 ```powershell
-ssh -i "$env:USERPROFILE\.ssh\id_ed25519_yc" ubuntu@<public-ip>
+ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i "$env:USERPROFILE\.ssh\id_ed25519_yc" ubuntu@<public-ip>
 ```
+
+> ⚠️ `UserKnownHostsFile=NUL` обязателен для preemptible VM — host keys
+> меняются при каждом рестарте.
 
 ### 9.2. Логи контейнеров
 
@@ -419,9 +435,77 @@ yc compute instance delete --name msp-cloud-vm --folder-id <id>
 
 ---
 
-## 10. Troubleshooting
+## 10. Уроки реального деплоя (май 2026)
 
-### 10.1. Caddy не получает сертификат
+> Эти проблемы возникли при реальном деплое и заняли часы на диагностику.
+> Добавлены в конфиги как русские комментарии, но дублируем здесь для видимости.
+
+### 10.0.1. Docker 29 + overlayfs driver = cAdvisor не видит контейнеры
+
+**Симптом:** cAdvisor healthy, но `container_last_seen` показывает только `/` (корень).
+Grafana dashboard "Docker containers" — пустой.
+
+**Причина:** Docker 29.5 на Ubuntu 22.04 по умолчанию использует `overlayfs`
+storage driver (containerd snapshotter). Он НЕ создаёт
+`/var/lib/docker/image/overlayfs/layerdb/mounts/` — cAdvisor ищет этот
+каталог и не находит → "Failed to create existing container... no such file".
+
+**Фикс:**
+1. `/etc/docker/daemon.json` → `{"storage-driver": "overlay2"}`
+2. `sudo systemctl restart docker` (образы re-pull, volumes не теряются)
+3. cAdvisor обновить до v0.51+ и добавить `docker.sock` mount
+
+**Профилактика:** `cloud-init.yaml` включает `daemon.json` с `overlay2`.
+
+### 10.0.2. Опечатка домена mcp→msp = staging-сертификаты LE
+
+**Симптом:** браузер показывает "CERT_AUTHORITY_INVALID", Caddy получил
+сертификат от `STAGING...` вместо настоящего Let's Encrypt.
+
+**Причина:** домен в Caddyfile был `mcp-claude.online` вместо `msp-claude.online`.
+DNS A-запись указывала на правильный домен → LE verification NXDOMAIN →
+Caddy молча fallback'нулся на staging CA.
+
+**Фикс:** замена домена во всех файлах + очистка ACME кэша:
+```bash
+sudo rm -rf /var/lib/caddy/.local/share/caddy/acme
+sudo systemctl restart caddy
+```
+
+**Профилактика:** Caddyfile содержит `acme_ca` global block — явное указание
+production LE endpoint предотвращает silent fallback на staging.
+
+### 10.0.3. Preemptible VM = меняется IP и host keys
+
+**Симптом:** SSH "REMOTE HOST IDENTIFICATION HAS CHANGED" после рестарта VM.
+
+**Причина:** preemptible VM при рестарте получает новый ephemeral IP и
+новые SSH host keys.
+
+**Фикс:**
+- Зарезервировать static IP (+190₽/мес) → IP не меняется
+- SSH опции: `-o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL`
+
+### 10.0.4. PowerShell 5.1 + yc stderr = ErrorRecord
+
+**Симптом:** `yc compute instance create ...` сыплет ErrorRecord в PS5.1,
+хотя команда успешна.
+
+**Фикс:** все yc-команды через `cmd /c "yc ... 2>&1"` — stderr сливается
+в stdout, PS видит чистый текст.
+
+### 10.0.5. SCP через WireGuard = таймауты
+
+**Симптом:** `scp file ubuntu@<IP>:/tmp/` висит или теряет соединение.
+
+**Обходные пути:**
+- `Start-Process scp` вместо прямого вызова (PS5.1 stderr конфликт)
+- Для маленьких файлов: `echo BASE64 | ssh ... "base64 -d > file"`
+- Отключить WireGuard перед SCP, если возможно
+
+---
+
+## 10.1. Caddy не получает сертификат
 
 ```bash
 journalctl -u caddy -f
@@ -429,7 +513,7 @@ journalctl -u caddy -f
 ```
 
 **Возможные причины:**
-- DNS A-запись не пропагнулась (проверь `dig mcp-claude.online`)
+- DNS A-запись не пропагнулась (проверь `dig msp-claude.online`)
 - Yandex Cloud не пускает :80/:443 (проверь security-group)
 - Превышен лимит Let's Encrypt (5 в неделю на домен) → ждать или https://crt.sh для проверки
 
@@ -451,9 +535,9 @@ curl -v http://localhost:8001/api/health
 docker compose logs stalwart | tail -100
 
 # С другого сервера (только submission, не MX):
-swaks --to sales@mcp-claude.online --from postmaster@example.com \
-      --server mail.mcp-claude.online -p 587 --tls --auth \
-      --auth-user sales@mcp-claude.online --auth-password '...'
+swaks --to sales@msp-claude.online --from postmaster@example.com \
+      --server mail.msp-claude.online -p 587 --tls --auth \
+      --auth-user sales@msp-claude.online --auth-password '...'
 ```
 
 **Возможные причины:**
@@ -467,20 +551,20 @@ swaks --to sales@mcp-claude.online --from postmaster@example.com \
 
 Проверь что ключ из аргумента совпадает с `~/.ssh/id_ed25519_yc`:
 ```powershell
-ssh -i "$env:USERPROFILE\.ssh\id_ed25519_yc" -v ubuntu@<ip>
+ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i "$env:USERPROFILE\.ssh\id_ed25519_yc" -v ubuntu@<ip>
 ```
 
 ### 10.5. Скрипт упал на этапе `[7/8] setup-on-vm.sh`
 
 Зайдите на ВМ и посмотрите лог:
 ```bash
-ssh -i ~/.ssh/id_ed25519_yc ubuntu@<ip>
+ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i ~/.ssh/id_ed25519_yc ubuntu@<ip>
 tail -200 /var/log/msp-deploy.log
 ```
 
 Запустите setup-on-vm.sh вручную:
 ```bash
-export MSP_DOMAIN=mcp-claude.online
+export MSP_DOMAIN=msp-claude.online
 bash /opt/msp/Newbie/deploy/yandex/setup-on-vm.sh
 ```
 
@@ -584,7 +668,7 @@ cmd /c "powershell.exe -ExecutionPolicy Bypass -File .\deploy\yandex\deploy.ps1"
 
 ## 11. Установка PTR-записи (обратная DNS)
 
-Без PTR `mail.mcp-claude.online ↔ <IP>` Gmail и Outlook будут отмечать
+Без PTR `mail.msp-claude.online ↔ <IP>` Gmail и Outlook будут отмечать
 вашу почту как spam с высокой вероятностью.
 
 ```powershell
@@ -596,13 +680,13 @@ yc compute instance get --name msp-cloud-vm --format json | `
 yc compute instance update-network-interface `
   --instance-name msp-cloud-vm `
   --network-interface-index 0 `
-  --new-public-ip-ptr "mail.mcp-claude.online"
+  --new-public-ip-ptr "mail.msp-claude.online"
 ```
 
 Проверка:
 ```bash
 dig +short -x <public-ip>
-# Должен вернуть: mail.mcp-claude.online.
+# Должен вернуть: mail.msp-claude.online.
 ```
 
 ---
@@ -645,5 +729,5 @@ dig +short -x <public-ip>
 
 ---
 
-> Поддержка: `admin@mcp-claude.online` (после деплоя) ·
+> Поддержка: `admin@msp-claude.online` (после деплоя) ·
 > репозиторий: https://github.com/i1yxaluk-del/Newbie

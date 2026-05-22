@@ -115,7 +115,7 @@ Stalwart в `deploy/yandex/docker-compose.yml` настроен под эту р
 
 1. SSH-tunnel в админку:
    ```powershell
-   ssh -L 8080:localhost:8080 -i "$HOME\.ssh\id_ed25519_yc" ubuntu@<vm-ip>
+   ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -L 8080:localhost:8080 -i "$HOME\.ssh\id_ed25519_yc" ubuntu@<vm-ip>
    ```
    Открыть в браузере: <http://localhost:8080/admin>
 
@@ -206,7 +206,7 @@ openssl s_client -connect mail.<domain>:587 -starttls smtp -servername mail.<dom
 openssl s_client -connect mail.<domain>:993 -servername mail.<domain> -brief
 
 # 4. Отправка изнутри VM
-ssh -i "$HOME\.ssh\id_ed25519_yc" ubuntu@<vm-ip> `
+ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i "$HOME\.ssh\id_ed25519_yc" ubuntu@<vm-ip> `
   "docker compose -f /opt/msp/Newbie/deploy/yandex/docker-compose.yml exec -T stalwart stalwart-cli queue list"
 ```
 

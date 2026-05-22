@@ -44,6 +44,11 @@
 | Git for Windows    | `winget install Git.Git`                                 | `git --version`                  |
 | tar                | Встроен в Win10 17063+                                   | `tar --version`                  |
 
+> **Урок из деплоя (PS 5.1 + yc):** PowerShell 5.1 записывает stderr от `yc`
+> как ErrorRecord → скрипт падает даже при успешной команде. Все yc-вызовы
+> делайте через `cmd /c "yc ... 2>&1"` — это сливает stderr в stdout.
+> Подробности — `deploy/yandex/README.md` §10.0.4.
+
 ### 0.2. Профиль PowerShell и кодировка
 
 Русские/UTF-8 символы в выводе требуют корректной кодировки консоли — иначе
@@ -101,12 +106,15 @@ $Env:MSP_SSH_KEY   = "$env:USERPROFILE\.ssh\id_ed25519_yc"
 $Env:MSP_VM_NAME   = "msp-monitoring"
 
 # Helper-функция: открыть SSH в управляющую VM
-function msp-ssh { ssh -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP @args }
+# УРОК ИЗ ДЕПЛОЯ: preemptible VM меняет host keys при рестарте →
+# обязательно -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL
+# Иначе SSH ломается с REMOTE HOST IDENTIFICATION HAS CHANGED
+function msp-ssh { ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP @args }
 
 # Helper: выполнить bash-блок на VM через here-string
 function msp-bash {
     param([Parameter(Mandatory)][string]$Script)
-    $Script | ssh -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP bash -s
+    $Script | ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP bash -s
 }
 ```
 
@@ -169,7 +177,7 @@ yc compute instance create `
     --network-interface "subnet-name=default,nat-ip-version=ipv4" `
     --create-boot-disk "image-family=ubuntu-2204-lts,size=40GB,type=network-ssd,auto-delete=true" `
     --cores 2 `
-    --core-fraction 20 `
+    --core-fraction 50 `
     --memory 4GB `
     --ssh-key "$Env:MSP_SSH_KEY.pub" `
     --metadata serial-port-enable=1
@@ -180,9 +188,22 @@ $Env:MSP_VM_IP = $vm.network_interfaces[0].primary_v4_address.one_to_one_nat.add
 Write-Host "VM IP: $Env:MSP_VM_IP"
 ```
 
-> `core-fraction 20` = «burst до 20%», подходит для Bronze с <5 клиентами.
-> Для production без burst — уберите `--core-fraction`.
-> Для тестов добавьте `--preemptible` (прерываемая, скидка 70%, **не для prod**).
+> ⚠️ **Урок из деплоя (preemptible + static IP):** `core-fraction 20`
+> недоступен для 2 vCPU (минимум 50%). Реальная стоимость preemptible VM
+> 2vCPU/4GB/50GB = ~1486₽/мес. **Обязательно резервируйте static IP**
+> (+190₽/мес) — preemptible VM меняет IP при каждом рестарте, без static IP
+> DNS A-записи устаревают. Команда:
+> ```powershell
+> yc vpc address create --name msp-static-ip --folder-id $Env:MSP_FOLDER_ID --zone $Env:MSP_ZONE
+> $staticIp = (yc vpc address get msp-static-ip --format json | ConvertFrom-Json).address
+> yc compute instance add-one-to-one-nat $Env:MSP_VM_NAME --nat-address $staticIp
+> ```
+> Подробности — `deploy/yandex/README.md` §10.0.3.
+>
+> ⚠️ **Урок из деплоя (SSH + preemptible):** preemptible VM меняет SSH host
+> keys при рестарте → `REMOTE HOST IDENTIFICATION HAS CHANGED`. Всегда
+> используйте `-o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL` в
+> SSH/SCP командах к preemptible VM.
 
 ### 2.3. S3-bucket и ключи для restic-бэкапов
 
@@ -275,15 +296,27 @@ sudo ufw status verbose
 
 # Docker
 curl -fsSL https://get.docker.com | sudo sh
+
+# ⚠️ УРОК ИЗ ДЕПЛОЯ: Docker 29+ на Ubuntu 22.04 по умолчанию использует
+# overlayfs storage driver (containerd snapshotter). cAdvisor НЕ МОЖЕТ
+# читать layerdb/mounts/ с этим драйвером → контейнеры невидимы в Grafana.
+# Фикс: явно указать overlay2 В ДО daemon.json ДО первого запуска контейнеров.
+# Без этого при переключении позже Docker пересоздаёт хранилище (образы
+# re-pull, volumes не теряются).
+sudo mkdir -p /etc/docker
+echo '{"storage-driver": "overlay2"}' | sudo tee /etc/docker/daemon.json
+sudo systemctl restart docker
+
 sudo usermod -aG docker ubuntu
 docker --version
+docker info --format '{{.Driver}}'   # должно быть overlay2
 '@
-$bash | ssh -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP bash -s
+$bash | ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP bash -s
 ```
 
 Дальше для удобства можно открывать обычный интерактивный SSH:
 ```powershell
-ssh -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP
+ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP
 ```
 
 ---
@@ -302,7 +335,7 @@ sudo chmod 600 server_private.key
 echo "=== BASTION PUBLIC KEY ==="
 sudo cat server_public.key
 '@
-$bash | ssh -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP bash -s
+$bash | ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP bash -s
 ```
 
 Сохраните вывод в безопасное место:
@@ -338,7 +371,7 @@ sudo sysctl -p /etc/sysctl.d/99-wireguard.conf
 sudo systemctl enable --now wg-quick@wg0
 sudo wg show wg0
 '@
-$bash | ssh -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP bash -s
+$bash | ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP bash -s
 ```
 
 ### 4.3. Скрипт добавления peer-а на VM
@@ -419,7 +452,7 @@ PROMETHEUS_VERSION=v2.51.0
 ALERTMANAGER_VERSION=v0.27.0
 GRAFANA_VERSION=10.4.2
 NODE_EXPORTER_VERSION=v1.7.0
-CADVISOR_VERSION=v0.49.1
+CADVISOR_VERSION=v0.51.0
 LOKI_VERSION=3.0.0
 PROMTAIL_VERSION=3.0.0
 
@@ -456,6 +489,15 @@ $envScript | ssh -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP bash -s
 без изменений; профили `monitoring`, `silver`, `gold`. Loki включается через
 профиль `silver`.
 
+> ⚠️ **Урок из деплоя (cAdvisor + overlayfs):** cAdvisor v0.49 не видит
+> контейнеры при Docker overlayfs driver — ошибка "Failed to create existing
+> container... layerdb/mounts/... no such file or directory". Обновлено до
+> v0.51.0 + добавлен `docker.sock` mount и `--docker_env_metadata_whitelist=`.
+> Без `docker.sock` cAdvisor не может получить метрики через Docker API.
+> Без `daemon.json` с `{"storage-driver": "overlay2"}` (см. §3) layerdb
+> отсутствует — контейнеры невидимы.
+> Подробности — `deploy/yandex/README.md` §10.0.1.
+
 ### 5.5. Запуск стека
 
 ```powershell
@@ -476,7 +518,7 @@ docker compose logs --tail=30 prometheus
 curl -fsS http://localhost:9090/-/healthy && echo "Prometheus OK"
 curl -fsS http://localhost:9093/-/healthy && echo "Alertmanager OK"
 '@
-$bash | ssh -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP bash -s
+$bash | ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP bash -s
 ```
 
 ### 5.6. Доступ к Grafana с Windows-станции
@@ -609,7 +651,7 @@ curl -s -X POST http://localhost:9090/-/reload && echo "Prometheus reloaded"
 SCRIPT
 sudo chmod +x /usr/local/bin/add_client.sh
 '@
-$bash | ssh -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP bash -s
+$bash | ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP bash -s
 ```
 
 ### 6.3. Использование
@@ -682,7 +724,7 @@ SCRIPT
 sudo chmod +x /usr/local/bin/weekly_report.sh
 echo "0 8 * * 1 root /usr/local/bin/weekly_report.sh" | sudo tee /etc/cron.d/msp-weekly-report
 '@
-$bash | ssh -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP bash -s
+$bash | ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP bash -s
 ```
 
 ### 7.2. Ручной вызов с Win10
@@ -705,7 +747,7 @@ docker compose pull prometheus
 docker compose up -d prometheus
 docker compose logs --tail=20 prometheus
 '@
-$bash | ssh -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP bash -s
+$bash | ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP bash -s
 ```
 
 ### 8.2. Снапшот VM перед изменениями

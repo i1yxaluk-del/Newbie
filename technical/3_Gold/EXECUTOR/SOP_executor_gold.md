@@ -160,8 +160,18 @@ sysctl vm.max_map_count
 
 sudo apt update
 sudo apt install -y docker.io docker-compose-plugin curl git jq htop
+
+# ⚠️ УРОК ИЗ ДЕПЛОЯ: Docker 29+ на Ubuntu 22.04 по умолчанию использует
+# overlayfs driver (containerd snapshotter). cAdvisor и другие инструменты
+# не могут читать layerdb/mounts/. Фикс: daemon.json с overlay2.
+# См. Bronze SOP §3 и deploy/yandex/README.md §10.0.1.
+sudo mkdir -p /etc/docker
+echo '{"storage-driver": "overlay2"}' | sudo tee /etc/docker/daemon.json
+sudo systemctl restart docker
+
 sudo usermod -aG docker ubuntu
 docker --version
+docker info --format '{{.Driver}}'   # должно быть overlay2
 '@
 $bash | ssh msp-wazuh bash -s
 ```

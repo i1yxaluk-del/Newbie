@@ -12,6 +12,11 @@
 - [ ] Развернуть локальную копию baseline в VM (Vagrant / VirtualBox),
       запустить playbook вручную.
 - [ ] Сессия с owner: 1 час про systemd, 1 час про networking в Linux.
+- [ ] ⚠️ **Урок из деплоя:** На test-VM после установки Docker проверить
+      `docker info --format '{{.Driver}}'`. Если `overlayfs` (Docker 29+ на
+      Ubuntu 22.04) — нужно создать `/etc/docker/daemon.json` с
+      `{"storage-driver": "overlay2"}` и рестартить Docker. Иначе cAdvisor
+      не видит контейнеры. См. `deploy/yandex/README.md` §10.0.1.
 - [ ] Пройти checklist из R-06 (disk space critical) на своей VM:
       создать проблему, решить по runbook'у.
 

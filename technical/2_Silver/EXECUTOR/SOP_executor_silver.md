@@ -98,6 +98,9 @@ yc compute instance create `
     --memory 4GB `
     --ssh-key "$Env:MSP_SSH_KEY.pub"
 # Для теста добавьте --preemptible. Для production не использовать.
+# ⚠️ УРОК ИЗ ДЕПЛОЯ: если VM preemptible — обязательно резервируйте static IP
+# (+190₽/мес). Без static IP IP меняется при рестарте → DNS устаревает.
+# См. Bronze SOP §2.2 и deploy/yandex/README.md §10.0.3.
 
 $vm = yc compute instance get $Env:MSP_AUTO_NAME --format json | ConvertFrom-Json
 $Env:MSP_AUTO_IP = $vm.network_interfaces[0].primary_v4_address.address
@@ -114,6 +117,9 @@ Host msp-bastion
   HostName    <MSP_VM_IP>
   User        ubuntu
   IdentityFile ~/.ssh/id_ed25519_yc
+  # ⚠️ УРОК ИЗ ДЕПЛОЯ: preemptible VM меняет host keys при рестарте
+  StrictHostKeyChecking no
+  UserKnownHostsFile NUL
 
 Host msp-automation
   HostName    <MSP_AUTO_IP>

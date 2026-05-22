@@ -32,6 +32,9 @@ networks:
     ipam:
       config:
         - subnet: 172.20.0.0/24
+  msp_default:
+    name: msp_default
+    external: true
 
 volumes:
   prometheus_data:
@@ -50,8 +53,11 @@ services:
     image: prom/prometheus:v2.51.0
     container_name: msp-prometheus
     restart: unless-stopped
-    # user 65534 = nobody — минимальные привилегии
     user: "65534:65534"
+    networks:
+      monitoring:
+        ipv4_address: 172.20.0.10
+      msp_default:
     volumes:
       - prometheus_data:/prometheus
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
@@ -68,9 +74,6 @@ services:
       - "--query.timeout=60s"
     ports:
       - "127.0.0.1:9090:9090"
-    networks:
-      monitoring:
-        ipv4_address: 172.20.0.10
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
       interval: 30s

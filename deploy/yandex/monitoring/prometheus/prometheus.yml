@@ -31,7 +31,9 @@ scrape_configs:
   - job_name: mspshield-backend
     metrics_path: /metrics
     static_configs:
-      - targets: ["172.17.0.1:8001"]
+      # Backend в сети msp_default, доступен по Docker DNS имени.
+      # Prometheus подключён к сети msp_default через networks в compose.
+      - targets: ["backend:8001"]
 
   - job_name: blackbox-http
     metrics_path: /probe

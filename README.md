@@ -10,9 +10,16 @@
 > 🗂 **Настройка Kaiten под проект:** [`docs/KAITEN_SETUP.md`](docs/KAITEN_SETUP.md)
 > — пространства, доски, воронка, custom fields, ролевая модель, бэкапы,
 > чек-лист первого запуска.
+>
+> ✏️ **Изменить тексты, тарифы, иконки на лендинге:** UI-конфигуратор
+> [`/admin/landing-edit`](#управление-контентом-лендинга) + полное
+> руководство [`docs/EDITING.md`](docs/EDITING.md). Весь редактируемый
+> контент — один файл [`frontend/src/content/landing.ru.json`](frontend/src/content/landing.ru.json),
+> React-код трогать не нужно.
 
 **Что нового в v4.5:**
 - Минималистичный лендинг — 6 секций вместо 9 (`Hero · Pain · Pricing · Process · FAQ · CTAForm`).
+- **UI-конфигуратор лендинга `/admin/landing-edit`** — все тексты, тарифы, FAQ и иконки редактируются в браузере с live-preview (override в `localStorage`), потом «Скачать JSON» → коммит в репо. Полная инструкция: [`docs/EDITING.md`](docs/EDITING.md).
 - Админка переписана: вход по паролю → JWT (24 ч) в localStorage. `X-Admin-Token` сохранён для CLI/curl. Фильтры по статусу/тарифу + экспорт CSV.
 - Связь формы с CRM **Kaiten** через REST API (карточка создаётся в фоне, идемпотентно по `lead_id`).
 - Универсальный `CRM_WEBHOOK_URL` (n8n / Make / Zapier / Bitrix24 inbound).
@@ -49,6 +56,7 @@ go-to-market**.
 
 - [С чего начать — 3 сценария (5 / 30 / 120 мин)](#с-чего-начать)
 - [Быстрый старт (dev-окружение)](#быстрый-старт-dev-окружение)
+- [Управление контентом лендинга](#управление-контентом-лендинга)
 - [Структура репозитория](#структура-репозитория)
 - [53 артефакта Марафона 3.1–3.5](#53-артефакта-марафона-3135)
 - [Карта документов по ролям](#карта-документов-по-ролям)
@@ -165,9 +173,14 @@ curl -X POST http://localhost:8001/api/leads \
 ### 4. Админ-панель
 
 ```
-http://localhost:3000/admin/leads
-Header: X-Admin-Token: <ADMIN_TOKEN>
+http://localhost:3000/admin/leads         — таблица заявок (CSV, фильтры, Kaiten)
+http://localhost:3000/admin/landing-edit  — UI-конфигуратор лендинга (тексты, тарифы, иконки)
+Header: X-Admin-Token: <ADMIN_TOKEN>       — для curl/CLI; в браузере вход по паролю → JWT 24ч
 ```
+
+Конфигуратор и порядок применения правок описаны в разделе
+[«Управление контентом лендинга»](#управление-контентом-лендинга) ниже
+и в [`docs/EDITING.md`](docs/EDITING.md).
 
 ### 5. Prometheus /metrics
 
@@ -183,6 +196,56 @@ curl http://localhost:8001/metrics
 cd backend
 pytest tests/ -v           # backend-уровневые (интеграционные, требуют поднятого API)
 ```
+
+---
+
+## Управление контентом лендинга
+
+Весь редактируемый контент лендинга (заголовки, тарифы, FAQ, иконки,
+ссылки в шапке/футере) лежит в **одном JSON-файле** —
+[`frontend/src/content/landing.ru.json`](frontend/src/content/landing.ru.json).
+React-компоненты читают его через хук
+[`useContent.js`](frontend/src/content/useContent.js); хардкода текстов
+в JSX нет. **Чтобы поменять копию — меняйте JSON, не код.**
+
+### Два способа редактирования
+
+| Способ | Кому удобно | Как сохранить на прод |
+|---|---|---|
+| **UI-конфигуратор** `/admin/landing-edit` (страница [`AdminLandingEdit.jsx`](frontend/src/pages/AdminLandingEdit.jsx)) | Маркетинг / собственник без знания React | Внутри UI кнопка **«Скачать landing.ru.json»** → положить файл в `frontend/src/content/landing.ru.json` → коммит + push |
+| **Прямая правка JSON** в редакторе/IDE | Разработчик, массовые правки, рефакторинг иконок/тарифов | `git commit` + `git push` |
+
+**Live-preview:** правки в UI пишутся в `localStorage["msp_landing_override"]`
+и мгновенно отображаются в iframe-превью справа. Это видно **только в
+вашем браузере**. Чтобы изменения увидели посетители — нужно зафиксировать
+JSON в репозитории (см. ниже).
+
+### Где конфиги на сервере (production)
+
+Зависит от выбранного пути деплоя:
+
+| Путь деплоя | Корень приложения на VM | Файл контента | Применение изменений |
+|---|---|---|---|
+| **Path A** — `deploy/yandex/` (Caddy + Docker, single-VM, см. [`deploy/yandex/README.md`](deploy/yandex/README.md)) | `/opt/msp/Newbie/` | `/opt/msp/Newbie/frontend/src/content/landing.ru.json` | `cd /opt/msp/Newbie && git pull && cd frontend && yarn build && docker compose -f deploy/yandex/docker-compose.yml up -d --build frontend` |
+| **Path B** — Terraform + Ansible + nginx (см. [`docs/deployment/landing_production.md`](docs/deployment/landing_production.md), [`docs/JUNIOR_GUIDE.md §3.4`](docs/JUNIOR_GUIDE.md)) | `/home/mspshield/app/` | `/home/mspshield/app/frontend/src/content/landing.ru.json` | `cd /home/mspshield/app && git pull && cd frontend && yarn build && sudo rsync -a --delete build/ /var/www/mspshield/` |
+
+В обоих случаях источник истины — Git. **На сервер не редактируем JSON
+руками** — иначе следующий `git pull` затрёт правки. Любая правка идёт
+через репозиторий → пересборка фронта → деплой.
+
+### Что НЕ редактируется через JSON
+
+- Цвета и шрифты → `frontend/src/index.css` (CSS custom properties, см. [`docs/EDITING.md §6`](docs/EDITING.md)).
+- Каталог иконок → `frontend/src/components/icons/` (см. [`docs/EDITING.md §5`](docs/EDITING.md)).
+- Favicon / og:image → `frontend/public/`.
+- Формула калькулятора простоя → `frontend/src/components/sections/Pain.jsx`.
+- Логика формы / backend / email-уведомления → `backend/.env` и `backend/server.py`.
+
+### Полное руководство
+
+[`docs/EDITING.md`](docs/EDITING.md) — 487 строк: архитектура, пошаговая
+работа через UI, схема JSON по секциям, как добавить тариф, как заменить
+иконку, цвета, деплой, FAQ редактора и чек-лист «сделал — не сломал».
 
 ---
 
@@ -202,7 +265,11 @@ Newbie/ (MSPShield v4.1)
 │   │       ├── offer.html          Публичная оферта
 │   │       └── sla.html            SLA
 │   ├── src/
-│   │   ├── pages/                  Landing, AdminLeads, NotFound
+│   │   ├── content/
+│   │   │   ├── landing.ru.json     ← весь редактируемый контент (см. docs/EDITING.md)
+│   │   │   ├── landing.schema.json JSON Schema для валидации
+│   │   │   └── useContent.js       хук + deep-merge с localStorage override
+│   │   ├── pages/                  Landing, AdminLeads, AdminLandingEdit, NotFound
 │   │   └── components/sections/
 │   │       ├── Hero, Pain, HowItWorks, ForWhom, Compliance,
 │   │       ├── Compare, Pricing, Process, Tools, Cases, FAQ

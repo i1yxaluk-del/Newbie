@@ -44,9 +44,11 @@
 | Git for Windows    | `winget install Git.Git`                                 | `git --version`                  |
 | tar                | Встроен в Win10 17063+                                   | `tar --version`                  |
 
-> **Урок из деплоя (PS 5.1 + yc):** PowerShell 5.1 записывает stderr от `yc`
+> **Урок из деплоя (L7 — PS 5.1 + yc):** PowerShell 5.1 записывает stderr от `yc`
 > как ErrorRecord → скрипт падает даже при успешной команде. Все yc-вызовы
-> делайте через `cmd /c "yc ... 2>&1"` — это сливает stderr в stdout.
+> в этом SOP обёрнуты в `cmd /c "yc ... 2>&1"` (через helper `Invoke-Yc`,
+> см. §0.3) — это сливает stderr в stdout. Если вызываете `yc` вручную —
+> используйте ту же обёртку.
 > Подробности — `deploy/yandex/README.md` §10.0.4.
 
 ### 0.2. Профиль PowerShell и кодировка
@@ -79,9 +81,32 @@ Invoke-WebRequest -Uri "https://storage.yandexcloud.net/yandexcloud-yc/install.p
 
 # Перезапустить PowerShell-сессию, затем проверить:
 yc version
-yc init   # OAuth-авторизация в браузере
+yc init   # OAuth-авторизация в браузере — интерактивный вызов, обёртка не нужна
 yc config list
 ```
+
+#### Helper-функция `Invoke-Yc` (урок L7)
+
+Добавьте в свой PowerShell-профиль (`$PROFILE`) либо в начало каждой
+сессии SOP. Эта обёртка используется везде ниже вместо рядового `yc`:
+
+```powershell
+# Helper: обёртка над yc — сливает stderr в stdout, чтобы PS 5.1
+# не превращал stderr в ErrorRecord и не ломал скрипт.
+# Использование: Invoke-Yc compute instance list
+#              $vm = (Invoke-Yc compute instance get $name --format json) -join "`n" | ConvertFrom-Json
+function Invoke-Yc {
+    $cmd = "yc $($args -join ' ') 2>&1"
+    $out = cmd /c $cmd
+    if ($LASTEXITCODE -ne 0) {
+        throw "yc failed (exit $LASTEXITCODE): $out"
+    }
+    return $out
+}
+```
+
+> Для интерактивных вызовов (`yc init`, `yc config profile create`) обёртка не нужна
+> — вызывайте напрямую.
 
 ### 0.4. SSH-ключ для управления VM
 
@@ -157,69 +182,84 @@ WINDOWS 10 АДМИН-СТАНЦИЯ                       YANDEX CLOUD ru-centr
 ### 2.1. OAuth-авторизация и folder
 
 ```powershell
-yc init                                                     # OAuth в браузере
+yc init                                                     # OAuth в браузере (интерактив, без обёртки)
 yc config list                                              # запомните folder-id
 
-# Или явно:
-$folderId = (yc config get folder-id).Trim()
+# Или явно (через helper Invoke-Yc, см. §0.3):
+$folderId = ((Invoke-Yc config get folder-id) -join "`n").Trim()
 $Env:MSP_FOLDER_ID = $folderId
 ```
 
 ### 2.2. Создание VM (one-liner)
 
+> ⚠️ **Урок L5 (preemptible + static IP):** preemptible VM меняет IP при каждом
+> рестарте → DNS A-записи устаревают. **Static IP (+190₽/мес) обязателен.**
+> `core-fraction 20%` недоступен для 2 vCPU (минимум 50%). Реальная стоимость
+> preemptible VM 2vCPU/4GB/50GB = ~1486₽/мес + 190₽ static IP = **~1676₽/мес**.
+> Ниже — полный flow (резерв IP ДО создания VM, чтобы A-запись можно
+> было выставить сразу). Подробности — `deploy/yandex/README.md` §10.0.3.
+
 ```powershell
 $SshPubKey = Get-Content "$Env:MSP_SSH_KEY.pub" -Raw
 
-yc compute instance create `
+# Шаг 1. Резервируем static IP (урок L5).
+Invoke-Yc vpc address create `
+    --name msp-static-ip `
+    --folder-id $Env:MSP_FOLDER_ID `
+    --external-ipv4 zone=$Env:MSP_ZONE
+
+$addrJson = (Invoke-Yc vpc address get msp-static-ip --folder-id $Env:MSP_FOLDER_ID --format json) -join "`n"
+$staticIp = ($addrJson | ConvertFrom-Json).external_ipv4_address.address
+Write-Host "Static IP зарезервирован: $staticIp"
+
+# Шаг 2. Создаём preemptible VM сразу с nat-address=$staticIp (урок L5).
+Invoke-Yc compute instance create `
     --name $Env:MSP_VM_NAME `
     --folder-id $Env:MSP_FOLDER_ID `
     --zone $Env:MSP_ZONE `
-    --network-interface "subnet-name=default,nat-ip-version=ipv4" `
+    --network-interface "subnet-name=default,nat-address=$staticIp" `
     --create-boot-disk "image-family=ubuntu-2204-lts,size=40GB,type=network-ssd,auto-delete=true" `
     --cores 2 `
     --core-fraction 50 `
     --memory 4GB `
+    --preemptible `
     --ssh-key "$Env:MSP_SSH_KEY.pub" `
     --metadata serial-port-enable=1
 
-# Получить public IP
-$vm = yc compute instance get $Env:MSP_VM_NAME --format json | ConvertFrom-Json
-$Env:MSP_VM_IP = $vm.network_interfaces[0].primary_v4_address.one_to_one_nat.address
-Write-Host "VM IP: $Env:MSP_VM_IP"
+# Шаг 3. Сохраняем IP в сессии и выводим.
+$Env:MSP_VM_IP = $staticIp
+Write-Host "VM IP (static): $Env:MSP_VM_IP"
 ```
 
-> ⚠️ **Урок из деплоя (preemptible + static IP):** `core-fraction 20`
-> недоступен для 2 vCPU (минимум 50%). Реальная стоимость preemptible VM
-> 2vCPU/4GB/50GB = ~1486₽/мес. **Обязательно резервируйте static IP**
-> (+190₽/мес) — preemptible VM меняет IP при каждом рестарте, без static IP
-> DNS A-записи устаревают. Команда:
-> ```powershell
-> yc vpc address create --name msp-static-ip --folder-id $Env:MSP_FOLDER_ID --zone $Env:MSP_ZONE
-> $staticIp = (yc vpc address get msp-static-ip --format json | ConvertFrom-Json).address
-> yc compute instance add-one-to-one-nat $Env:MSP_VM_NAME --nat-address $staticIp
-> ```
-> Подробности — `deploy/yandex/README.md` §10.0.3.
->
-> ⚠️ **Урок из деплоя (SSH + preemptible):** preemptible VM меняет SSH host
+> ⚠️ **Урок L6 (SSH + preemptible):** preemptible VM меняет SSH host
 > keys при рестарте → `REMOTE HOST IDENTIFICATION HAS CHANGED`. Всегда
 > используйте `-o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL` в
-> SSH/SCP командах к preemptible VM.
+> SSH/SCP командах к preemptible VM — это уже зашито в хелперы
+> `msp-ssh`/`msp-bash` (см. §1.1).
+>
+> 💡 **Альтернатива:** всё это (резерв IP + preemptible VM + SSH-options +
+> overlay2 + Caddy + acme_ca + Stalwart submit-only) уже обёрнуто в
+> `deploy/yandex/deploy.ps1` — вызов `.\deploy.ps1 -Domain msp-claude.online -UseStaticIp`
+> выполняет весь flow. Ручные шаги выше нужны только для отладки
+> или когда нужен нестандартный сетап.
 
 ### 2.3. S3-bucket и ключи для restic-бэкапов
 
 ```powershell
-# Сервисный аккаунт
-yc iam service-account create --name msp-backup-sa --folder-id $Env:MSP_FOLDER_ID
+# Сервисный аккаунт (урок L7: все yc-вызовы через Invoke-Yc)
+Invoke-Yc iam service-account create --name msp-backup-sa --folder-id $Env:MSP_FOLDER_ID
 
-$saId = (yc iam service-account get msp-backup-sa --folder-id $Env:MSP_FOLDER_ID --format json | ConvertFrom-Json).id
+$saJson = (Invoke-Yc iam service-account get msp-backup-sa --folder-id $Env:MSP_FOLDER_ID --format json) -join "`n"
+$saId = ($saJson | ConvertFrom-Json).id
 
 # Роль на каталог
-yc resource-manager folder add-access-binding $Env:MSP_FOLDER_ID `
+Invoke-Yc resource-manager folder add-access-binding $Env:MSP_FOLDER_ID `
     --role storage.editor `
     --subject "serviceAccount:$saId"
 
 # Статический S3-ключ
-$keys = yc iam access-key create --service-account-name msp-backup-sa --format json | ConvertFrom-Json
+$keysJson = (Invoke-Yc iam access-key create --service-account-name msp-backup-sa --format json) -join "`n"
+$keys = $keysJson | ConvertFrom-Json
 
 # Сохранить в защищённом каталоге (НЕ коммитить!)
 $secretsDir = "$env:USERPROFILE\.msp-secrets"
@@ -233,7 +273,7 @@ Write-Host "Secret saved:   $secretsDir\s3-keys.json"
 ```powershell
 function New-MspBackupBucket {
     param([Parameter(Mandatory)][string]$ClientSlug)
-    yc storage bucket create `
+    Invoke-Yc storage bucket create `
         --name "backup-$ClientSlug" `
         --default-storage-class standard `
         --max-size 107374182400        # 100 GB
@@ -482,8 +522,9 @@ $envScript | ssh -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP bash -s
 ### 5.4. docker-compose.yml
 
 > Полный файл `docker-compose.yml` лежит в репо `i1yxaluk-del/Newbie`
-> (каталог `technical/1_Bronze/EXECUTOR/monitoring-stack/`). Если правите
-> через PowerShell — редактируйте локально и пересылайте через `scp`.
+> в [`technical/0_Common/docker/docker-compose.yml`](../../0_Common/docker/docker-compose.yml)
+> (каноническая версия с профилями monitoring/silver/gold).
+> Если правите через PowerShell — редактируйте локально и пересылайте через `scp`.
 
 Ключевые блоки (Prometheus / Alertmanager / Grafana / node-exporter / cAdvisor)
 без изменений; профили `monitoring`, `silver`, `gold`. Loki включается через
@@ -753,9 +794,10 @@ $bash | ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i $Env:MSP_SS
 ### 8.2. Снапшот VM перед изменениями
 
 ```powershell
-$diskId = (yc compute instance get $Env:MSP_VM_NAME --folder-id $Env:MSP_FOLDER_ID --format json | ConvertFrom-Json).boot_disk.disk_id
+$instJson = (Invoke-Yc compute instance get $Env:MSP_VM_NAME --folder-id $Env:MSP_FOLDER_ID --format json) -join "`n"
+$diskId = ($instJson | ConvertFrom-Json).boot_disk.disk_id
 
-yc compute snapshot create `
+Invoke-Yc compute snapshot create `
     --name "msp-$(Get-Date -Format yyyyMMdd-HHmm)" `
     --source-disk-id $diskId `
     --folder-id $Env:MSP_FOLDER_ID `
@@ -775,7 +817,7 @@ msp-bash 'curl -s http://localhost:9090/api/v1/status/tsdb | python3 -m json.too
 ### 8.4. Полное удаление VM
 
 ```powershell
-yc compute instance delete --name $Env:MSP_VM_NAME --folder-id $Env:MSP_FOLDER_ID
+Invoke-Yc compute instance delete --name $Env:MSP_VM_NAME --folder-id $Env:MSP_FOLDER_ID
 ```
 
 ---

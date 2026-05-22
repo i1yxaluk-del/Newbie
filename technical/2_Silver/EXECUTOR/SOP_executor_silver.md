@@ -60,7 +60,7 @@ WINDOWS 10 АДМИН-СТАНЦИЯ                    YANDEX CLOUD
                                             │ ├── Ansible Control Node                                         │
                                             │ └── Git репозиторий /opt/ansible                                 │
                                             │                                                                  │
-                                            │ Bastion VM (2 vCPU 5%, 2 GB, 20 GB SSD) — как в Bronze          │
+                                            │ Bastion VM (2 vCPU 50%, 2 GB, 20 GB SSD) — как в Bronze         │
                                             │ └── WireGuard :51820                                             │
                                             │                                                                  │
                                             │ Object Storage (S3)                                              │
@@ -72,10 +72,10 @@ WINDOWS 10 АДМИН-СТАНЦИЯ                    YANDEX CLOUD
 ```
 Monitoring VM (4 vCPU/8GB/50GB SSD):    ~3 800 ₽/мес
 Automation VM (2 vCPU/4GB/40GB SSD):    ~1 900 ₽/мес
-Bastion VM    (2 vCPU 5%/2GB/20GB):       ~600 ₽/мес
+Bastion VM    (2 vCPU 50%/2GB/20GB):      ~750 ₽/мес   # урок L5: core-fraction <50% недоступен для 2 vCPU
 Object Storage (~200 ГБ):                  ~200 ₽/мес
 ─────────────────────────────────────────────────────
-Итого:                                    ~6 500 ₽/мес
+Итого:                                    ~6 650 ₽/мес
 ```
 
 ---
@@ -84,10 +84,15 @@ Object Storage (~200 ГБ):                  ~200 ₽/мес
 
 ### 2.1. Создать VM
 
+> **Урок L7 (PS 5.1 + yc):** все вызовы `yc` ниже идут через helper
+> `Invoke-Yc` (определён в Bronze SOP §0.3). Он оборачивает вызов в
+> `cmd /c "yc ... 2>&1"`, сливая stderr в stdout — иначе PS 5.1 ломается
+> даже на успешных командах. Скопируйте `Invoke-Yc` в свой `$PROFILE`.
+
 ```powershell
 $Env:MSP_AUTO_NAME = 'msp-automation'
 
-yc compute instance create `
+Invoke-Yc compute instance create `
     --name $Env:MSP_AUTO_NAME `
     --folder-id $Env:MSP_FOLDER_ID `
     --zone $Env:MSP_ZONE `
@@ -97,12 +102,15 @@ yc compute instance create `
     --core-fraction 100 `
     --memory 4GB `
     --ssh-key "$Env:MSP_SSH_KEY.pub"
-# Для теста добавьте --preemptible. Для production не использовать.
-# ⚠️ УРОК ИЗ ДЕПЛОЯ: если VM preemptible — обязательно резервируйте static IP
+# Для теста добавьте --preemptible. Для production Silver не использовать
+# (Silver подразумевает SLA + HA, preemptible режется YC раз в 24ч).
+# ⚠️ УРОК L5: если VM preemptible — обязательно резервируйте static IP
 # (+190₽/мес). Без static IP IP меняется при рестарте → DNS устаревает.
+# core-fraction <50% недоступен для 2 vCPU (API вернёт ошибку).
 # См. Bronze SOP §2.2 и deploy/yandex/README.md §10.0.3.
 
-$vm = yc compute instance get $Env:MSP_AUTO_NAME --format json | ConvertFrom-Json
+$vmJson = (Invoke-Yc compute instance get $Env:MSP_AUTO_NAME --format json) -join "`n"
+$vm = $vmJson | ConvertFrom-Json
 $Env:MSP_AUTO_IP = $vm.network_interfaces[0].primary_v4_address.address
 Write-Host "Automation VM internal IP: $Env:MSP_AUTO_IP"
 ```
@@ -524,9 +532,11 @@ ssh msp-automation `
 ### 7.4. Снапшоты обеих VM
 
 ```powershell
+# Урок L7: yc через Invoke-Yc (см. Bronze SOP §0.3)
 foreach ($name in @($Env:MSP_VM_NAME, $Env:MSP_AUTO_NAME)) {
-    $diskId = (yc compute instance get $name --folder-id $Env:MSP_FOLDER_ID --format json | ConvertFrom-Json).boot_disk.disk_id
-    yc compute snapshot create `
+    $instJson = (Invoke-Yc compute instance get $name --folder-id $Env:MSP_FOLDER_ID --format json) -join "`n"
+    $diskId = ($instJson | ConvertFrom-Json).boot_disk.disk_id
+    Invoke-Yc compute snapshot create `
         --name "$name-$(Get-Date -Format yyyyMMdd-HHmm)" `
         --source-disk-id $diskId `
         --folder-id $Env:MSP_FOLDER_ID `

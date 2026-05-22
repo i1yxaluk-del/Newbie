@@ -1,9 +1,18 @@
 # Продакшен-развёртывание лендинга `mspshield.ru`
 
+> ⚠️ **Два параллельных production-пути — выбирайте осознанно**
+>
+> В репозитории сосуществуют две ветки деплоя:
+>
+> 1. **Path A — single-VM, PowerShell + Caddy + Docker** (актуальная, отлажена в реальном проде, май 2026). Один preemptible VM ~1 676 ₽/мес. См. [`deploy/yandex/README.md`](../../deploy/yandex/README.md) и [`technical/1_Bronze/EXECUTOR/SOP_executor_bronze.md`](../../technical/1_Bronze/EXECUTOR/SOP_executor_bronze.md). **Содержит все уроки деплоя** (overlay2, static IP, SSH host keys, acme_ca, и т.д.).
+> 2. **Path B — Terraform + Ansible + nginx + certbot, 2 VM** (этот документ). Классический IaC-подход, лучше масштабируется, но не отражает уроки реального деплоя май 2026.
+>
+> Если разворачиваете Bronze впервые → используйте **Path A**. Path B применим для Silver/Gold с требованием HA. Применённые ниже точечные правки (L1/L6/L8) делают Path B минимально безопасным, но полный паритет с Path A не достигнут.
+
 Цель: поднять публичный сайт на Yandex Cloud, чтобы `https://mspshield.ru` отдавал лендинг с валидным SSL, форма заявки писала в MongoDB, Telegram- и/или MAX-бот получал уведомления.
 
 **Время:** 4–6 часов (первый раз).
-**Стоимость:** ~2 500–4 000 ₽/мес (2 VM + Object Storage + domain).
+**Стоимость:** ~3 000–4 500 ₽/мес (2 VM × ~1 500 ₽ + Object Storage + domain). Path A дешевле — ~1 676 ₽/мес (single preemptible VM).
 **Предпосылка:** локально всё работает ([`local_dev.md`](local_dev.md)).
 **Когда делать:** спринт 2 Этапа 4 (см. [`../roadmap/etape_4_sprints.md`](../roadmap/etape_4_sprints.md)).
 
@@ -202,11 +211,21 @@ ansible all -m ping
 Host mspshield-bastion
     HostName <bastion_public_ip>
     User ubuntu
+    # Урок L6: если bastion preemptible — host keys меняются при рестарте.
+    # Раскомментируйте две строки ниже для preemptible-VM:
+    # StrictHostKeyChecking no
+    # UserKnownHostsFile /dev/null
 
 Host 10.10.0.*
     ProxyJump mspshield-bastion
     User ubuntu
 ```
+
+> ⚠️ **Урок из деплоя (L6 — SSH host keys на preemptible):** preemptible-VM
+> Yandex Cloud меняет host keys при каждом рестарте → `REMOTE HOST IDENTIFICATION
+> HAS CHANGED`. Если используете preemptible (Path A или Path B с
+> `preemptible = true` в Terraform), добавьте `StrictHostKeyChecking no` +
+> `UserKnownHostsFile /dev/null` в SSH-config или передавайте `-o`-флагами.
 
 ### 5.2. Запуск site.yml
 
@@ -224,6 +243,13 @@ Playbook поставит:
 - Prometheus node_exporter на 9100.
 
 Время: ~10–15 минут.
+
+> ⚠️ **Урок из деплоя (L1 — Docker overlay2):** если позже добавите Docker
+> (cAdvisor, locally-built backend image и т.п.) — Docker 29+ на Ubuntu 22.04
+> по умолчанию использует overlayfs storage driver, и cAdvisor не видит
+> контейнеры. Cloud-init для landing-VM в [`infra/terraform/cloud-init/landing.yaml`](../../infra/terraform/cloud-init/landing.yaml)
+> уже пишет `/etc/docker/daemon.json` с `{"storage-driver":"overlay2"}` —
+> убедитесь, что `docker info --format '{{.Driver}}'` возвращает `overlay2`.
 
 ### 5.3. Верификация
 
@@ -245,6 +271,13 @@ sudo systemctl status nginx mongodb mspshield-backend
 - A-запись `mspshield.ru` → `<landing_public_ip>`.
 - A-запись `www.mspshield.ru` → `<landing_public_ip>`.
 - TTL 300.
+
+> ⚠️ **Урок из деплоя (L8 — опечатка домена):** проверьте побуквенно,
+> что в DNS, в `nginx` конфиге и в команде `certbot` стоит **одинаковый**
+> домен. Опечатка вида `mcp-claude.online` вместо `msp-claude.online` в Caddy
+> приводит к silent fallback на staging Let's Encrypt CA — браузеры
+> отвергают cert, потеряно ~2 часа. У certbot такого тихого fallback нет,
+> но `dns_challenge`/HTTP-01 просто молча упадёт по NXDOMAIN — урок тот же.
 
 Дождаться распространения:
 

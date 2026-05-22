@@ -1,7 +1,10 @@
 # ═══════════════════════════════════════════════════════════════════
 # Prod-стек на VM в Yandex Cloud:
 #   mongo    — БД (volume на host, expose только в docker-сеть)
-#   backend  — FastAPI (expose 127.0.0.1:8001, Caddy на хосте проксирует)
+#   backend  — FastAPI (bind 0.0.0.0:8001 на хосте; UFW закрывает 8001
+#              извне; Caddy на хосте проксирует /api/ → 8001;
+#              monitoring-стек (Prometheus) скрейпит через имя `backend`
+#              в Docker-сети msp_default — см. урок M1/M3 в CHANGELOG).
 #
 # Запуск:  cd /opt/msp/Newbie/deploy/yandex && docker compose up -d
 # Логи:    docker compose logs -f

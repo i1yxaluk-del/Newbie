@@ -20,6 +20,10 @@ client_linux
 client_windows
 
 [client_all:vars]
-# Общие переменные для всех серверов клиента
-ansible_ssh_common_args='-o StrictHostKeyChecking=no -o ConnectTimeout=30'
+# Общие переменные для всех серверов клиента.
+# Урок L6 (SSH host keys на preemptible/перенесённых VM): добавляем
+# UserKnownHostsFile=/dev/null, чтобы не падать с "REMOTE HOST IDENTIFICATION
+# HAS CHANGED" после рестарта/пересоздания клиентских VM.
+# (control node — Linux Ansible Automation VM; для Windows-control используйте NUL).
+ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=30'
 ansible_ssh_private_key_file=~/.ssh/id_ed25519

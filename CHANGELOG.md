@@ -1,5 +1,70 @@
 # CHANGELOG
 
+## v5.1 — 2026-05 · "Deployment lessons from real prod deploy"
+
+Кодификация 12 уроков из реального деплоя одиночной preemptible-VM в Yandex
+Cloud + проброса метрик в Grafana (май 2026). См. PR #41, PR #42 и audit
+отчёт `repo_audit_deployment_lessons.md` (не в репо).
+
+### Fixed (PR #41 — `fix: deployment lessons from real deploy`)
+
+- **L1 (Docker overlay2):** Docker 29+ на Ubuntu 22.04 по умолчанию
+  использует overlayfs storage driver → cAdvisor не видит контейнеры.
+  Принудительно `/etc/docker/daemon.json: {"storage-driver":"overlay2"}`
+  через cloud-init **до** первого старта Docker.
+  - `deploy/yandex/cloud-init.yaml`, Bronze SOP §3, Gold SOP, Gold complete.
+- **L2 (cAdvisor v0.49.1 → v0.51.0):** v0.49 не поддерживает overlayfs.
+  - `technical/0_Common/docker/.env.example`, `deploy/yandex/monitoring/`.
+- **L3 (cAdvisor mount):** `/var/lib/docker/` нужно мапить как
+  `/rootfs/var/lib/docker:ro` + bind `docker.sock`.
+- **L4 (cAdvisor `--disable_metrics`):** длинный список ломает запуск.
+  Сокращено до `percpu,sched,tcp,udp`.
+- **L5 (preemptible + static IP):** preemptible VM меняет IP при рестарте,
+  + `core-fraction 20%` недоступен для 2 vCPU (минимум 50%).
+  - `deploy/yandex/deploy.ps1` (флаг `-UseStaticIp`), Bronze SOP §2.2,
+    `docs/audit/v4.2_tariff_review.md` (новый тариф ~1 676 ₽/мес).
+- **L6 (SSH host keys на preemptible):** `-o StrictHostKeyChecking=no`
+  `-o UserKnownHostsFile=NUL` (/dev/null на Linux) во всех SSH/SCP.
+  - Helpers `msp-ssh`/`msp-bash`, ssh-config примеры.
+- **L7 (PS 5.1 + yc stderr):** обёртка `cmd /c "yc ... 2>&1"`.
+  - `deploy/yandex/deploy.ps1`, Bronze/Silver/Gold SOP (helper `Invoke-Yc`).
+- **L8 (Caddy + опечатка домена):** silent fallback на staging
+  Let's Encrypt CA при NXDOMAIN. Фикс — `acme_ca` global-блок в Caddyfile.
+
+### Fixed (PR #42 — мониторинг через Docker DNS)
+
+- **M1 (backend bind):** `127.0.0.1:8001` → `0.0.0.0:8001`, чтобы
+  Prometheus в отдельном compose-стеке мог скрейпить backend.
+  Порт остаётся закрыт UFW снаружи.
+- **M2 (внешняя Docker-сеть):** `monitoring/docker-compose.yml` подключён
+  к `msp_default` (external: true) для Docker DNS.
+- **M3 (DNS-имя вместо IP):** Prometheus target
+  `mspshield-backend` → `backend:8001` (а не `172.17.0.1:8001`).
+- **M4:** дублирующийся `networks:` ключ в YAML объединён.
+
+### Closed in this PR (v5.1)
+
+- **P0** `infra/terraform/cloud-init/landing.yaml` — добавлен write_files
+  блок с `/etc/docker/daemon.json: {"storage-driver":"overlay2"}` (L1).
+- **P1** `docs/deployment/landing_production.md` — добавлен баннер про
+  Path A vs Path B + врезки с уроками L1/L6/L8 в релевантные шаги.
+- **P1** Bronze SOP — введён helper `Invoke-Yc`, все `yc` обёрнуты,
+  основной flow создания VM теперь включает резерв static IP +
+  `--preemptible`. Сломанная ссылка §5.4 на несуществующий
+  `monitoring-stack/` исправлена на `technical/0_Common/docker/...`.
+- **P1** Silver SOP — `yc` обёрнут в `Invoke-Yc`, cost table обновлена
+  (`Bastion VM 2 vCPU 5%` → `50%`, ~600 ₽ → ~750 ₽).
+- **P2** Gold SOP — `yc` обёрнут, cost table обновлена.
+- **P2** Ansible inventory шаблон + `onboard_client.sh` — добавлен
+  `UserKnownHostsFile=/dev/null` в `ansible_ssh_common_args`.
+- **P2** `technical/0_Common/monitoring/prometheus.yml` — добавлен
+  комментарий про Path A (Docker DNS `backend:8001`) vs Path B
+  (host-loopback `127.0.0.1:8001`).
+- **P3** `deploy/yandex/docker-compose.yml` header и `deploy/yandex/Caddyfile`
+  — обновлены устаревшие комментарии про `127.0.0.1:8001:8001`.
+
+---
+
 ## v5.0 — 2026-05 · "PowerShell-first SOPs + Yandex-friendly mail"
 
 Полная переработка SOP-инструкций под администратора, работающего с

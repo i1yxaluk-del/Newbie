@@ -196,7 +196,9 @@ client_linux
 client_windows
 
 [client_all:vars]
-ansible_ssh_common_args='-o StrictHostKeyChecking=no -o ConnectTimeout=30'
+# Урок L6: добавляем UserKnownHostsFile=/dev/null против "REMOTE HOST
+# IDENTIFICATION HAS CHANGED" после рестарта/пересоздания клиентских VM.
+ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=30'
 ansible_ssh_private_key_file=~/.ssh/id_ed25519
 EOF
 

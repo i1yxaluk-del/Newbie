@@ -17,6 +17,19 @@ users:
     sudo: ALL=(ALL) NOPASSWD:ALL
     shell: /bin/bash
 
+write_files:
+  # УРОК ИЗ ДЕПЛОЯ (L1): Docker 29+ на Ubuntu 22.04 по умолчанию использует
+  # overlayfs storage driver (containerd snapshotter). cAdvisor не может
+  # читать /var/lib/docker/image/overlayfs/layerdb/mounts/ с этим драйвером
+  # → все контейнеры невидимы в Grafana.
+  # Фикс: storage-driver: overlay2 ДО первого старта Docker.
+  # Подробности — deploy/yandex/README.md §10.0.1 и Bronze SOP §3.
+  - path: /etc/docker/daemon.json
+    content: |
+      {"storage-driver": "overlay2"}
+    owner: root:root
+    permissions: '0644'
+
 runcmd:
   - ufw default deny incoming
   - ufw default allow outgoing
@@ -25,5 +38,7 @@ runcmd:
   - ufw allow 443/tcp
   - ufw --force enable
   - systemctl enable --now fail2ban
+  # daemon.json уже на месте (write_files выше) — Docker сразу стартует
+  # с overlay2 storage-driver, без необходимости рестарта.
   - systemctl enable --now docker
   - dpkg-reconfigure -plow unattended-upgrades

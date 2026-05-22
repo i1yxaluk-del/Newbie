@@ -104,7 +104,9 @@ mail.{$MSP_DOMAIN} {
     }
 
     # API → backend (FastAPI + uvicorn в Docker)
-    # Порт 8001 проброшен как 127.0.0.1:8001:8001 в docker-compose
+    # Порт 8001 проброшен как 0.0.0.0:8001:8001 в docker-compose (Caddy идёт
+    # через хостовой loopback; UFW закрывает 8001 извне, monitoring-стек
+    # ходит через Docker-сеть msp_default по имени `backend`). См. CHANGELOG v5.1.
     handle /api/* {
         reverse_proxy 127.0.0.1:8001 {
             # Передаём реальный IP клиента (иначе backend видит 127.0.0.1)

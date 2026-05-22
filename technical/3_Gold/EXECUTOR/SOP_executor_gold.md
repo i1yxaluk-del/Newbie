@@ -53,11 +53,11 @@ WINDOWS 10 АДМИН-СТАНЦИЯ                YANDEX CLOUD
 ```
 Monitoring VM:    ~3 800 ₽/мес
 Automation VM:    ~1 900 ₽/мес
-Bastion VM:         ~600 ₽/мес
+Bastion VM:         ~750 ₽/мес   # урок L5: 2 vCPU × 50% (минимум)
 Wazuh VM:         ~8 500 ₽/мес
 Object Storage:     ~300 ₽/мес
 ─────────────────────────────────────
-Итого:           ~14 800 ₽/мес (окупается при 15+ клиентах)
+Итого:           ~14 950 ₽/мес (окупается при 15+ клиентах)
 ```
 
 ---
@@ -81,10 +81,15 @@ Object Storage:     ~300 ₽/мес
 
 ### 2.2. Создать VM
 
+> **Урок L7 (PS 5.1 + yc):** `yc` вызывается через helper `Invoke-Yc`
+> (определён в Bronze SOP §0.3) — PS 5.1 превращает stderr в ErrorRecord
+> и ломает скрипт даже на успешных командах. Скопируйте `Invoke-Yc`
+> в свой `$PROFILE`.
+
 ```powershell
 $Env:MSP_WAZUH_NAME = 'msp-wazuh'
 
-yc compute instance create `
+Invoke-Yc compute instance create `
     --name $Env:MSP_WAZUH_NAME `
     --folder-id $Env:MSP_FOLDER_ID `
     --zone $Env:MSP_ZONE `
@@ -93,7 +98,8 @@ yc compute instance create `
     --cores 8 --core-fraction 100 --memory 16GB `
     --ssh-key "$Env:MSP_SSH_KEY.pub"
 
-$vm = yc compute instance get $Env:MSP_WAZUH_NAME --format json | ConvertFrom-Json
+$vmJson = (Invoke-Yc compute instance get $Env:MSP_WAZUH_NAME --format json) -join "`n"
+$vm = $vmJson | ConvertFrom-Json
 $Env:MSP_WAZUH_IP = $vm.network_interfaces[0].primary_v4_address.address
 Write-Host "Wazuh VM internal IP: $Env:MSP_WAZUH_IP"
 ```

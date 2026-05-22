@@ -46,6 +46,12 @@ scrape_configs:
   - job_name: mspshield-backend
     metrics_path: /metrics
     static_configs:
+      # Этот Prometheus работает Path B (host-network, systemd-uvicorn).
+      # backend слушает 127.0.0.1:8001 локально → таргет = host loopback.
+      # Если переносите этот Prometheus в Docker compose (Path A,
+      # backend в контейнере) — смените на "backend:8001" и подключитесь
+      # к внешней сети msp_default (см. deploy/yandex/monitoring/).
+      # Урок M3 (PR #42): не использовать docker0 bridge 172.17.0.1.
       - targets: ["127.0.0.1:8001"]
 
   - job_name: wireguard

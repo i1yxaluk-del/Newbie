@@ -31,7 +31,7 @@
 
 <Имя>
 MSPShield
-+7 ... · hello@mspshield.ru · mspshield.ru
++7 ... · sales@msp-claude.online · msp-claude.online
 ```
 
 ---

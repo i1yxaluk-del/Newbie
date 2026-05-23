@@ -7,7 +7,7 @@ services:
     image: vaultwarden/server:latest
     restart: unless-stopped
     environment:
-      DOMAIN: https://vault.mspshield.ru
+      DOMAIN: https://vault.msp-claude.online
       SIGNUPS_ALLOWED: "false"         # invites only
       INVITATIONS_ALLOWED: "true"
       ADMIN_TOKEN: ${VAULTWARDEN_ADMIN_TOKEN}  # from env/secret store

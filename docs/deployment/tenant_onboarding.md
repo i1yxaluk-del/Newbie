@@ -215,7 +215,7 @@ sudo nano /etc/alertmanager/alertmanager.yml
 #         bot_token_file: /etc/alertmanager/tg_bot_token
 #         chat_id: -1001234567890
 #     webhook_configs:                                     # если клиент выбрал MAX (либо оба)
-#       - url: https://msp-oblako.ru/api/alerts/alertmanager
+#       - url: https://msp-claude.online/api/alerts/alertmanager
 #         http_config:
 #           authorization:
 #             type: Bearer

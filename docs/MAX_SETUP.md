@@ -135,7 +135,7 @@ MAX_BOT_TOKEN=mb-aBcD...              # из @MasterBot
 MAX_ALERT_CHAT_ID=123456789           # ваш user_id или id группы
 MAX_WEBHOOK_SECRET=$(openssl rand -hex 32)
 MAX_BOT_USERNAME=msp_oblako_bot       # без @
-LANDING_URL=https://msp-oblako.ru     # для кнопки в боте (опционально)
+LANDING_URL=https://msp-claude.online     # для кнопки в боте (опционально)
 ```
 
 Перезапустите backend. Эндпоинт `/api/integrations/status` теперь
@@ -155,7 +155,7 @@ LANDING_URL=https://msp-oblako.ru     # для кнопки в боте (опц�
 > MAX требует **HTTPS на порту 443 с валидным TLS** (не self-signed).
 > Локально это не работает — см. раздел [11](#11-локальная-разработка-без-https).
 
-Когда backend задеплоен на ваш домен (например, `msp-oblako.ru` через
+Когда backend задеплоен на ваш домен (например, `msp-claude.online` через
 nginx → uvicorn — конфиг есть в `deploy/nginx/mspshield.conf`),
 зарегистрируйте webhook:
 
@@ -163,7 +163,7 @@ nginx → uvicorn — конфиг есть в `deploy/nginx/mspshield.conf`),
 
 ```bash
 MAX_BOT_TOKEN=mb-aBcD... \
-MAX_WEBHOOK_URL=https://msp-oblako.ru/api/max/webhook \
+MAX_WEBHOOK_URL=https://msp-claude.online/api/max/webhook \
 MAX_WEBHOOK_SECRET=$(grep MAX_WEBHOOK_SECRET backend/.env | cut -d= -f2) \
 python scripts/max_setup_webhook.py
 ```
@@ -188,7 +188,7 @@ curl -X POST "https://platform-api.max.ru/subscriptions" \
   -H "Authorization: $MAX_BOT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "url": "https://msp-oblako.ru/api/max/webhook",
+    "url": "https://msp-claude.online/api/max/webhook",
     "secret": "'"$MAX_WEBHOOK_SECRET"'",
     "update_types": ["message_created", "message_callback", "bot_started"]
   }'
@@ -292,7 +292,7 @@ ALERTMANAGER_WEBHOOK_TOKEN=$(openssl rand -hex 32)
 receivers:
   - name: msp-max-tg
     webhook_configs:
-      - url: 'https://msp-oblako.ru/api/alerts/alertmanager'
+      - url: 'https://msp-claude.online/api/alerts/alertmanager'
         send_resolved: true
         http_config:
           authorization:
@@ -323,7 +323,7 @@ env: `prod`
 severity: `critical`
 time: `2026-05-06 03:47:12 UTC`
 
-[runbook](https://docs.msp-oblako.ru/runbooks/R-01-host-down) · [graph](http://prom/...)
+[runbook](https://docs.msp-claude.online/runbooks/R-01-host-down) · [graph](http://prom/...)
 ```
 
 Severity mapping:
@@ -338,7 +338,7 @@ Severity mapping:
 ### 10.4. Тест без Prometheus
 
 ```bash
-curl -X POST https://msp-oblako.ru/api/alerts/alertmanager \
+curl -X POST https://msp-claude.online/api/alerts/alertmanager \
   -H "Authorization: Bearer $ALERTMANAGER_WEBHOOK_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -383,7 +383,7 @@ long-polling endpoint. Минимальный скрипт-полл (не вхо
 покрывают custom subdomain). Cloudflared — да, работает.
 
 **C. Тестировать на staging.** В Yandex Cloud разверните второй
-backend с поддоменом `staging.msp-oblako.ru` и отдельным MAX-ботом
+backend с поддоменом `staging.msp-claude.online` и отдельным MAX-ботом
 с суффиксом `_dev`. Регистрируйте webhook на staging-домен.
 
 ## 12. Типичные ошибки

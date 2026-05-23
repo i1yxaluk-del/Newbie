@@ -8,7 +8,7 @@
 # Что нужно подставить:
 #   1. ${BACKEND_HOST}                  — публичный домен с TLS, на котором
 #                                         развёрнут backend (например
-#                                         https://msp-oblako.ru).
+#                                         https://msp-claude.online).
 #   2. ${ALERTMANAGER_WEBHOOK_TOKEN}    — токен из backend/.env (тот же
 #                                         что в `ALERTMANAGER_WEBHOOK_TOKEN`).
 #   3. SMTP/PagerDuty receiver-ы НЕ настроены — добавляйте по необходимости.

@@ -1,5 +1,5 @@
 ---
-nginx_server_name: mspshield.ru
+nginx_server_name: msp-claude.online
 nginx_certbot_email: ""
 nginx_backend_upstream: "http://127.0.0.1:8001"
 nginx_static_root: /var/www/mspshield

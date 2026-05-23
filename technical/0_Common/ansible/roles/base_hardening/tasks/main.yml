@@ -30,7 +30,7 @@
 
 - name: audit rules (PCI-like identity/privileged)
   ansible.builtin.copy:
-    dest: /etc/audit/rules.d/99-mspshield.rules
+    dest: /etc/audit/rules.d/99-msp-claude.onlineles
     mode: "0640"
     content: |
       -w /etc/passwd -p wa -k identity

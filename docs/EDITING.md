@@ -1,7 +1,7 @@
 # Редактирование лендинга — руководство
 
 Этот документ — единственная точка входа для всех, кто меняет текст,
-тарифы, иконки, ссылки или цвета на главной странице **mspshield.ru** (бренд
+тарифы, иконки, ссылки или цвета на главной странице **msp-claude.online** (бренд
 МСП Облако).
 
 Для всего, что описано ниже, **не нужно знать React** — весь редактируемый
@@ -54,7 +54,7 @@ override есть — он применяется поверх. Это нужн�
 
 ### Вход
 
-1. Откройте `https://mspshield.ru/admin/landing-edit` (на dev: `http://localhost:3000/admin/landing-edit`).
+1. Откройте `https://msp-claude.online/admin/landing-edit` (на dev: `http://localhost:3000/admin/landing-edit`).
 2. Введите тот же пароль, что у `/admin/leads` (значение `ADMIN_TOKEN` на бэкенде).
 3. Если уже залогинены в `/admin/leads`, редактор откроется сразу — JWT
    общий.
@@ -227,7 +227,7 @@ StackPanel). Можно менять `tab`, `title`, `em`, `bullets`.
   "tagline": "© 2026 МСП Облако · Управляемый IT-сервис",
   "legal":   "ИП Иванов И.И. · ИНН ... · ОГРНИП ...",
   "docs":    [{ "href": "/docs/privacy.html", "label": "..." }, ...],
-  "email":   "hello@mspshield.ru",
+  "email":   "sales@msp-claude.online",
   "telegram":{ "href": "https://t.me/mspshield", "label": "@mspshield" }
 }
 ```
@@ -427,7 +427,7 @@ yarn build
 # build/ готов к деплою на nginx / Vercel / static-хост
 ```
 
-После деплоя проверьте `https://mspshield.ru/` — изменения видны всем
+После деплоя проверьте `https://msp-claude.online/` — изменения видны всем
 посетителям, не зависят от их localStorage.
 
 ---

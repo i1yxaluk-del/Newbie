@@ -11,7 +11,7 @@
 
 Запуск:
     MAX_BOT_TOKEN=xxx \\
-    MAX_WEBHOOK_URL=https://msp-oblako.ru/api/max/webhook \\
+    MAX_WEBHOOK_URL=https://msp-claude.online/api/max/webhook \\
     MAX_WEBHOOK_SECRET=$(openssl rand -hex 32) \\
     python scripts/max_setup_webhook.py
 

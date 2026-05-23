@@ -21,12 +21,12 @@
 - `alertmanager_tg_chat_id_general` (vault, required если TG) — основной канал
 - `alertmanager_tg_chat_id_p1`      (vault, required если TG) — P1-oncall канал
 - `alertmanager_tg_chat_id_backup`  (vault, required если TG) — backup-сигналы
-- `alertmanager_max_webhook_url`    (default `https://msp-oblako.ru/api/alerts/alertmanager`) — endpoint backend’а
+- `alertmanager_max_webhook_url`    (default `https://msp-claude.online/api/alerts/alertmanager`) — endpoint backend’а
 - `alertmanager_max_webhook_token`  (vault, required если включён MAX-канал) — Bearer-токен для вызова backend (`ALERTMANAGER_WEBHOOK_TOKEN`)
 - `alertmanager_smtp_password` (vault, required)
-- `alertmanager_smtp_from`       (default `alerts@mspshield.ru`)
+- `alertmanager_smtp_from`       (default `alert@msp-claude.online`)
 - `alertmanager_smtp_smarthost`  (default `smtp.yandex.ru:587`)
-- `alertmanager_email_p3_to`     (default `alerts@mspshield.ru`)
+- `alertmanager_email_p3_to`     (default `alert@msp-claude.online`)
 
 > Выбор каналов делается в `backend/.env` через `ALERT_CHANNELS=max,telegram` (или один из). Alertmanager шлёт всегда на backend — backend решает куда fan-out‘ить.
 

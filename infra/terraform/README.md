@@ -49,8 +49,8 @@ Outputs:
 ## После apply (Ansible)
 
 1. `ansible-playbook -i inventory/prod.yml playbooks/site.yml`.
-2. `certbot --nginx -d mspshield.ru -d www.mspshield.ru`.
-3. Smoke-test: `curl https://mspshield.ru/api/health`.
+2. `certbot --nginx -d msp-claude.online -d www.msp-claude.online`.
+3. Smoke-test: `curl https://msp-claude.online/api/health`.
 
 ## Destroy (аккуратно)
 

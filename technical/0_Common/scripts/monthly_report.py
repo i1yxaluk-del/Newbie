@@ -78,7 +78,7 @@ TEMPLATE = """# Ежемесячный отчёт MSPShield — {tenant}
 
 ---
 
-*Отчёт сформирован автоматически. Контакт: support@mspshield.ru*
+*Отчёт сформирован автоматически. Контакт: admin@msp-claude.online*
 """
 
 

@@ -7,13 +7,13 @@
 
 ---
 
-## Сценарий 1: Лендинг недоступен (https://mspshield.ru не открывается)
+## Сценарий 1: Лендинг недоступен (https://msp-claude.online не открывается)
 
 ### Первые 5 минут
 
 ```bash
 # 1. Проверить DNS:
-dig +short mspshield.ru
+dig +short msp-claude.online
 # Должен быть <landing_public_ip>
 
 # 2. Проверить доступность по IP:
@@ -33,11 +33,11 @@ sudo systemctl status nginx mspshield-backend mongodb
 | Симптом | Причина | Фикс |
 |---------|---------|------|
 | `502 Bad Gateway` | FastAPI упал | `sudo systemctl restart mspshield-backend` → смотреть `journalctl -u mspshield-backend -n 100` |
-| `SSL_ERROR` в браузере | Сертификат истёк | `sudo certbot renew --force-renewal -d mspshield.ru` |
+| `SSL_ERROR` в браузере | Сертификат истёк | `sudo certbot renew --force-renewal -d msp-claude.online` |
 | `ERR_CONNECTION_REFUSED` | nginx упал | `sudo systemctl restart nginx` |
 | `404` на корне | Пропал build | Передеплоить frontend: `ansible-playbook playbooks/site.yml --limit landing --tags frontend` |
 | Timeout по IP | VM упала / Yandex Cloud-проблема | Проверить в консоли Yandex Cloud; если VM running — `ssh` с verbose; если stopped — `yc compute instance start` |
-| DNS не резолвится | У регистратора проблема | Проверить `dig @ns1.reg.ru mspshield.ru`; в крайнем случае — временно на публичный IP |
+| DNS не резолвится | У регистратора проблема | Проверить `dig @ns1.reg.ru msp-claude.online`; в крайнем случае — временно на публичный IP |
 
 ### Эскалация
 
@@ -121,7 +121,7 @@ sudo chown -R mongodb:mongodb /var/lib/mongodb
 sudo systemctl start mongodb mspshield-backend
 
 # 5. Проверить:
-curl -H "X-Admin-Token: ..." https://mspshield.ru/api/leads | jq length
+curl -H "X-Admin-Token: ..." https://msp-claude.online/api/leads | jq length
 ```
 
 ---

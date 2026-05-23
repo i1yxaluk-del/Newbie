@@ -19,7 +19,7 @@
 **Ваш дежурный контакт:**
 
 - 💬 **Обычные вопросы**: @MspShieldSupport (Telegram) · @msp_oblako_bot (MAX)
-- 📧 **Email**: support@mspshield.ru
+- 📧 **Email**: admin@msp-claude.online
 - 🚨 **P1 срочные аварии** — см. блок SLA ниже (у каждого тарифа свои каналы)
 
 ### Как оценить срочность и SLA реакции
@@ -34,7 +34,7 @@
 | **P3 Средне** | 1 пользователь не может что-то | ≤ **4 ч** | ≤ 2 раб. дн |
 | **P4 Низко** | «Как настроить?» | ≤ **1 раб. дн** | ≤ 5 раб. дн |
 
-**Каналы связи:** Telegram @MspShieldOps (primary) · MAX @msp_oblako_bot (альтернатива для РФ) · email support@mspshield.ru · звонок для P1 (+7…). Клиент выбирает один предпочтительный мессенджер при онбординге (или оба).
+**Каналы связи:** Telegram @MspShieldOps (primary) · MAX @msp_oblako_bot (альтернатива для РФ) · email admin@msp-claude.online · звонок для P1 (+7…). Клиент выбирает один предпочтительный мессенджер при онбординге (или оба).
 <!-- BRONZE-SLA-END -->
 
 <!-- SILVER-SLA-START · оставь ТОЛЬКО этот блок, остальные два удали если клиент Silver -->
@@ -60,15 +60,15 @@
 | **P3 Средне** | Локальный инцидент | ≤ **1 ч** | ≤ **4 ч** |
 | **P4 Низко** | Запрос на настройку | ≤ **2 ч** | ≤ 2 раб. дн |
 
-**Каналы связи:** 24/7 hotline +7… · Telegram @MspShieldOps · MAX @msp_oblako_bot (альтернатива для РФ) · email · osTicket https://tickets.mspshield.ru (self-service). Алёрты SIEM доставляются в выбранный мессенджер (`ALERT_CHANNELS=max,telegram` в backend).
+**Каналы связи:** 24/7 hotline +7… · Telegram @MspShieldOps · MAX @msp_oblako_bot (альтернатива для РФ) · email · osTicket https://tickets.msp-claude.online (self-service). Алёрты SIEM доставляются в выбранный мессенджер (`ALERT_CHANNELS=max,telegram` в backend).
 <!-- GOLD-SLA-END -->
 
 ### Что у вас есть
 
-- **Dashboard** — https://grafana.mspshield.ru/d/<your-id> (логин пришлём отдельно)
+- **Dashboard** — https://grafana.msp-claude.online/d/<your-id> (логин пришлём отдельно)
 - **Отчёты** — ежемесячный PDF в Яндекс.Диск (ссылка в первом отчёте)
-- **Runbook-ссылки** — https://docs.mspshield.ru/<your-workspace>
-- **Полный SLA** — [/docs/sla.html](https://mspshield.ru/docs/sla.html) (включая штрафы за нарушение SLA и кредиты клиенту)
+- **Runbook-ссылки** — https://docs.msp-claude.online/<your-workspace>
+- **Полный SLA** — [/docs/sla.html](https://msp-claude.online/docs/sla.html) (включая штрафы за нарушение SLA и кредиты клиенту)
 
 ### Что НЕ делайте
 
@@ -200,18 +200,18 @@ MSPShield — Managed Service Provider для СМБ в РФ. Мы управл�
 Если вы недовольны чем-либо:
 
 1. Сначала сообщите аккаунт-лидеру (`<имя>`).
-2. Эскалация — владельцу MSPShield (email: owner@mspshield.ru).
+2. Эскалация — владельцу MSPShield (email: admin@msp-claude.online).
 3. Формальная жалоба — зафиксируется в акте, с митигацией в 10 рабочих дней.
 
 **Вы можете расторгнуть договор** уведомлением за 60 дней. Offboarding (передача всех данных и доступов) — 10 рабочих дней.
 
 ### 12. Полезные ссылки
 
-- **SLA (полный):** https://mspshield.ru/docs/sla.html
-- **Политика ПД:** https://mspshield.ru/docs/privacy.html
-- **Оферта:** https://mspshield.ru/docs/offer.html
+- **SLA (полный):** https://msp-claude.online/docs/sla.html
+- **Политика ПД:** https://msp-claude.online/docs/privacy.html
+- **Оферта:** https://msp-claude.online/docs/offer.html
 - **Карта инцидентов (runbooks для клиента):** `<индивидуальная ссылка>`
-- **Статус-страница:** https://status.mspshield.ru
+- **Статус-страница:** https://status.msp-claude.online
 
 ---
 

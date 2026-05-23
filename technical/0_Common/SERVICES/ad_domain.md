@@ -63,7 +63,7 @@ AD у клиента — это:
 ```powershell
 # На каждом DC — windows_exporter с textfile collector + AD-специфичные метрики
 
-Invoke-WebRequest -Uri https://mspshield.ru/install/windows_exporter_dc.ps1 -OutFile dc_install.ps1
+Invoke-WebRequest -Uri https://msp-claude.online/install/windows_exporter_dc.ps1 -OutFile dc_install.ps1
 powershell -ExecutionPolicy Bypass -File dc_install.ps1
 
 # Скрипт:

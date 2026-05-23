@@ -19,7 +19,7 @@ groups:
         annotations:
           summary: 'Host {{ $labels.instance }} недоступен'
           description: 'Prometheus не получает метрики от {{ $labels.instance }} более 2 минут (job {{ $labels.job }}).'
-          runbook: 'https://docs.msp-oblako.ru/runbooks/R-01-host-down'
+          runbook: 'https://docs.msp-claude.online/runbooks/R-01-host-down'
 
       - alert: HighCPU
         expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
@@ -40,7 +40,7 @@ groups:
         annotations:
           summary: 'Диск / > 90% на {{ $labels.instance }}'
           description: 'Свободного места на корневом разделе менее 10%.'
-          runbook: 'https://docs.msp-oblako.ru/runbooks/R-03-disk-full'
+          runbook: 'https://docs.msp-claude.online/runbooks/R-03-disk-full'
 
   - name: msp.http
     rules:
@@ -57,7 +57,7 @@ groups:
         annotations:
           summary: '5xx errors > 0.5% на {{ $labels.job }}'
           description: 'Доля ответов 5xx за 2 минуты превысила 0.5%. Возможна деградация upstream.'
-          runbook: 'https://docs.msp-oblako.ru/runbooks/R-04-5xx-spike'
+          runbook: 'https://docs.msp-claude.online/runbooks/R-04-5xx-spike'
 
       - alert: BackupStale
         expr: time() - restic_last_snapshot_timestamp_seconds > 86400 * 2
@@ -68,4 +68,4 @@ groups:
         annotations:
           summary: 'Бэкап старее 48 часов: {{ $labels.repo }}'
           description: 'Restic snapshot в {{ $labels.repo }} не обновлялся более 48 часов.'
-          runbook: 'https://docs.msp-oblako.ru/runbooks/R-07-backup-stale'
+          runbook: 'https://docs.msp-claude.online/runbooks/R-07-backup-stale'

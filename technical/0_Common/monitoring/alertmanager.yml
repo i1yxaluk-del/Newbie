@@ -32,8 +32,8 @@
 global:
   resolve_timeout: 5m
   smtp_smarthost: "smtp.yandex.ru:587"
-  smtp_from: "alerts@mspshield.ru"
-  smtp_auth_username: "alerts@mspshield.ru"
+  smtp_from: "alert@msp-claude.online"
+  smtp_auth_username: "alert@msp-claude.online"
   smtp_auth_password_file: /etc/alertmanager/smtp_password
   smtp_require_tls: true
 
@@ -115,7 +115,7 @@ receivers:
   # ── Email WARNING (резервный канал для P3) ──
   - name: email_warning
     email_configs:
-      - to: alerts@mspshield.ru
+      - to: alert@msp-claude.online
         send_resolved: true
         headers:
           Subject: "[MSPShield P3] {{ .GroupLabels.alertname }} · {{ .GroupLabels.tenant }}"

@@ -76,7 +76,7 @@ diff <(grep ALERTMANAGER_WEBHOOK_TOKEN /etc/mspshield/backend.env | cut -d= -f2)
 curl -X POST -H "Authorization: Bearer $(cat /etc/alertmanager/max_webhook_token)" \
   -H "Content-Type: application/json" \
   -d '{"alerts":[{"status":"firing","labels":{"alertname":"TestMAX","severity":"warning"}}]}' \
-  https://mspshield.ru/api/alerts/alertmanager
+  https://msp-claude.online/api/alerts/alertmanager
 ```
 
 ## Terraform
@@ -182,14 +182,14 @@ sudo systemctl restart wg-quick@wg0
 
 ### `Failed authorization procedure: ... urn:acme:error:connection`
 
-Let's Encrypt не может достучаться до `http://mspshield.ru/.well-known/acme-challenge/`. Проверить:
+Let's Encrypt не может достучаться до `https://msp-claude.online/.well-known/acme-challenge/`. Проверить:
 
 1. nginx работает и отдаёт `/.well-known/` (смотреть `deploy/nginx/mspshield.conf`).
 2. DNS A-запись правильная.
 3. Фаервол пропускает 80.
 
 ```bash
-curl http://mspshield.ru/.well-known/acme-challenge/test
+curl https://msp-claude.online/.well-known/acme-challenge/test
 # Должен быть 404 от nginx, а не connection refused.
 ```
 
@@ -199,7 +199,7 @@ Let's Encrypt ratelimit — 5 неудачных попыток в час. Жд�
 
 ```bash
 # Использовать staging env для дебага:
-sudo certbot --staging --nginx -d mspshield.ru
+sudo certbot --staging --nginx -d msp-claude.online
 ```
 
 ## Backend

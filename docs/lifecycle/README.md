@@ -33,7 +33,7 @@
 Визуально:
 
 ```
-интернет → DNS (mspshield.ru) → nginx(443) → ┬─ frontend (React static)
+интернет → DNS (msp-claude.online) → nginx(443) → ┬─ frontend (React static)
                                              └─ backend (FastAPI) → MongoDB
                                                     │
                                                     └─ POST в Telegram / MAX (заявка)
@@ -43,14 +43,14 @@
 
 ## 1. Первый деплой — от нуля до публичного сайта
 
-**Результат:** `https://mspshield.ru` открывается в браузере, форма отправляется, заявка приходит в Telegram и/или MAX (по выбору, `ALERT_CHANNELS` в `backend/.env`).
+**Результат:** `https://msp-claude.online` открывается в браузере, форма отправляется, заявка приходит в Telegram и/или MAX (по выбору, `ALERT_CHANNELS` в `backend/.env`).
 **Время:** 2–3 часа первый раз (половина — ожидание DNS и Let's Encrypt).
 
 > Полный командный раннер живёт в `docs/deployment/landing_production.md`. Здесь — **его краткий пересказ с пояснениями, зачем каждый шаг**.
 
 ### 1.1 Что нужно подготовить заранее (30 мин)
 
-- [ ] Зарегистрирован домен **mspshield.ru** (или любой другой — дальше везде подставь свой).
+- [ ] Зарегистрирован домен **msp-claude.online** (или любой другой — дальше везде подставь свой).
 - [ ] Создан аккаунт **Yandex Cloud**, привязана карта, включён хотя бы один платёжный аккаунт ([console.cloud.yandex.ru](https://console.cloud.yandex.ru)).
 - [ ] Скачан `yc` CLI и выполнен `yc init` (это положит токен в `~/.config/yandex-cloud/config.yaml`).
 - [ ] Выбран хотя бы один канал уведомлений (Telegram или MAX — или оба):
@@ -76,16 +76,16 @@ terraform apply               # подтвердить yes
 У регистратора домена:
 
 ```
-A    mspshield.ru        → <IP из terraform output>
-A    www.mspshield.ru    → <тот же IP>
+A    msp-claude.online        → <IP из terraform output>
+A    www.msp-claude.online    → <тот же IP>
 ```
 
 Проверить, что DNS поехал:
 
 ```bash
-dig +short mspshield.ru          # должен вернуть твой IP
+dig +short msp-claude.online          # должен вернуть твой IP
 # или через публичный резолвер:
-dig @8.8.8.8 +short mspshield.ru
+dig @8.8.8.8 +short msp-claude.online
 ```
 
 Пока DNS не зарезолвился на всех резолверах — **не запускай certbot**, он не сможет выпустить сертификат.
@@ -132,7 +132,7 @@ cp ../backend/.env.example ../backend/.env
 nano ../backend/.env                          # заполнить MONGO_URL, TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID и/или MAX_BOT_TOKEN/MAX_ALERT_CHAT_ID, ADMIN_TOKEN
 
 # Frontend env:
-echo "REACT_APP_BACKEND_URL=https://mspshield.ru" > ../frontend/.env
+echo "REACT_APP_BACKEND_URL=https://msp-claude.online" > ../frontend/.env
 
 docker compose up -d --build
 docker compose ps                             # должно показать 3 сервиса Up
@@ -147,12 +147,12 @@ sudo cp /home/ubuntu/mspshield/deploy/nginx/mspshield.conf /etc/nginx/sites-avai
 sudo ln -s /etc/nginx/sites-available/mspshield /etc/nginx/sites-enabled/
 
 # ВАЖНО: certbot ДО nginx -t (потому что в конфиге уже прописаны пути к сертификату)
-sudo certbot --nginx -d mspshield.ru -d www.mspshield.ru --agree-tos -m you@example.com
+sudo certbot --nginx -d msp-claude.online -d www.msp-claude.online --agree-tos -m you@example.com
 
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-После этого `https://mspshield.ru` **открывается из интернета**.
+После этого `https://msp-claude.online` **открывается из интернета**.
 Certbot настраивает автообновление сертификата (`systemctl list-timers | grep certbot`).
 
 ### 1.8 Smoke-тест — работает ли всё
@@ -161,24 +161,24 @@ Certbot настраивает автообновление сертификат
 
 ```bash
 # 1. HTTPS + главная:
-curl -I https://mspshield.ru | head -3
+curl -I https://msp-claude.online | head -3
 # Ожидаем HTTP/2 200
 
 # 2. API здоровья:
-curl https://mspshield.ru/api/health
+curl https://msp-claude.online/api/health
 # Ожидаем {"status": "ok"}
 
 # 3. Форма — отправка заявки:
-curl -X POST https://mspshield.ru/api/leads \
+curl -X POST https://msp-claude.online/api/leads \
   -H 'Content-Type: application/json' \
   -d '{"company":"Test","contact":"Ivan","phone_or_email":"test@example.com","tariff":"Silver","consent":true,"website":""}'
 # Ожидаем {"ok": true, "id": "..."}
 
 # 4. Заявка пришла в Telegram/MAX? (проверить выбранный чат глазами)
 
-# 5. Админка — список заявок (в браузере — https://mspshield.ru/admin/leads):
+# 5. Админка — список заявок (в браузере — https://msp-claude.online/admin/leads):
 curl -H "X-Admin-Token: $(grep ADMIN_TOKEN backend/.env | cut -d= -f2)" \
-     https://mspshield.ru/api/leads | jq .
+     https://msp-claude.online/api/leads | jq .
 ```
 
 Если все 5 прошли — **лендинг в проде**.
@@ -218,7 +218,7 @@ docker exec -it deploy-mongo-1 mongosh mspshield
 > db.leads.aggregate([{$group: {_id: "$tariff", count: {$sum: 1}}}])
 ```
 
-Способ В — **веб-админка**: https://mspshield.ru/admin/leads — в форму вводишь `ADMIN_TOKEN` из `backend/.env`. Таблица заявок + смена статуса в drop-down.
+Способ В — **веб-админка**: https://msp-claude.online/admin/leads — в форму вводишь `ADMIN_TOKEN` из `backend/.env`. Таблица заявок + смена статуса в drop-down.
 
 Если вход не работает:
 | Симптом | Что случилось | Что делать |
@@ -245,8 +245,8 @@ docker exec -it deploy-mongo-1 mongosh mspshield
 Есть **3 уровня**, выбирай один в зависимости от зрелости:
 
 **Уровень 0 — ничего не ставим (подходит первые 1–2 недели):**
-- UptimeRobot (бесплатно, 50 мониторов): https://uptimerobot.com → добавь `https://mspshield.ru` и `https://mspshield.ru/api/health`. Алерт в Telegram или (через webhook на `/api/alerts/alertmanager`) в MAX.
-- Health-check cron на своём ноуте: `curl -f https://mspshield.ru/api/health || notify-send` — раз в минуту.
+- UptimeRobot (бесплатно, 50 мониторов): https://uptimerobot.com → добавь `https://msp-claude.online` и `https://msp-claude.online/api/health`. Алерт в Telegram или (через webhook на `/api/alerts/alertmanager`) в MAX.
+- Health-check cron на своём ноуте: `curl -f https://msp-claude.online/api/health || notify-send` — раз в минуту.
 
 Этого **достаточно для первого клиента**. Мониторинг клиента = отдельная история (см. `docs/deployment/tenant_onboarding.md`).
 
@@ -265,8 +265,8 @@ docker compose --profile monitoring up -d
 
 1. Открыть Telegram- и/или MAX-чат с заявками — пересчитать, сколько новых.
 2. `ssh ubuntu@10.10.0.2 && docker compose ps` — все ли сервисы Up.
-3. `curl https://mspshield.ru/api/health` — отвечает ли API.
-4. Посмотреть Let's Encrypt cert: `echo | openssl s_client -connect mspshield.ru:443 2>/dev/null | openssl x509 -noout -dates`. Если `notAfter` < 7 дней — certbot умер, см. траблшутинг.
+3. `curl https://msp-claude.online/api/health` — отвечает ли API.
+4. Посмотреть Let's Encrypt cert: `echo | openssl s_client -connect msp-claude.online:443 2>/dev/null | openssl x509 -noout -dates`. Если `notAfter` < 7 дней — certbot умер, см. траблшутинг.
 5. Записать в `docs/checklists/weekly.md` (или Kaiten) — «прошёл checklist».
 
 ---
@@ -407,7 +407,7 @@ Frontend не трогает — пользователь не увидит «м
 
 ```bash
 # 1. DNS живой?
-dig +short mspshield.ru
+dig +short msp-claude.online
 # Ожидаем твой IP. Если пусто — регистратор сбросил или TTL протух.
 
 # 2. VM жива?
@@ -436,19 +436,19 @@ docker compose logs frontend | tail -30       # ERROR при сборке?
 # 2. Посмотреть в браузере DevTools → Console — там точная ошибка.
 # Самая частая: REACT_APP_BACKEND_URL не задан → fetch падает с 404 на относительных путях.
 cat frontend/.env
-# Должно быть REACT_APP_BACKEND_URL=https://mspshield.ru
+# Должно быть REACT_APP_BACKEND_URL=https://msp-claude.online
 ```
 
 ### 4.3 Форма «крутится» бесконечно / не отправляется
 
 ```bash
 # 1. Backend отвечает?
-curl -v https://mspshield.ru/api/health
+curl -v https://msp-claude.online/api/health
 
 # 2. CORS не блокирует?
 # DevTools → Network → POST /api/leads → смотри статус.
 # CORS-ошибка = backend вернул без нужных Access-Control-*.
-# Фикс: backend/.env → CORS_ORIGINS=https://mspshield.ru
+# Фикс: backend/.env → CORS_ORIGINS=https://msp-claude.online
 
 # 3. Rate-limit не сработал?
 # Backend режет >10 req/мин с одного IP.
@@ -477,14 +477,14 @@ docker compose logs backend | grep -iE 'telegram|max'
 
 ```bash
 # Проверить дату истечения:
-echo | openssl s_client -connect mspshield.ru:443 2>/dev/null | openssl x509 -noout -dates
+echo | openssl s_client -connect msp-claude.online:443 2>/dev/null | openssl x509 -noout -dates
 
 # Форс-обновить:
 sudo certbot renew --force-renewal
 sudo systemctl reload nginx
 
 # Если certbot ругается «cannot obtain cert» — скорее всего DNS не резолвится
-# с публичных резолверов, проверь dig @8.8.8.8 mspshield.ru
+# с публичных резолверов, проверь dig @8.8.8.8 msp-claude.online
 ```
 
 ### 4.6 Mongo не стартует / «failed to connect»
@@ -537,7 +537,7 @@ docker compose logs mongo | tail -30
 Обновить сайт:            git pull && docker compose up -d --build
 Только backend:           docker compose up -d --no-deps --build backend
 Посмотреть заявки:        docker exec -it deploy-mongo-1 mongosh mspshield --eval 'db.leads.find()'
-Проверить здоровье:       curl https://mspshield.ru/api/health
+Проверить здоровье:       curl https://msp-claude.online/api/health
 Обновить сертификат:      sudo certbot renew --force-renewal && sudo systemctl reload nginx
 Логи фронта:              docker compose logs frontend | tail -50
 Логи бэка:                docker compose logs backend | tail -50

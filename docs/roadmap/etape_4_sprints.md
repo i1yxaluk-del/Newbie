@@ -42,7 +42,7 @@
 - [ ] Merge PR #2 в main, tag v4.1.
 - [ ] `cd deploy && docker compose up -d` — локально поднять стек, убедиться `curl /api/health` отвечает.
 - [ ] `cd infra/terraform && terraform init && terraform plan` — смотрим, что план адекватен. **НЕ apply** пока.
-- [ ] Заказать домен `mspshield.ru` (или доступный аналог). ≤ 1 000 ₽/год.
+- [ ] Заказать домен `msp-claude.online` (или доступный аналог). ≤ 1 000 ₽/год.
 - [ ] Настроить Яндекс.Почта для домена (free).
 - [ ] Подписать внутрисемейный NDA с супругой (распечатать / эл. подписать).
 
@@ -67,7 +67,7 @@
 - [ ] `terraform apply` — поднимается landing + bastion VM в Yandex Cloud.
 - [ ] Ansible: `ansible-playbook playbooks/site.yml` на landing-хосте.
 - [ ] Certbot → SSL от Let's Encrypt.
-- [ ] DNS cutover: mspshield.ru → landing IP.
+- [ ] DNS cutover: msp-claude.online → landing IP.
 - [ ] Smoke-test: форма отправляет лид → telegram-уведомление.
 - [ ] CSP и security headers (см. `deploy/nginx/mspshield.conf`) проверить.
 
@@ -78,7 +78,7 @@
 - [ ] Первое тестовое письмо "test lead" — проверить, что воронка Kaiten сработала.
 
 **DoD.**
-- Landing публичен: `https://mspshield.ru` открывается.
+- Landing публичен: `https://msp-claude.online` открывается.
 - Форма отправляет лид → backend → Telegram.
 - Метрика фиксирует визиты и цели.
 - A/B-эксперимент #1 запущен.

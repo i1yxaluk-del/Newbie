@@ -28,9 +28,28 @@
 - **Логгировать секреты** в прод-сервисах (проверять `grep -r SECRET /var/log/`).
 - **Давать Junior полный доступ к Vaultwarden** — только конкретные коллекции после подписания NDA (см. `contracts/junior_nda.md` при его создании).
 
-## Vaultwarden (self-hosted Bitwarden)
+## Vaultwarden (бесплатная open-source альтернатива Bitwarden Cloud)
 
-Разворачивается как отдельный docker-compose на bastion. Конфиг: [`../../deploy/vaultwarden/`](../../deploy/vaultwarden/).
+Vaultwarden — это **отдельный проект** (`github.com/dani-garcia/vaultwarden`,
+лицензия AGPL-3.0), написанный с нуля на Rust и **полностью API-совместимый**
+с серверами Bitwarden. Поэтому:
+
+- **Бесплатно и навсегда** — никаких подписок, никаких лимитов по
+  пользователям/Collections (в Bitwarden Cloud Free лимит — 2 человека
+  на Organization).
+- **Все «платные» фичи Bitwarden включены by-default**: Organizations,
+  Collections, **Bitwarden Send** (одноразовая передача секрета с TTL
+  и опциональным паролем), 2FA (TOTP/FIDO2/YubiKey), attachments,
+  Emergency Access, audit log в `/admin`.
+- **Клиенты — родные Bitwarden** (desktop, mobile, browser extensions);
+  меняется только `Server URL` в настройках → `https://vault.msp-claude.online`.
+- **SaaS-стоимость для нашей команды:** на Bitwarden Cloud Teams = $4/user/мес
+  ≈ $20/мес для 5 человек ≈ $240/год. Наш Vaultwarden на отдельной VM
+  Yandex Cloud ≈ **300-450 ₽/мес = $3-5/мес**, окупается уже на двух
+  пользователях.
+
+Разворачивается как отдельный docker-compose на bastion. Конфиг:
+[`../../deploy/vaultwarden/`](../../deploy/vaultwarden/).
 
 ### Первый запуск
 

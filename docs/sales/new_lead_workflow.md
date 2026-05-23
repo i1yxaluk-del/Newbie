@@ -1,8 +1,8 @@
 # Workflow первичной заявки (new lead → аудит)
 
-Что делать в первые 48 часов после того, как пришла заявка с `https://mspshield.ru`.
+Что делать в первые 48 часов после того, как пришла заявка с `https://msp-claude.online`.
 
-**Триггер:** Telegram-уведомление от `/api/leads` (либо запись в админке `https://mspshield.ru/admin/leads` при отключенном TG).
+**Триггер:** Telegram-уведомление от `/api/leads` (либо запись в админке `https://msp-claude.online/admin/leads` при отключенном TG).
 
 **Владелец процесса:** супруга (первичный контакт) + владелец (техаудит). См. [`../roadmap/wife_role.md`](../roadmap/wife_role.md).
 

@@ -142,7 +142,7 @@ sudo -u mspshield bash -c '
   sed -i "s/ADMIN_TOKEN=.*/ADMIN_TOKEN=$(openssl rand -hex 32)/" .env
   sed -i "s|MONGO_URL=.*|MONGO_URL=mongodb://localhost:27017|" .env
   sed -i "s|DB_NAME=.*|DB_NAME=mspshield|" .env
-  sed -i "s|CORS_ORIGINS=.*|CORS_ORIGINS=https://mspshield.ru|" .env
+  sed -i "s|CORS_ORIGINS=.*|CORS_ORIGINS=https://msp-claude.online|" .env
 '
 ```
 
@@ -205,7 +205,7 @@ sudo ln -sf /etc/nginx/sites-available/mspshield.conf /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 
 # TLS:
-sudo certbot --nginx -d mspshield.ru -d www.mspshield.ru
+sudo certbot --nginx -d msp-claude.online -d www.msp-claude.online
 ```
 
 ### 3.5. Бэкап Mongo (cron + S3)
@@ -223,7 +223,7 @@ sudo certbot --nginx -d mspshield.ru -d www.mspshield.ru
 
 ### 4.1. Вход
 
-1. Открой `https://mspshield.ru/admin`.
+1. Открой `https://msp-claude.online/admin`.
 2. Введи **значение `ADMIN_TOKEN`** из `backend/.env` (это пароль).
 3. Получишь JWT-сессию на 24 часа — повторно вводить не нужно.
 
@@ -242,7 +242,7 @@ sudo certbot --nginx -d mspshield.ru -d www.mspshield.ru
 FAQ, ссылок шапки/футера**. Не нужно знать React — весь редактируемый
 контент в одном JSON-файле `frontend/src/content/landing.ru.json`.
 
-- Открой `https://mspshield.ru/admin/landing-edit` (JWT-сессия от
+- Открой `https://msp-claude.online/admin/landing-edit` (JWT-сессия от
   `/admin/leads` подойдёт).
 - Слева — форма по секциям, справа — live-preview лендинга в iframe.
 - Правки пишутся в `localStorage` твоего браузера → видишь только ты.
@@ -261,7 +261,7 @@ FAQ, ссылок шапки/футера**. Не нужно знать React �
 
 | Симптом                        | Причина                                                          | Что сделать                                                                                                                |
 | ------------------------------ | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Красная плашка «Backend недоступен» | Backend упал или nginx не проксирует `/api/`                      | `sudo systemctl status mspshield-backend` → `journalctl -u mspshield-backend -n 100`. `curl https://mspshield.ru/api/health` |
+| Красная плашка «Backend недоступен» | Backend упал или nginx не проксирует `/api/`                      | `sudo systemctl status mspshield-backend` → `journalctl -u mspshield-backend -n 100`. `curl https://msp-claude.online/api/health` |
 | 401: пароль не совпадает       | Введён не тот `ADMIN_TOKEN` или JWT истёк                         | Возьми текущий из `backend/.env`. Если ротировал — все JWT инвалидируются (фича).                                          |
 | 503: `Admin access not configured` | На сервере пустой `ADMIN_TOKEN`                                  | `grep ADMIN_TOKEN backend/.env` → должен быть непустым. Перезапустить backend.                                             |
 | `/admin` показывает 404        | nginx не настроен на SPA fallback                                  | В `nginx.conf`: `try_files $uri /index.html;` для `location /`.                                                            |
@@ -316,7 +316,7 @@ KAITEN_COLUMN_ID=67890
 Чтобы убедиться, что цепочка форма → backend → Mongo → Kaiten работает:
 
 ```bash
-BACKEND_URL=https://mspshield.ru python scripts/seed_test_lead.py
+BACKEND_URL=https://msp-claude.online python scripts/seed_test_lead.py
 ```
 
 Скрипт отправит 3 тестовые заявки с префиксом `[test]` в названии и
@@ -402,7 +402,7 @@ POST приходит JSON-ом со всеми полями лида (см. м�
 - [ ] `CORS_ORIGINS` указывает на боевой домен (не `*`)
 - [ ] `MONGO_URL` указывает на боевую Mongo (с auth, не `localhost`)
 - [ ] `mspshield-backend.service` стартует через systemd, виден в `systemctl status`
-- [ ] nginx отдаёт TLS (curl `https://mspshield.ru/api/health` → `200`)
+- [ ] nginx отдаёт TLS (curl `https://msp-claude.online/api/health` → `200`)
 - [ ] Бэкап Mongo в cron, тест-восстановление сделан хотя бы раз
 - [ ] Yandex Metrika / счётчик посещений установлен (если используется)
 - [ ] Kaiten бутстрап выполнен, `seed_test_lead.py` создаёт карточки

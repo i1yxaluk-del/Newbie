@@ -276,7 +276,7 @@ docker exec wazuh-manager chown root:wazuh /var/ossec/integrations/custom-telegr
 #### Путь B — Alertmanager → MAX
 
 1. В `wazuh_manager_ossec.conf` остаётся только integration на Alertmanager (`custom-am-webhook` или native), без `custom-telegram`.
-2. В `alertmanager.yml` — receiver `webhook_configs` → `https://msp-oblako.ru/api/alerts/alertmanager` с Bearer-токеном `ALERTMANAGER_WEBHOOK_TOKEN`.
+2. В `alertmanager.yml` — receiver `webhook_configs` → `https://msp-claude.online/api/alerts/alertmanager` с Bearer-токеном `ALERTMANAGER_WEBHOOK_TOKEN`.
 3. В `backend/.env`:
    ```env
    MAX_BOT_TOKEN=...

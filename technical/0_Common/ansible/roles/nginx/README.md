@@ -1,6 +1,6 @@
 # role: `nginx`
 
-> Реверс-прокси + TLS-терминатор на landing-VM. `mspshield.ru` → FastAPI-backend (uvicorn :8001) + статика CRA build.
+> Реверс-прокси + TLS-терминатор на landing-VM. `msp-claude.online` → FastAPI-backend (uvicorn :8001) + статика CRA build.
 
 ## Что делает
 
@@ -12,7 +12,7 @@
 
 ## Переменные
 
-- `nginx_server_name` (default `mspshield.ru`)
+- `nginx_server_name` (default `msp-claude.online`)
 - `nginx_certbot_email` (required)
 - `nginx_backend_upstream` (default `http://127.0.0.1:8001`)
 - `nginx_static_root` (default `/var/www/mspshield`)

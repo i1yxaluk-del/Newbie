@@ -63,7 +63,7 @@
 **Windows Server:**
 ```powershell
 # PowerShell от админа
-Invoke-WebRequest -Uri https://mspshield.ru/install/windows_exporter.ps1 -OutFile install.ps1
+Invoke-WebRequest -Uri https://msp-claude.online/install/windows_exporter.ps1 -OutFile install.ps1
 powershell -ExecutionPolicy Bypass -File install.ps1
 # Скрипт открывает 9182, service windows_exporter, автозапуск
 ```

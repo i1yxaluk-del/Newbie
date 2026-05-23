@@ -81,7 +81,7 @@
 
 ### Этап B. Продакшен-лендинг (~4 000 ₽/мес OPEX, 4–6 часов)
 
-Нужен, когда решил: «стартую бизнес, хочу публичный сайт на `mspshield.ru`». Не раньше спринта 2 (см. [`docs/roadmap/etape_4_sprints.md`](../roadmap/etape_4_sprints.md)).
+Нужен, когда решил: «стартую бизнес, хочу публичный сайт на `msp-claude.online`». Не раньше спринта 2 (см. [`docs/roadmap/etape_4_sprints.md`](../roadmap/etape_4_sprints.md)).
 
 → [`landing_production.md`](landing_production.md)
 
@@ -92,7 +92,7 @@
 - SSH-ключ (`ssh-keygen -t ed25519`).
 - `terraform` ≥ 1.5, `ansible` ≥ 2.15, `yc` CLI.
 
-**Итог:** `https://mspshield.ru` работает с валидным SSL, форма заявки пишет в MongoDB, уведомления приходят в Telegram и/или MAX (по выбору, `ALERT_CHANNELS=max,telegram` — см. [`docs/MAX_SETUP.md`](../MAX_SETUP.md)), Prometheus собирает метрики, Alertmanager шлёт алёрты в те же мессенджеры.
+**Итог:** `https://msp-claude.online` работает с валидным SSL, форма заявки пишет в MongoDB, уведомления приходят в Telegram и/или MAX (по выбору, `ALERT_CHANNELS=max,telegram` — см. [`docs/MAX_SETUP.md`](../MAX_SETUP.md)), Prometheus собирает метрики, Alertmanager шлёт алёрты в те же мессенджеры.
 
 ### Этап C. Первый клиент (онбординг)
 

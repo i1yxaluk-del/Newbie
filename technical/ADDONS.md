@@ -152,7 +152,7 @@
 ### MAIL-01 · DMARC / SPF / DKIM полная настройка
 - **Цена:** 8 000 – 15 000 ₽
 - **Срок:** 1 день
-- **Что включено:** настройка всех 3 записей, reporting на aggregate.aggregate@mspshield.ru
+- **Что включено:** настройка всех 3 записей, reporting на admin@msp-claude.online
 
 ### MAIL-02 · Удаление из RBL
 - **Цена:** 10 000 ₽

@@ -37,7 +37,7 @@ WG_DIR="/etc/wireguard/tenants/${TENANT}"
 WG_CONF="/etc/wireguard/wg0.conf"
 SERVER_PUB="$(cat /etc/wireguard/server_public.key 2>/dev/null || true)"
 LISTEN_PORT="51820"
-ENDPOINT_HOST="${ENDPOINT_HOST:-bastion.mspshield.ru}"
+ENDPOINT_HOST="${ENDPOINT_HOST:-bastion.msp-claude.online}"
 
 if [[ -z "$SERVER_PUB" ]]; then
   echo "Server public key not found at /etc/wireguard/server_public.key" >&2

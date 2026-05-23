@@ -1,4 +1,4 @@
-# Продакшен-развёртывание лендинга `mspshield.ru`
+# Продакшен-развёртывание лендинга `msp-claude.online`
 
 > ⚠️ **Два параллельных production-пути — выбирайте осознанно**
 >
@@ -9,7 +9,7 @@
 >
 > Если разворачиваете Bronze впервые → используйте **Path A**. Path B применим для Silver/Gold с требованием HA. Применённые ниже точечные правки (L1/L6/L8) делают Path B минимально безопасным, но полный паритет с Path A не достигнут.
 
-Цель: поднять публичный сайт на Yandex Cloud, чтобы `https://mspshield.ru` отдавал лендинг с валидным SSL, форма заявки писала в MongoDB, Telegram- и/или MAX-бот получал уведомления.
+Цель: поднять публичный сайт на Yandex Cloud, чтобы `https://msp-claude.online` отдавал лендинг с валидным SSL, форма заявки писала в MongoDB, Telegram- и/или MAX-бот получал уведомления.
 
 **Время:** 4–6 часов (первый раз).
 **Стоимость:** ~3 000–4 500 ₽/мес (2 VM × ~1 500 ₽ + Object Storage + domain). Path A дешевле — ~1 676 ₽/мес (single preemptible VM).
@@ -37,7 +37,7 @@
 
 ### Покупка
 
-- Купить `mspshield.ru` на [reg.ru](https://reg.ru) или [beget.com](https://beget.com). Цена: ~600–900 ₽/год.
+- Купить `msp-claude.online` на [reg.ru](https://reg.ru) или [beget.com](https://beget.com). Цена: ~600–900 ₽/год.
 - Настроить DNS-сервер: сначала **оставить по умолчанию** (NS от регистратора), чтобы потом безболезненно переключить на Yandex Cloud DNS.
 
 ### Почему сейчас, а не позже
@@ -268,8 +268,8 @@ sudo systemctl status nginx mongodb mspshield-backend
 
 В панели регистратора (reg.ru / beget):
 
-- A-запись `mspshield.ru` → `<landing_public_ip>`.
-- A-запись `www.mspshield.ru` → `<landing_public_ip>`.
+- A-запись `msp-claude.online` → `<landing_public_ip>`.
+- A-запись `www.msp-claude.online` → `<landing_public_ip>`.
 - TTL 300.
 
 > ⚠️ **Урок из деплоя (L8 — опечатка домена):** проверьте побуквенно,
@@ -282,7 +282,7 @@ sudo systemctl status nginx mongodb mspshield-backend
 Дождаться распространения:
 
 ```bash
-dig +short mspshield.ru
+dig +short msp-claude.online
 # должен быть <landing_public_ip>
 ```
 
@@ -295,8 +295,8 @@ dig +short mspshield.ru
 ```bash
 ssh ubuntu@mspshield-landing
 sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d mspshield.ru -d www.mspshield.ru \
-  --non-interactive --agree-tos --email owner@mspshield.ru --redirect
+sudo certbot --nginx -d msp-claude.online -d www.msp-claude.online \
+  --non-interactive --agree-tos --email admin@msp-claude.online --redirect
 ```
 
 Сертификат будет обновляться автоматически (systemd-timer `certbot.timer`). Проверка:
@@ -308,7 +308,7 @@ sudo certbot renew --dry-run
 ### 6.3. Проверка HTTPS
 
 ```bash
-curl -I https://mspshield.ru
+curl -I https://msp-claude.online
 # HTTP/2 200
 # server: nginx
 ```
@@ -360,7 +360,7 @@ python /opt/mspshield/scripts/max_setup_webhook.py
 
 ### 7.4. Тест
 
-Отправить заявку с `https://mspshield.ru` → проверить, что сообщение прилетело в настроенные каналы (Telegram-группу и/или MAX-чат с ботом).
+Отправить заявку с `https://msp-claude.online` → проверить, что сообщение прилетело в настроенные каналы (Telegram-группу и/или MAX-чат с ботом).
 
 ---
 
@@ -395,13 +395,13 @@ curl -s http://localhost:9093/-/healthy
 
 ### Чек-лист production-готовности
 
-- [ ] `curl -I https://mspshield.ru` → 200 + TLS-валидный.
-- [ ] `curl https://mspshield.ru/api/health` → `{"status":"ok"}`.
+- [ ] `curl -I https://msp-claude.online` → 200 + TLS-валидный.
+- [ ] `curl https://msp-claude.online/api/health` → `{"status":"ok"}`.
 - [ ] Форма заявки отправляется → запись появилась в MongoDB (`mongo --eval 'db.leads.countDocuments()'`).
 - [ ] Telegram- и/или MAX-бот получил уведомление о заявке (в зависимости от `ALERT_CHANNELS` / настроенных интеграций).
-- [ ] `curl https://mspshield.ru/api/leads -H "X-Admin-Token: ..."` → список заявок.
+- [ ] `curl https://msp-claude.online/api/leads -H "X-Admin-Token: ..."` → список заявок.
 - [ ] В Prometheus (`http://localhost:9090/targets` через SSH-туннель) — все таргеты `UP`.
-- [ ] `curl https://mspshield.ru/metrics` **заблокирован** извне (должно быть 403/404 от nginx).
+- [ ] `curl https://msp-claude.online/metrics` **заблокирован** извне (должно быть 403/404 от nginx).
 - [ ] `certbot renew --dry-run` — успех.
 - [ ] На bastion `wg show` — peer landing подключен.
 - [ ] `backup_install.yml` прогнан на landing (есть бэкапы в Object Storage).
@@ -410,7 +410,7 @@ curl -s http://localhost:9093/-/healthy
 ### Smoke-test формы заявки
 
 ```bash
-curl -X POST https://mspshield.ru/api/leads \
+curl -X POST https://msp-claude.online/api/leads \
   -H "Content-Type: application/json" \
   -d '{
     "name":"Тест Тестов",

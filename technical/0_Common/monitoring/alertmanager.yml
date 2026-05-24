@@ -31,8 +31,14 @@
 
 global:
   resolve_timeout: 5m
-  smtp_smarthost: "smtp.yandex.ru:587"
+  # Alertmanager шлёт письма через ЛОКАЛЬНЫЙ Stalwart (тот же docker network),
+  # а Stalwart дальше форвардит через Yandex Cloud Postbox
+  # (см. deploy/yandex/STALWART_RELAY_MODE.md § 2 · Вариант A).
+  # На Path B (Ansible/two-VM) — поменять на адрес monitor-VM Stalwart или
+  # настроить локальный smtp-relay на monitor-VM.
+  smtp_smarthost: "stalwart:587"
   smtp_from: "alert@msp-claude.online"
+  smtp_hello: "monitor.msp-claude.online"
   smtp_auth_username: "alert@msp-claude.online"
   smtp_auth_password_file: /etc/alertmanager/smtp_password
   smtp_require_tls: true

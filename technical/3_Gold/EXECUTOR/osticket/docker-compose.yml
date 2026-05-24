@@ -60,8 +60,10 @@ services:
       MYSQL_USER:     osticket
       MYSQL_PASSWORD: ${DB_PASS}
 
-      # Почта (для уведомлений о тикетах)
-      SMTP_HOST:     ${SMTP_HOST:-smtp.yandex.ru}
+      # Почта (для уведомлений о тикетах). По умолчанию идём через
+      # локальный Stalwart, который форвардит в Yandex Cloud Postbox.
+      # См. deploy/yandex/STALWART_RELAY_MODE.md §2 · Вариант A.
+      SMTP_HOST:     ${SMTP_HOST:-stalwart}
       SMTP_PORT:     ${SMTP_PORT:-587}
       SMTP_USER:     ${SMTP_USER}
       SMTP_PASSWORD: ${SMTP_PASS}

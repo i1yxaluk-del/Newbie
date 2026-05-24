@@ -12,6 +12,11 @@ Yandex Cloud **блокирует TCP/25** на публичных IP VPC (ан�
 - альтернатива, рекомендованная YC support — перевести почтовый сервер на
   **465 (SMTPS implicit TLS)** и **587 (Submission STARTTLS)**.
 
+**Outbound идёт через Yandex Cloud Postbox** (managed SMTP-relay в YC) —
+это канонический вариант для нашего деплоя. См. «Шаг 2 · Outbound
+smarthost». Postbox не принимает входящую почту; для входящих (если
+нужны) — внешний MX-провайдер (См. «Шаг 1»).
+
 Stalwart в `deploy/yandex/docker-compose.yml` настроен под эту реальность:
 
 | Порт  | Назначение                                       | Открыт наружу |
@@ -34,9 +39,11 @@ Stalwart в `deploy/yandex/docker-compose.yml` настроен под эту р
             (входящие письма от чужих серверов на :25)    │
                                                           ▼
                 ┌──────────────────────────────────────────────────┐
-                │  Внешний MX-провайдер                            │
-                │  (Yandex 360 для бизнеса │ Mail.ru для бизнеса │ │
-                │   Mailgun routes │ Cloudflare Email Routing)      │
+                │  Внешний MX-провайдер (только если нужен inbound)   │
+                │  (Yandex 360 │ Mail.ru для бизнеса │           │
+                │   Mailgun routes │ Cloudflare Email Routing)     │
+                │  Yandex Cloud Postbox = только outbound,        │
+                │  MX-записи для него НЕ выдаются.            │
                 └──────────────┬───────────────────────────────────┘
                                │  (forward по :587 STARTTLS или
                                │   API webhook → SMTP relay)
@@ -59,28 +66,48 @@ Stalwart в `deploy/yandex/docker-compose.yml` настроен под эту р
                                 ▼
                 ┌──────────────────────────────────────────────┐
                 │  Smarthost (outbound relay)                  │
-                │  Yandex 360 для бизнеса │ Mailgun │ Brevo    │
-                │  Подключение на их :465 (SMTPS) или :587     │
-                │  с auth от лица alert@<domain>.              │
+                │  → Yandex Cloud Postbox  (основной, managed)  │
+                │    postbox.cloud.yandex.net:587 STARTTLS     │
+                │    auth: API key (ID + secret)               │
+                │  → или Mailgun / Brevo как fallback           │
+                │    (при outbound из других регионов)            │
                 └──────────────────────────────────────────────┘
 ```
 
 ---
 
-## Шаг 1 · Внешний MX-провайдер (приём почты)
+## Шаг 1 · Inbound: внешний MX-провайдер (приём почты)
 
-### Вариант A · Yandex 360 для бизнеса (рекомендуется в РФ)
+> **Важно:** Yandex Cloud Postbox — это **только outbound**. Он не принимает
+> входящую почту и не выдаёт MX-записи для вашего домена. Если вам
+> нужны «normal» ящики `*@msp-claude.online` для приёма писем от клиентов —
+> выберите один из вариантов ниже. Если вам нужен **только** отправлять из `alert@`
+> и `admin@` (transactional, alerts, DMARC reports) — инбаунд можно не настраивать,
+> хватит Postbox из «Шага 2». Биллинг Postbox — только за исходящий трафик,
+> фиксированной платы нет.
+>
+> **Отдельно про DNS:** в нашем случае NS домена живёт на Namecheap
+> (не переводили на Yandex Cloud DNS). Означает что никакие inbound-варианты
+> из этого раздела не подключены автоматически; MX/SPF/DKIM записи нужно
+> прописывать в панели Namecheap (Domain List → Advanced DNS).
+
+### Вариант A · Yandex 360 для бизнеса (полные ящики в РФ)
+
+> **Не путать с Yandex Cloud Postbox** — это разные сервисы. Yandex 360 —
+> ящики/диски/календарь для бизнеса (платный по пользователям).
+> Postbox — бэкенд для transactional outbound (oplata за трафик).
 
 1. Регистрация: <https://360.yandex.ru/business>.
 2. Подтвердить владение доменом (TXT-запись).
-3. У регистратора домена создать:
+3. В Namecheap (или текущего регистратора) создать:
    ```
    MX  @  10 mx.yandex.net.
    TXT @  v=spf1 redirect=_spf.yandex.net
    ```
-4. Создать первый ящик: `alert@<your-domain>` (для исходящих алертов).
-5. В Yandex 360 → ящик → **«Пароли приложений»** → создать пароль для
-   `smtp.yandex.ru:465`. Этот пароль пойдёт в Stalwart smarthost.
+4. Создать ящики (`admin@`, `sales@`, etc.). Ящик `alert@` в Yandex 360 не нужен —
+   transactional отправка идёт через Postbox (Шаг 2).
+5. **Рабочий outbound всё равно через Postbox** — Yandex 360 здесь нужен
+   **только для приёма**. Пароль приложений в 360 создавать не надо.
 
 ### Вариант B · Mailgun (международный, $0 до 5000 писем/мес)
 
@@ -111,83 +138,185 @@ Stalwart в `deploy/yandex/docker-compose.yml` настроен под эту р
 напрямую коннектиться к MX-серверам Gmail / Outlook / Mail.ru. Вместо этого
 весь исходящий трафик заворачиваем на smarthost через `:465` или `:587`.
 
-### Настройка через Stalwart admin UI
+### Вариант A · Yandex Cloud Postbox — **канонический выбор для нашего деплоя**
 
-1. SSH-tunnel в админку:
+[Postbox](https://yandex.cloud/services/postbox) — managed SMTP-relay в
+том же облаке, где и наша VM. Платим только за исходящий трафик,
+ящики создавать не нужно, anti-spam репутация IP — общая с другими
+YC-клиентами и сопровождается Yandex.
+
+**SMTP-параметры Postbox:**
+
+| Параметр | Значение |
+|---|---|
+| Address | `postbox.cloud.yandex.net` |
+| Port | `587` (STARTTLS) — рекомендуется для нашего сценария |
+| Port (alt) | `465` (Implicit TLS / SMTPS) |
+| Protocol | SMTP |
+| Implicit TLS | **`false`** (для `:587`). Для `:465` — `true`. |
+| Allow Invalid Certs | `false` (сертификат Yandex Cloud валидный) |
+| Auth Username | **API key ID** (строка вида `aje...`) |
+| Auth Secret | **API key secret** (длинная строка) |
+
+> **Главное грабли**: для `:587` `Implicit TLS = false`. Если включить
+> implicit TLS на 587, Stalwart пытается шифровать с первого байта —
+> Postbox ждёт plain-SMTP greeting и STARTTLS-переход, хэндшейк
+> сломается.
+
+**Подготовка в консоли Yandex Cloud (однократно):**
+
+1. Консоль YC → **Postbox** → «Создать конфигурацию отправки» для домена `msp-claude.online`.
+2. Подтвердить владение доменом (TXT-запись) — добавить в Namecheap Advanced DNS.
+3. Нажать «Получить DKIM» → скопировать TXT и повесить в DNS (`<selector>._domainkey`).
+4. **Создать service account** «postbox-sender» с ролью `postbox.sender`.
+5. **API key** для этого SA: «Создать» → Scope = `yc.postbox.send` → сохранить
+   `id (aje...)` и `secret` в Vaultwarden (коллекция `internal/infra`).
+6. Секрет в backend/.env / Ansible vault: `POSTBOX_API_KEY_ID`, `POSTBOX_API_KEY_SECRET`.
+
+**Настройка Stalwart через stalwart-cli (канонический способ):**
+
+```bash
+# 1. SSH на нашу VM
+ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL \
+    -i "$HOME\.ssh\id_ed25519_yc" ubuntu@<vm-ip>
+
+cd /opt/msp/Newbie/deploy/yandex
+
+# 2. Загружаем секреты в текущую сессию (не в bash history!)
+#    Способ A — из backend/.env:
+set -a; source /opt/msp/Newbie/backend/.env; set +a
+#    Способ B — копи-пейст из Vaultwarden с leading-space, чтобы не попало в history:
+#     export POSTBOX_API_KEY_ID=aje...
+#     export POSTBOX_API_KEY_SECRET=...
+
+# 3. Создаём MTA-route в Stalwart
+docker compose exec stalwart stalwart-cli mta route create postbox-outbound --config '{
+  "@type": "Relay",
+  "address": "postbox.cloud.yandex.net",
+  "port": 587,
+  "protocol": "smtp",
+  "implicitTls": false,
+  "authUsername": "'"$POSTBOX_API_KEY_ID"'",
+  "authSecret": { "@type": "Value", "data": "'"$POSTBOX_API_KEY_SECRET"'" }
+}'
+
+# 4. Назначаем route стратегией по умолчанию
+docker compose exec stalwart stalwart-cli mta strategy update default --config '{
+  "@type": "Strategy",
+  "route": "postbox-outbound"
+}'
+
+# 5. Проверяем, что route применён
+docker compose exec stalwart stalwart-cli mta strategy list
+```
+
+**Альтернативно — настройка через Stalwart admin WebUI:**
+
+1. SSH-tunnel:
    ```powershell
    ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -L 8080:localhost:8080 -i "$HOME\.ssh\id_ed25519_yc" ubuntu@<vm-ip>
    ```
-   Открыть в браузере: <http://localhost:8080/admin>
+   Открыть <http://localhost:8080/admin>. Логин: `admin` / пароль из `~/msp-deploy-secrets.txt`.
 
-2. Логин: `admin` / пароль из `~/msp-deploy-secrets.txt`.
-
-3. **Settings → SMTP → Outbound**:
+2. **Settings → MTA → Routes → Add route**:
    ```
-   Default route               relay
-   ```
-
-4. **Settings → SMTP → Routes → Add route**:
-   ```
-   Name:                       relay
-   Mode:                       Relay
-   Address:                    smtp.yandex.ru   (или smtp.eu.mailgun.org)
-   Port:                       465              (или 587 для STARTTLS)
-   TLS:                        Implicit         (или STARTTLS — для :587)
-   Auth user:                  alert@<your-domain>
-   Auth password:              <Yandex 360 app-password или Mailgun key>
+   Name:                postbox-outbound
+   Mode:                Relay
+   Address:             postbox.cloud.yandex.net
+   Port:                587
+   Implicit TLS:        OFF        ← критично для :587
+   Allow Invalid Certs: OFF
+   Auth user:           <API key ID, aje...>
+   Auth password:       <API key secret>
    ```
 
-5. Тест отправки:
-   ```bash
-   # На самой VM
-   docker compose exec stalwart stalwart-cli queue message send \
-       --from alert@<domain> --to <ваш-личный-email> \
-       --subject "Stalwart smarthost test" --body "ok"
-   ```
+3. **Settings → MTA → Outbound → Strategy** → «default» → Route = `postbox-outbound`.
 
-### Smarthost через переменные окружения
+> Подвох: иногда WebUI скрывает поля auth, пока не сохранить route без них
+> и не открыть редактирование. Проще использовать CLI выше.
 
-Альтернативно (если не любите WebUI), задайте при первом старте
-контейнера:
+**Тест отправки:**
+
+```bash
+docker compose exec stalwart stalwart-cli queue message send \
+    --from alert@msp-claude.online --to <ваш-личный-email> \
+    --subject "Postbox smoke test" --body "ok"
+
+# Смотреть queue:
+docker compose exec stalwart stalwart-cli queue list
+# (должно быть пусто в течение 5-10 сек)
+```
+
+### Вариант B · Mailgun (фолбэк, если Postbox недоступен в вашем регионе)
+
+- Address: `smtp.eu.mailgun.org` или `smtp.mailgun.org`
+- Port: `465` (implicit TLS) или `587` (STARTTLS)
+- Auth user: `postmaster@mg.<your-domain>` (или sub-domain Mailgun)
+- Auth pass: SMTP credential из Mailgun панели
+
+### Вариант C · Yandex 360 как smarthost (не рекомендуется)
+
+Можно, но осмысленно только если Postbox не подходит и вы уже вложились в ящики
+Yandex 360. Проблема: 360 рассчитан на интерактивную почту, не на transactional
+bulk, и пароль приложений жёстко рате-лимитируется на ящик (~150 писем/день на ящик).
+
+- Address: `smtp.yandex.ru`
+- Port: `465` (всегда implicit TLS у Яндекса)
+- Auth user: полный адрес ящика (напр. `alert@msp-claude.online`, если будет создан)
+- Auth pass: **пароль приложения** из Yandex 360 (не основной пароль ящика!)
+
+### Smarthost через переменные окружения (bootstrap, для Postbox)
+
+Альтернативно (если не любите отдельный stalwart-cli вызов), можно задать при
+первом старте контейнера:
 
 ```yaml
 # deploy/yandex/docker-compose.yml — services.stalwart.environment:
 environment:
   STALWART_RECOVERY_ADMIN: "admin:${STALWART_ADMIN_PASSWORD:-changeme}"
-  # Smarthost для всех исходящих
-  STALWART_QUEUE_DEFAULT_ROUTE: relay
-  STALWART_ROUTES_RELAY_TYPE: relay
-  STALWART_ROUTES_RELAY_ADDRESS: smtp.yandex.ru
-  STALWART_ROUTES_RELAY_PORT: "465"
-  STALWART_ROUTES_RELAY_TLS_IMPLICIT: "true"
-  STALWART_ROUTES_RELAY_AUTH_USERNAME: alert@${MSP_DOMAIN}
-  STALWART_ROUTES_RELAY_AUTH_SECRET: ${YANDEX360_APP_PASSWORD}
+  # Smarthost → Yandex Cloud Postbox
+  STALWART_QUEUE_DEFAULT_ROUTE: postbox-outbound
+  STALWART_ROUTES_POSTBOX_OUTBOUND_TYPE: relay
+  STALWART_ROUTES_POSTBOX_OUTBOUND_ADDRESS: postbox.cloud.yandex.net
+  STALWART_ROUTES_POSTBOX_OUTBOUND_PORT: "587"
+  STALWART_ROUTES_POSTBOX_OUTBOUND_TLS_IMPLICIT: "false"    # STARTTLS для :587
+  STALWART_ROUTES_POSTBOX_OUTBOUND_AUTH_USERNAME: ${POSTBOX_API_KEY_ID}
+  STALWART_ROUTES_POSTBOX_OUTBOUND_AUTH_SECRET: ${POSTBOX_API_KEY_SECRET}
 ```
 
-Эти значения подхватятся при первом запуске; в дальнейшем правьте через
-WebUI (Stalwart хранит конфиг в `/etc/stalwart`, который маунтится в
-volume `stalwart-etc`).
+Эти значения подхватятся только при **первом запуске** Stalwart (bootstrap
+config). Далее правьте через `stalwart-cli` или WebUI — конфиг живёт в
+volume `stalwart-etc` (`/etc/stalwart`).
 
 ---
 
-## Шаг 3 · DNS-записи для submit-only домена
+## Шаг 3 · DNS-записи
+
+> **Текущее состояние:** NS домена `msp-claude.online` остаётся на Namecheap.
+> Все DNS-записи ниже прописываются в Namecheap дашборде: Domain List →
+> Manage → Advanced DNS. **Не переводите NS на Yandex Cloud DNS** — Postbox
+> не требует этого, а риск downtime лендинга от смены NS высокий.
+
+### Обязательные записи (для Postbox outbound)
 
 ```
-A     mail.<domain>       <yc-vm-public-ip>
-TXT   <domain>            v=spf1 a ip4:<yc-vm-public-ip> include:_spf.yandex.net -all
-TXT   default._domainkey  v=DKIM1; k=rsa; p=<сгенерированный Stalwart открытый ключ>
-TXT   _dmarc.<domain>     v=DMARC1; p=quarantine; rua=mailto:admin@<domain>
+A     mail.msp-claude.online      <yc-vm-public-ip>     ; для IMAPS/Stalwart WebUI
+TXT   msp-claude.online           v=spf1 include:_spf.yandexcloud.net ~all
+TXT   <selector>._domainkey       v=DKIM1; k=rsa; p=<из Postbox консоли>
+TXT   _dmarc.msp-claude.online    v=DMARC1; p=quarantine; rua=mailto:admin@msp-claude.online
 ```
 
-`MX` зависит от выбранного варианта (см. шаг 1):
+> Селектор DKIM выдаёт консоль Postbox при создании конфигурации домена.
+> **Проверьте** фактический SPF include в доках YC — указано `_spf.yandexcloud.net`,
+> но Postbox может выдавать свой персональный include при верификации домена.
+
+### Опциональные записи (если нужен и inbound — см. Шаг 1)
+
+`MX` зависит от выбранного inbound-варианта (Postbox MX не выдаёт):
 
 - Вариант A (Yandex 360):  `MX @ 10 mx.yandex.net.`
 - Вариант B (Mailgun):     `MX @ 10 mxa.mailgun.org.` + `MX @ 10 mxb.mailgun.org.`
 - Вариант C (Cloudflare):  CF добавляет автоматически.
-
-DKIM-ключ генерируется в Stalwart admin UI:
-`Settings → Domains → <domain> → Generate DKIM key`.
-Скопируйте TXT и положите в DNS у регистратора.
 
 ---
 

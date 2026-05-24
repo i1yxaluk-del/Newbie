@@ -25,7 +25,7 @@
 - `alertmanager_max_webhook_token`  (vault, required если включён MAX-канал) — Bearer-токен для вызова backend (`ALERTMANAGER_WEBHOOK_TOKEN`)
 - `alertmanager_smtp_password` (vault, required)
 - `alertmanager_smtp_from`       (default `alert@msp-claude.online`)
-- `alertmanager_smtp_smarthost`  (default `smtp.yandex.ru:587`)
+- `alertmanager_smtp_smarthost`  (default `stalwart:587` — локальный Stalwart, который форвардит через Yandex Cloud Postbox; см. `deploy/yandex/STALWART_RELAY_MODE.md`)
 - `alertmanager_email_p3_to`     (default `alert@msp-claude.online`)
 
 > Выбор каналов делается в `backend/.env` через `ALERT_CHANNELS=max,telegram` (или один из). Alertmanager шлёт всегда на backend — backend решает куда fan-out‘ить.

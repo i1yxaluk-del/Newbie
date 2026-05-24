@@ -52,7 +52,7 @@ sudo systemctl status nginx mspshield-backend mongodb
 
 ### Последствия
 
-- **НЕ** затрагивает клиентский сервис (WireGuard peer-to-peer работает напрямую, если настроен `PersistentKeepalive`, но на практике WireGuard через hub).
+- **НЕ** затрагивает клиентский сервис (AmneziaWG peer-to-peer работает напрямую, если настроен `PersistentKeepalive`, но на практике AmneziaWG через hub).
 - **Затрагивает** наш доступ к клиентам → мы не можем отреагировать на их инциденты.
 - **Затрагивает** Prometheus scrape → ложные алёрты «Instance down».
 
@@ -73,21 +73,21 @@ cd infra/terraform
 terraform apply -replace=yandex_compute_instance.bastion
 # ВАЖНО: публичный IP изменится! Надо:
 #   - Обновить ansible.cfg (BASTION_PUBLIC_IP).
-#   - Обновить Endpoint у всех клиентов в их /etc/wireguard/wg0.conf.
-#   - WireGuard сервер-ключи нужно восстановить из бэкапа (см. ниже).
+#   - Обновить Endpoint у всех клиентов в их /etc/amnezia/amneziawg/awg0.conf.
+#   - AmneziaWG сервер-ключи нужно восстановить из бэкапа (см. ниже).
 ```
 
-### Восстановление WireGuard-ключей
+### Восстановление AmneziaWG-ключей
 
-Если `/etc/wireguard/` пропал вместе с VM:
+Если `/etc/amnezia/amneziawg/` пропал вместе с VM:
 
 1. Достать последний restic-снапшот bastion-ключей (`restic snapshots --host mspshield-bastion`).
-2. Восстановить `/etc/wireguard/server_private.key`, `/etc/wireguard/wg0.conf`, `/etc/wireguard/tenants/`.
-3. `sudo systemctl restart wg-quick@wg0`.
+2. Восстановить `/etc/amnezia/amneziawg/server_private.key`, `/etc/amnezia/amneziawg/awg0.conf`, `/etc/amnezia/amneziawg/tenants/`.
+3. `sudo systemctl restart awg-quick@awg0`.
 
 Если снапшотов нет (не должно быть, но всякое бывает):
 
-- Пересоздать ключи (`wg_bootstrap.sh`).
+- Пересоздать ключи (`awg_bootstrap.sh`).
 - **Все клиенты пересоздаются**: `tenant_add.sh` → передать новые конфиги клиентам → они обновляют у себя.
 
 **Время:** 30 мин с снапшотом, 2–4 часа без.
@@ -139,7 +139,7 @@ curl -H "X-Admin-Token: ..." https://msp-claude.online/api/leads | jq length
 
 ### План
 
-1. **Если tfstate-бакет жив**: `terraform apply` → WireGuard bootstrap → Ansible site.yml → восстановить MongoDB из restic → обновить DNS. **Время:** 4–6 часов.
+1. **Если tfstate-бакет жив**: `terraform apply` → AmneziaWG bootstrap → Ansible site.yml → восстановить MongoDB из restic → обновить DNS. **Время:** 4–6 часов.
 2. **Если tfstate-бакет умер тоже**: `terraform init` с нуля → `terraform import` существующих ресурсов (если остались), иначе — `apply` с нуля → всё заново. **Время:** 1–2 дня.
 3. **Если всё в Yandex Cloud умерло**: перенос в VK Cloud / Selectel. **Время:** 3–7 дней. Единственные данные, которые не потеряются — код в GitHub и бэкапы в S3 (при условии, что восстановим S3-ключи из Vaultwarden-бэкапа).
 

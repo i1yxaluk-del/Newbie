@@ -95,12 +95,12 @@ check_bronze() {
     check_http "Grafana /api/health" "http://10.9.0.1:3000/api/health"
     check_http "Blackbox /metrics" "http://localhost:9115/metrics"
 
-    echo -e "\n${B}══ BRONZE: WireGuard VPN ══${NC}"
-    check "WireGuard интерфейс wg0" "ip link show wg0"
-    check "VPN IP 10.9.0.1 настроен" "ip addr show wg0 | grep -q '10.9.0.1'"
+    echo -e "\n${B}══ BRONZE: AmneziaWG VPN (UDP/443) ══${NC}"
+    check "AmneziaWG интерфейс awg0" "ip link show awg0"
+    check "VPN IP 10.9.0.1 настроен" "ip addr show awg0 | grep -q '10.9.0.1'"
 
     local PEERS
-    PEERS=$(sudo wg show wg0 2>/dev/null | grep -c "^peer:" || echo "0")
+    PEERS=$(sudo awg show awg0 2>/dev/null | grep -c "^peer:" || echo "0")
     echo -e "  ${C}→${NC} Зарегистрированных VPN peers: ${PEERS}"
 
     echo -e "\n${B}══ BRONZE: Prometheus Alert Rules ══${NC}"

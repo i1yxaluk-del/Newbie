@@ -49,7 +49,7 @@ groups:
             Клиент: {{ $labels.client_name }}
 
             Диагностика:
-            1. Проверить VPN: sudo wg show wg0 | grep {{ $labels.instance | reReplaceAll ":9100" "" | reReplaceAll ":9182" "" }}
+            1. Проверить VPN: sudo awg show awg0 | grep {{ $labels.instance | reReplaceAll ":9100" "" | reReplaceAll ":9182" "" }}
             2. Ping: ping -c 3 {{ $labels.instance | reReplaceAll ":9100" "" | reReplaceAll ":9182" "" }}
             3. Порт: curl -s http://{{ $labels.instance }}/metrics | head -3
             4. Служба: ssh ubuntu@<IP> "systemctl status node_exporter"

@@ -7,7 +7,7 @@
 # Что делает:
 #   1. Запрашивает данные о клиенте
 #   2. Создаёт структуру в Ansible inventory
-#   3. Генерирует WireGuard peer
+#   3. Генерирует AmneziaWG peer (обфускация против РКН-DPI; UDP/443)
 #   4. Создаёт S3 bucket для бэкапов
 #   5. Добавляет клиента в Prometheus
 #   6. Выводит инструкцию для передачи клиенту
@@ -24,12 +24,13 @@ hdr()  { echo -e "\n${B}═══ $* ═══${NC}"; }
 
 # ── Проверки ──────────────────────────────────────────────────────
 [[ $EUID -ne 0 ]] && err "Запустить с sudo"
-command -v wg &>/dev/null      || err "WireGuard не установлен"
+command -v awg &>/dev/null     || err "AmneziaWG не установлен (нужен пакет amneziawg-tools из ppa:amnezia/ppa)"
 command -v python3 &>/dev/null || err "Python3 не установлен"
 
 PROMETHEUS_CFG="/opt/monitoring/prometheus/prometheus.yml"
 ANSIBLE_DIR="/opt/ansible"
-BASTION_PUBKEY_FILE="/etc/wireguard/server_public.key"
+BASTION_PUBKEY_FILE="/etc/amnezia/amneziawg/server_public.key"
+AWG_CONF="/etc/amnezia/amneziawg/awg0.conf"
 BASTION_IP=$(curl -sf --max-time 5 https://checkip.amazonaws.com 2>/dev/null || echo "UNKNOWN")
 
 [[ ! -f "$BASTION_PUBKEY_FILE" ]] && err "Файл $BASTION_PUBKEY_FILE не найден. Сначала настройте Bastion."
@@ -52,7 +53,7 @@ case "${TIER_NUM:-1}" in
 esac
 
 # Найти свободный VPN IP диапазон
-EXISTING_IPS=$(wg show wg0 2>/dev/null | grep "allowed ips" | grep -oP '10\.9\.0\.\K\d+' | sort -n || echo "")
+EXISTING_IPS=$(awg show awg0 2>/dev/null | grep "allowed ips" | grep -oP '10\.9\.0\.\K\d+' | sort -n || echo "")
 NEXT_IP=10
 for ip in $EXISTING_IPS; do
     if [[ $ip -ge $NEXT_IP ]]; then
@@ -78,20 +79,35 @@ read -rp "Продолжить? [Y/n]: " CONFIRM
 [[ "${CONFIRM:-Y}" =~ ^[Nn] ]] && echo "Отменено." && exit 0
 
 # ════════════════════════════════════════════════════════════════════
-# ШАГ 2: WireGuard peer
+# ШАГ 2: AmneziaWG peer (UDP/443 с обфускацией против РКН-DPI)
 # ════════════════════════════════════════════════════════════════════
-hdr "WIREGUARD VPN"
+hdr "AMNEZIAWG VPN"
 
 WG_TMP=$(mktemp -d)
 trap 'rm -rf "$WG_TMP"' EXIT
 
-CLIENT_PRIV_KEY=$(wg genkey)
-CLIENT_PUB_KEY=$(echo "$CLIENT_PRIV_KEY" | wg pubkey)
+CLIENT_PRIV_KEY=$(awg genkey)
+CLIENT_PUB_KEY=$(echo "$CLIENT_PRIV_KEY" | awg pubkey)
 
-info "Добавляю peer ${VPN_IP_1} в WireGuard..."
+# Читаем параметры обфускации AmneziaWG из серверного конфига, чтобы
+# выдать клиенту точно такие же (иначе handshake не пройдёт).
+read_awg_param() {
+    grep -E "^${1}\s*=" "$AWG_CONF" | head -1 | sed -E 's/^[^=]+=\s*//' | tr -d '[:space:]'
+}
+AWG_JC=$(read_awg_param Jc);     AWG_JC="${AWG_JC:-4}"
+AWG_JMIN=$(read_awg_param Jmin); AWG_JMIN="${AWG_JMIN:-50}"
+AWG_JMAX=$(read_awg_param Jmax); AWG_JMAX="${AWG_JMAX:-1000}"
+AWG_S1=$(read_awg_param S1);     AWG_S1="${AWG_S1:-86}"
+AWG_S2=$(read_awg_param S2);     AWG_S2="${AWG_S2:-574}"
+AWG_H1=$(read_awg_param H1);     AWG_H1="${AWG_H1:-1779539752}"
+AWG_H2=$(read_awg_param H2);     AWG_H2="${AWG_H2:-1138729192}"
+AWG_H3=$(read_awg_param H3);     AWG_H3="${AWG_H3:-2050378563}"
+AWG_H4=$(read_awg_param H4);     AWG_H4="${AWG_H4:-8345423}"
 
-# Добавить в конфиг wg0
-cat >> /etc/wireguard/wg0.conf << EOF
+info "Добавляю peer ${VPN_IP_1} в AmneziaWG..."
+
+# Добавить в конфиг awg0
+cat >> "$AWG_CONF" << EOF
 
 # === ${CLIENT_NAME} (${CLIENT_SLUG}) — Добавлен: $(date '+%Y-%m-%d') ===
 [Peer]
@@ -100,9 +116,9 @@ AllowedIPs = ${VPN_IP_1}/32
 EOF
 
 # Применить без перезапуска
-wg set wg0 peer "$CLIENT_PUB_KEY" allowed-ips "${VPN_IP_1}/32"
+awg set awg0 peer "$CLIENT_PUB_KEY" allowed-ips "${VPN_IP_1}/32"
 
-ok "WireGuard peer добавлен: ${VPN_IP_1}"
+ok "AmneziaWG peer добавлен: ${VPN_IP_1}"
 
 # Добавить дополнительные серверы
 EXTRA_IPS=()
@@ -111,23 +127,23 @@ if [[ "$EXTRA_SERVERS" -gt 0 ]]; then
     for i in $(seq 1 "$EXTRA_SERVERS"); do
         CURRENT_IP=$(( CURRENT_IP + i ))
         EXTRA_IP="10.9.0.${CURRENT_IP}"
-        EXTRA_PRIV=$(wg genkey)
-        EXTRA_PUB=$(echo "$EXTRA_PRIV" | wg pubkey)
+        EXTRA_PRIV=$(awg genkey)
+        EXTRA_PUB=$(echo "$EXTRA_PRIV" | awg pubkey)
         EXTRA_IPS+=("$EXTRA_IP:$EXTRA_PRIV:$EXTRA_PUB")
 
-        cat >> /etc/wireguard/wg0.conf << EOF
+        cat >> "$AWG_CONF" << EOF
 
 # === ${CLIENT_SLUG} server-$(printf "%02d" $i) ===
 [Peer]
 PublicKey  = ${EXTRA_PUB}
 AllowedIPs = ${EXTRA_IP}/32
 EOF
-        wg set wg0 peer "$EXTRA_PUB" allowed-ips "${EXTRA_IP}/32"
+        awg set awg0 peer "$EXTRA_PUB" allowed-ips "${EXTRA_IP}/32"
         ok "Дополнительный peer: ${EXTRA_IP}"
     done
 fi
 
-wg-quick save wg0
+awg-quick save awg0
 
 # ════════════════════════════════════════════════════════════════════
 # ШАГ 3: Ansible inventory
@@ -257,27 +273,38 @@ else
 fi
 
 # ════════════════════════════════════════════════════════════════════
-# ШАГ 6: Генерация WireGuard конфигов для клиента
+# ШАГ 6: Генерация AmneziaWG конфигов для клиента
 # ════════════════════════════════════════════════════════════════════
 hdr "КОНФИГИ ДЛЯ КЛИЕНТА"
 
-CLIENT_CONFIGS_DIR="${CLIENT_DIR}/wireguard_configs"
+CLIENT_CONFIGS_DIR="${CLIENT_DIR}/awg_configs"
 mkdir -p "$CLIENT_CONFIGS_DIR"
 
 # Первый сервер
 cat > "${CLIENT_CONFIGS_DIR}/server-01.conf" << EOF
-# WireGuard конфиг для ${CLIENT_NAME} — server-01
-# Сохранить в /etc/wireguard/wg0-msp.conf
+# AmneziaWG конфиг для ${CLIENT_NAME} — server-01
+# Сохранить в /etc/amnezia/amneziawg/awg0-msp.conf
 
 [Interface]
 PrivateKey = ${CLIENT_PRIV_KEY}
 Address    = ${VPN_IP_1}/32
 DNS        = 77.88.8.8, 77.88.8.1
 
+# AmneziaWG обфускация — обязательно совпадает с bastion.
+Jc   = ${AWG_JC}
+Jmin = ${AWG_JMIN}
+Jmax = ${AWG_JMAX}
+S1   = ${AWG_S1}
+S2   = ${AWG_S2}
+H1   = ${AWG_H1}
+H2   = ${AWG_H2}
+H3   = ${AWG_H3}
+H4   = ${AWG_H4}
+
 [Peer]
-# MSPShield Bastion
+# MSPShield Bastion (AmneziaWG на UDP/443)
 PublicKey           = ${BASTION_PUBKEY}
-Endpoint            = ${BASTION_IP}:51820
+Endpoint            = ${BASTION_IP}:443
 AllowedIPs          = 10.9.0.0/24
 PersistentKeepalive = 25
 EOF
@@ -290,15 +317,25 @@ for ENTRY in "${EXTRA_IPS[@]:-}"; do
     # shellcheck disable=SC2034  # PUB зарезервирован для будущего генератора сервер-side peer-записей
     IFS=':' read -r IP PRIV PUB <<< "$ENTRY"
     cat > "${CLIENT_CONFIGS_DIR}/server-$(printf '%02d' $IDX).conf" << EOF
-# WireGuard конфиг для ${CLIENT_NAME} — server-$(printf '%02d' $IDX)
+# AmneziaWG конфиг для ${CLIENT_NAME} — server-$(printf '%02d' $IDX)
 [Interface]
 PrivateKey = ${PRIV}
 Address    = ${IP}/32
 DNS        = 77.88.8.8, 77.88.8.1
 
+Jc   = ${AWG_JC}
+Jmin = ${AWG_JMIN}
+Jmax = ${AWG_JMAX}
+S1   = ${AWG_S1}
+S2   = ${AWG_S2}
+H1   = ${AWG_H1}
+H2   = ${AWG_H2}
+H3   = ${AWG_H3}
+H4   = ${AWG_H4}
+
 [Peer]
 PublicKey           = ${BASTION_PUBKEY}
-Endpoint            = ${BASTION_IP}:51820
+Endpoint            = ${BASTION_IP}:443
 AllowedIPs          = 10.9.0.0/24
 PersistentKeepalive = 25
 EOF
@@ -306,7 +343,7 @@ EOF
     IDX=$(( IDX + 1 ))
 done
 
-ok "WireGuard конфиги сохранены в: ${CLIENT_CONFIGS_DIR}/"
+ok "AmneziaWG конфиги сохранены в: ${CLIENT_CONFIGS_DIR}/"
 
 # ════════════════════════════════════════════════════════════════════
 # ИТОГ
@@ -321,7 +358,7 @@ echo "╠═══════════════════════�
 echo "║  СЛЕДУЮЩИЕ ШАГИ:"
 echo "║"
 echo "║  1. Отправить клиенту:"
-echo "║     - WireGuard конфиги из: ${CLIENT_CONFIGS_DIR}/"
+echo "║     - AmneziaWG конфиги из: ${CLIENT_CONFIGS_DIR}/"
 echo "║     - Инструкцию: SOP_client_bronze.md"
 echo "║"
 echo "║  2. Заполнить hosts в: ${CLIENT_DIR}/hosts"

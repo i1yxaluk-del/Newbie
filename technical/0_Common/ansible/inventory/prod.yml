@@ -3,12 +3,12 @@
 # Ansible inventory · prod
 # ──────────────────────────────────────────────────────────────
 # RU: Инвентарь production-окружения. Все подключения проходят через
-# bastion (WireGuard-концентратор), ProxyJump настроен в ansible.cfg.
+# bastion (AmneziaWG-концентратор на UDP/443), ProxyJump настроен в ansible.cfg.
 # BASTION_PUBLIC_IP — переменная окружения (выставляем из terraform output).
 #
 # Группы:
 #   landing  — публичный лендинг (1 хост).
-#   bastion  — WireGuard-хаб (1 хост).
+#   bastion  — AmneziaWG-хаб (1 хост, UDP/443).
 #   tenants  — клиентские хосты, ПОДРАЗДЕЛЯЮТСЯ на отдельные группы
 #              по клиенту (acme / example и т.д.) для удобства
 #              --limit <client>.

@@ -2,8 +2,13 @@
 # Prometheus scrape config · MSPShield
 # ──────────────────────────────────────────────────────────────
 # RU: Работает на mspshield-landing (можно вынести на отдельную
-# monitoring-VM, когда > 5 тенантов). Собирает метрики по WireGuard-
+# monitoring-VM, когда > 5 тенантов). Собирает метрики по AmneziaWG-
 # оверлею из тенант-сетей (10.20.x.x).
+#
+# prometheus-wireguard-exporter совместим с awg-интерфейсами:
+# AmneziaWG использует тот же nl80211-протокол, и все метрики
+# (latest_handshake, peer_count) пишутся под тем же именем
+# `wireguard_*`. Алёрты не меняем.
 #
 # Файлы таргетов подкладываются Ansible'ом:
 #   targets/node/<tenant>.yml     — node_exporter (каждый хост)
@@ -54,6 +59,7 @@ scrape_configs:
       # Урок M3 (PR #42): не использовать docker0 bridge 172.17.0.1.
       - targets: ["127.0.0.1:8001"]
 
+  # AmneziaWG (метрики продолжают префиксоваться wireguard_*).
   - job_name: wireguard
     static_configs:
       - targets: ["10.10.0.1:9586"]

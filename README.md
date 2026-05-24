@@ -47,7 +47,7 @@ go-to-market**.
   - `docs/hiring/` + `docs/training/` — JD + screening + тест-задание + интервью + 12-недельная программа.
   - `deploy/` — nginx reverse-proxy, docker-compose, Vaultwarden.
   - `infra/terraform/` — Yandex Cloud baseline (VPC, landing, bastion, S3 бэкапов).
-  - `technical/0_Common/` — Ansible playbooks (baseline/backup/patch), Prometheus+Alertmanager конфиги, WireGuard tenant-add и bootstrap скрипты, `dr_drill.sh`, `monthly_report.py`, `rotate_junior_access.sh`.
+  - `technical/0_Common/` — Ansible playbooks (baseline/backup/patch), Prometheus+Alertmanager конфиги, AmneziaWG tenant-add и bootstrap скрипты (UDP/443, обфускация против РКН-DPI), `dr_drill.sh`, `monthly_report.py`, `rotate_junior_access.sh`.
 - `README.md` переписан под реальную структуру, каждый артефакт имеет ссылку.
 
 ---
@@ -317,7 +317,7 @@ Newbie/ (MSPShield v4.1)
 │   │   ├── R-05.md AD replication failure
 │   │   ├── R-06.md Disk space critical
 │   │   ├── R-07.md SSL expired
-│   │   ├── R-08.md VPN/WireGuard down
+│   │   ├── R-08.md VPN/AmneziaWG down
 │   │   ├── R-09.md User password reset
 │   │   ├── R-10.md Monthly patch window
 │   │   └── R-11.md DR drill (quarterly)
@@ -362,7 +362,7 @@ Newbie/ (MSPShield v4.1)
 │   ├── 0_Common/                   общее для всех тарифов
 │   │   ├── ansible/                inventory + playbooks (site/backup/patch)
 │   │   ├── monitoring/             prometheus + rules + alertmanager
-│   │   ├── wireguard/              bootstrap + tenant_add
+│   │   ├── amneziawg/              bootstrap + tenant_add (UDP/443)
 │   │   ├── scripts/                dr_drill.sh, monthly_report.py,
 │   │   │                           rotate_junior_access.sh, verify_all.sh
 │   │   └── docker/…
@@ -439,7 +439,7 @@ Newbie/ (MSPShield v4.1)
 | 41 | Nginx prod-конфиг | [`deploy/nginx/mspshield.conf`](deploy/nginx/mspshield.conf) |
 | 42 | Terraform Yandex Cloud baseline | [`infra/terraform/main.tf`](infra/terraform/main.tf) |
 | 43 | Ansible playbook site.yml | [`technical/0_Common/ansible/playbooks/site.yml`](technical/0_Common/ansible/playbooks/site.yml) |
-| 44 | WireGuard tenant_add.sh | [`technical/0_Common/wireguard/tenant_add.sh`](technical/0_Common/wireguard/tenant_add.sh) |
+| 44 | AmneziaWG tenant_add.sh | [`technical/0_Common/amneziawg/tenant_add.sh`](technical/0_Common/amneziawg/tenant_add.sh) |
 | 45 | Vaultwarden (deploy + README) | [`deploy/vaultwarden/docker-compose.yml`](deploy/vaultwarden/docker-compose.yml) |
 | 46 | DR drill script | [`technical/0_Common/scripts/dr_drill.sh`](technical/0_Common/scripts/dr_drill.sh) |
 | 47 | R-11 DR drill runbook | [`docs/runbooks/R-11.md`](docs/runbooks/R-11.md) |
@@ -481,7 +481,7 @@ Newbie/ (MSPShield v4.1)
 | **База данных** | MongoDB 7 | [deploy/docker-compose.yml](deploy/docker-compose.yml) |
 | **Реверс-прокси** | Nginx + Let's Encrypt | [deploy/nginx/mspshield.conf](deploy/nginx/mspshield.conf) |
 | **Облако** | Yandex Cloud (VPC + Compute + Object Storage) | [infra/terraform/main.tf](infra/terraform/main.tf) |
-| **VPN** | WireGuard (per-tenant overlay) | [technical/0_Common/wireguard/](technical/0_Common/wireguard/) |
+| **VPN** | AmneziaWG (per-tenant overlay; UDP/443, обфускация против РКН-DPI) | [technical/0_Common/amneziawg/](technical/0_Common/amneziawg/) |
 | **Monitoring** | Prometheus + Grafana + Alertmanager + Loki (Silver+) + Wazuh (Gold) | [technical/0_Common/monitoring/](technical/0_Common/monitoring/) |
 | **Backup** | restic → Yandex Object Storage (S3) | [technical/0_Common/ansible/playbooks/backup_install.yml](technical/0_Common/ansible/playbooks/backup_install.yml) |
 | **Automation** | Ansible (primary), Terraform (infra) | [technical/0_Common/ansible/](technical/0_Common/ansible/) |
@@ -526,11 +526,11 @@ Newbie/ (MSPShield v4.1)
 |---|---|
 | [`docs/deployment/README.md`](docs/deployment/README.md) | Оглавление + архитектура в одной картинке + порядок этапов A/B/C |
 | [`docs/deployment/local_dev.md`](docs/deployment/local_dev.md) | Этап A: локальный запуск через `docker compose up` (20 мин, 0 ₽) |
-| [`docs/deployment/landing_production.md`](docs/deployment/landing_production.md) | Этап B: Terraform → WireGuard → Ansible → SSL → мониторинг (4–6 ч) |
+| [`docs/deployment/landing_production.md`](docs/deployment/landing_production.md) | Этап B: Terraform → AmneziaWG → Ansible → SSL → мониторинг (4–6 ч) |
 | [`docs/deployment/tenant_onboarding.md`](docs/deployment/tenant_onboarding.md) | Этап C: онбординг нового клиента (Bronze/Silver/Gold) |
 | [`docs/deployment/secrets_management.md`](docs/deployment/secrets_management.md) | Vaultwarden + правила работы с ключами/токенами |
 | [`docs/deployment/disaster_recovery.md`](docs/deployment/disaster_recovery.md) | DR-сценарии: лендинг/bastion/MongoDB/полная потеря |
-| [`docs/deployment/troubleshooting.md`](docs/deployment/troubleshooting.md) | Типовые ошибки (docker, terraform, ansible, wireguard, certbot) |
+| [`docs/deployment/troubleshooting.md`](docs/deployment/troubleshooting.md) | Типовые ошибки (docker, terraform, ansible, amneziawg, certbot) |
 
 ---
 

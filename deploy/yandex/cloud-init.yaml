@@ -115,11 +115,16 @@ runcmd:
   #    IP VPC. Inbound MX-приём не работает (MX-запись домена должна
   #    указывать на внешний провайдер: Yandex 360, Mailgun routes и т.п.).
   #    См. deploy/yandex/STALWART_RELAY_MODE.md
+  #
+  #    UDP/443 — AmneziaWG (для bastion-функции на этой же VM).
+  #    Не конфликтует с TCP/443 у Caddy — разные протоколы.
+  #    См. docs/runbooks/R-08.md и technical/0_Common/amneziawg/.
   - ufw default deny incoming
   - ufw default allow outgoing
   - ufw allow 22/tcp     comment 'SSH'
   - ufw allow 80/tcp     comment 'Caddy HTTP / ACME challenge'
   - ufw allow 443/tcp    comment 'Caddy HTTPS / лендинг + API'
+  - ufw allow 443/udp    comment 'AmneziaWG VPN (обфускация против РКН-DPI)'
   - ufw allow 465/tcp    comment 'Stalwart SMTPS submission (implicit TLS)'
   - ufw allow 587/tcp    comment 'Stalwart STARTTLS submission'
   - ufw allow 143/tcp    comment 'Stalwart IMAP STARTTLS'
@@ -146,6 +151,16 @@ runcmd:
   # 9. Включаем systemd-сервисы
   - systemctl enable --now docker
   - systemctl enable --now caddy
+
+  # 10. AmneziaWG (PPA ppa:amnezia/ppa) — установка пакетов.
+  #     Самый факт запуска сервиса — в awg_bootstrap.sh (ручной ONE-TIME шаг),
+  #     чтобы не генерировать ключи в cloud-init (невосстанавливаемые без бэкапа).
+  - DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common
+  - add-apt-repository -y ppa:amnezia/ppa
+  - apt-get update
+  - DEBIAN_FRONTEND=noninteractive apt-get install -y amneziawg-dkms amneziawg-tools qrencode
+  - sysctl -w net.ipv4.ip_forward=1
+  - echo 'net.ipv4.ip_forward=1' > /etc/sysctl.d/99-awg.conf
 
   # 10. Маркер готовности базового образа.
   #     deploy.ps1 опрашивает наличие этого файла перед загрузкой кода.

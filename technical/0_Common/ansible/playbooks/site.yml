@@ -3,12 +3,13 @@
 # site.yml · полное применение конфигурации на всю инфру
 # ──────────────────────────────────────────────────────────────
 # RU: Точка входа для Ansible. Запускается после `terraform apply`
-# и разовой инициализации bastion'а (wg_bootstrap.sh).
+# и разовой инициализации bastion'а (awg_bootstrap.sh).
 #
 # Что делает:
 #   1. baseline на ВСЕХ хостах (SSH hardening, auditd, unattended-upgrades).
 #   2. landing-стек (nginx + FastAPI + mongo) только на mspshield-landing.
-#   3. WireGuard-hub только на mspshield-bastion.
+#   3. AmneziaWG-hub (форк WireGuard с обфускацией handshake против РКН-DPI)
+#      только на mspshield-bastion. См. docs/runbooks/R-08.md.
 #   4. Тенанты — по тегам: tier_bronze / tier_silver / tier_gold.
 #
 # Запуск полного прогона:
@@ -41,7 +42,7 @@
   hosts: bastion
   become: true
   roles:
-    - wireguard_hub
+    - awg_hub
 
 - name: Bronze tenants
   hosts: tenants

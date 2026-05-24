@@ -1,0 +1,47 @@
+---
+# AmneziaWG hub — параметры по умолчанию.
+#
+# Почему AmneziaWG, а не WireGuard:
+#   РКН-DPI ловит обычный WireGuard handshake — клиенты внутри РФ не
+#   подключаются. AmneziaWG = форк WireGuard с обфускацией handshake;
+#   drop-in superset, тот же kernel-интерфейс. См. docs/runbooks/R-08.md.
+#
+# Почему UDP/443:
+#   Один публичный IP на старте, Caddy уже занимает TCP/443 (лендинг).
+#   UDP/443 не конфликтует с TCP/443 — это разные протоколы.
+
+# Имя интерфейса AmneziaWG (по аналогии с wg0 у WireGuard).
+awg_hub_interface: "awg0"
+
+# UDP-порт. По умолчанию 443 (см. выше). При желании можно сменить —
+# например, 51820 если деплой не в РФ и DPI не мешает.
+awg_hub_listen_port: 443
+
+# Адрес сервера в management overlay'е.
+awg_hub_address: "10.10.0.1/24"
+
+# Приватный ключ AmneziaWG (берётся из vault'а, см. group_vars/landing/vault.yml).
+# Генерация: awg genkey.
+awg_hub_private_key: ""
+
+# Список peer'ов (тенантов / внутренних VM).
+# Пример элемента:
+#   - name: acme
+#     public_key: "AAAA...="
+#     allowed_ips: "10.20.10.0/24, 10.10.0.10/32"
+awg_hub_peers: []
+
+# Параметры обфускации AmneziaWG. ДОЛЖНЫ совпадать на сервере и всех
+# клиентах — это общий профиль на весь деплой. Менять только если
+# текущие значения начнут детектиться DPI; при изменении придётся
+# раздать новые conf'ы всем клиентам.
+# Подробнее: https://docs.amnezia.org/documentation/amnezia-wg
+awg_hub_jc: 4
+awg_hub_jmin: 50
+awg_hub_jmax: 1000
+awg_hub_s1: 86
+awg_hub_s2: 574
+awg_hub_h1: 1779539752
+awg_hub_h2: 1138729192
+awg_hub_h3: 2050378563
+awg_hub_h4: 8345423

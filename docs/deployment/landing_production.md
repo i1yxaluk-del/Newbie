@@ -23,7 +23,7 @@
 1. [Подготовка домена](#1-домен).
 2. [Установка CLI-инструментов](#2-инструменты).
 3. [Terraform apply — поднятие VM, сети, Object Storage](#3-terraform).
-4. [WireGuard bootstrap на bastion](#4-wireguard).
+4. [AmneziaWG bootstrap на bastion](#4-wireguard).
 5. [Ansible site.yml — настройка landing-VM](#5-ansible).
 6. [DNS-переключение + SSL от Let's Encrypt](#6-dns--ssl).
 7. [Уведомления о заявках: Telegram + MAX](#7-telegram).
@@ -55,7 +55,7 @@
 | `terraform` | ≥ 1.5 | [releases](https://developer.hashicorp.com/terraform/downloads) |
 | `ansible` | ≥ 2.15 | `pip install ansible` или `apt install ansible` |
 | `certbot` | последняя | на landing-VM, ставится через Ansible |
-| `wireguard-tools` | любая | на bastion, ставится через Ansible |
+| `amneziawg-tools` + `amneziawg-dkms` | из `ppa:amnezia/ppa` | на bastion, ставится через Ansible |
 
 ### Инициализация yc
 
@@ -144,7 +144,7 @@ terraform output -raw landing_public_ip
 ---
 
 <a id="4-wireguard"></a>
-## 4. WireGuard bootstrap на bastion
+## 4. AmneziaWG bootstrap на bastion
 
 ### 4.1. Зайти на bastion
 
@@ -156,37 +156,39 @@ ssh ubuntu@<bastion_public_ip>
 
 ```bash
 # На bastion:
-sudo apt update && sudo apt install -y wireguard-tools
+sudo apt update && sudo apt install -y software-properties-common
+sudo add-apt-repository -y ppa:amnezia/ppa
+sudo apt update && sudo apt install -y amneziawg-dkms amneziawg-tools
 # Склонировать репо (read-only key хватит):
 git clone https://github.com/i1yxaluk-del/Newbie.git
 cd Newbie
-sudo bash technical/0_Common/wireguard/wg_bootstrap.sh
+sudo bash technical/0_Common/amneziawg/awg_bootstrap.sh
 ```
 
 Скрипт:
 
-- Сгенерирует server_private.key / server_public.key в `/etc/wireguard/`.
-- Создаст `/etc/wireguard/wg0.conf` с Address = 10.10.0.1/16, ListenPort = 51820.
-- Включит `wg-quick@wg0.service`.
+- Сгенерирует server_private.key / server_public.key в `/etc/amnezia/amneziawg/`.
+- Создаст `/etc/amnezia/amneziawg/awg0.conf` с Address = 10.10.0.1/16, ListenPort = 443, плюс 9 параметров обфускации (Jc/Jmin/Jmax/S1/S2/H1..H4).
+- Включит `awg-quick@awg0.service` — на UDP/443, не конфликтует с Caddy на TCP/443.
 
 Проверка:
 
 ```bash
-sudo wg show
-# interface: wg0
+sudo awg show
+# interface: awg0
 #   public key: ...
 #   private key: (hidden)
-#   listening port: 51820
+#   listening port: 443
 ```
 
 ### 4.3. Добавить peer для landing-VM
 
 ```bash
-sudo bash technical/0_Common/wireguard/tenant_add.sh landing 10.10.0.11/32
+sudo bash technical/0_Common/amneziawg/tenant_add.sh landing 10.10.0.11/32
 # Вывод: peer-config для landing, сохранить временно.
 ```
 
-Скопировать на landing-VM и включить WireGuard там (Ansible сделает это автоматически на следующем шаге).
+Скопировать на landing-VM и включить AmneziaWG там (Ansible сделает это автоматически на следующем шаге).
 
 ---
 
@@ -239,7 +241,7 @@ Playbook поставит:
 - nginx с конфигом из `deploy/nginx/mspshield.conf`;
 - FastAPI как systemd-сервис;
 - MongoDB локально;
-- WireGuard-peer к bastion (подключение к оверлею 10.10.0.0/16);
+- AmneziaWG-peer к bastion (подключение к оверлею 10.10.0.0/16, UDP/443);
 - Prometheus node_exporter на 9100.
 
 Время: ~10–15 минут.
@@ -403,7 +405,7 @@ curl -s http://localhost:9093/-/healthy
 - [ ] В Prometheus (`http://localhost:9090/targets` через SSH-туннель) — все таргеты `UP`.
 - [ ] `curl https://msp-claude.online/metrics` **заблокирован** извне (должно быть 403/404 от nginx).
 - [ ] `certbot renew --dry-run` — успех.
-- [ ] На bastion `wg show` — peer landing подключен.
+- [ ] На bastion `awg show` — peer landing подключен.
 - [ ] `backup_install.yml` прогнан на landing (есть бэкапы в Object Storage).
 - [ ] Мониторинг: создан тестовый алёрт (остановить nginx на 60 сек) → Telegram и/или MAX получил, восстановление (resolved) тоже пришло.
 

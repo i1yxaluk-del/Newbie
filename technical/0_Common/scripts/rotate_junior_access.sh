@@ -60,8 +60,8 @@ case "$MODE" in
     log "  Ask user: ssh-keygen -t ed25519 -f ~/.ssh/mspshield_ed25519_rotate"
     log "  Put public key into group_vars/users.yml:${NAME}_pubkey"
     log "  ansible-playbook playbooks/site.yml --tags ssh_keys"
-    # 2. Regenerate WireGuard peer
-    log "  /etc/wireguard/tenants/juniors/${NAME}.conf: tenant_add.sh override"
+    # 2. Regenerate AmneziaWG peer
+    log "  /etc/amnezia/amneziawg/tenants/juniors/${NAME}.conf: tenant_add.sh override"
     # 3. Rotate Vaultwarden personal password (user does in UI; we just verify).
     log "  Ask user to rotate their master password in Vaultwarden"
     ;;

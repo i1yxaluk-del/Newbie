@@ -116,11 +116,11 @@ yc storage s3api delete-objects --bucket mspshield-backups-prod ...
 1. Проверить `$BASTION_PUBLIC_IP` — выставлен?
 2. SSH на bastion работает из твоей машины? (`ssh ubuntu@<bastion_ip>`).
 3. SSH с bastion на тенант работает? (На bastion: `ssh ubuntu@10.20.10.11`).
-4. WireGuard up на обеих сторонах?
+4. AmneziaWG up на обеих сторонах?
 
 ```bash
 # На bastion:
-sudo wg show
+sudo awg show
 # peer должен быть с latest handshake < 3 мин назад
 ```
 
@@ -146,13 +146,13 @@ sudo apt install -y python3
 # ansible_python_interpreter: /usr/bin/python3.11
 ```
 
-## WireGuard
+## AmneziaWG
 
 ### Peer подключается, но пинг не проходит
 
 ```bash
 # На обеих сторонах проверить:
-sudo wg show
+sudo awg show
 # В AllowedIPs должны быть подсети противоположной стороны.
 # Например, на клиенте AllowedIPs = 10.10.0.0/16, 10.20.0.0/16.
 
@@ -164,18 +164,35 @@ sudo iptables -t nat -L POSTROUTING -v
 sudo sysctl net.ipv4.ip_forward
 # Должно быть 1. Если 0:
 # sudo sysctl -w net.ipv4.ip_forward=1
-# echo 'net.ipv4.ip_forward=1' | sudo tee /etc/sysctl.d/99-wg-forward.conf
+# echo 'net.ipv4.ip_forward=1' | sudo tee /etc/sysctl.d/99-awg-forward.conf
 ```
 
-### WireGuard не поднимается после reboot
+### Handshake постоянно пропадает (возможно РКН/DPI в регионе клиента)
+
+AmneziaWG специально против РКН-DPI, но работает только при ИДЕНТИЧНЫХ
+параметрах обфускации на обеих сторонах:
 
 ```bash
-sudo systemctl status wg-quick@wg0
+# Сравнить на bastion и клиенте:
+sudo grep -E '^(Jc|Jmin|Jmax|S1|S2|H1|H2|H3|H4) ' /etc/amnezia/amneziawg/awg0.conf
+# Все 9 чисел ДОЛЖНЫ совпадать. При любом расхождении handshake не пройдёт.
+# Регенерировать клиент-конфиг через tenant_add.sh — он
+# автоматически читает эти параметры с сервера.
+```
+
+### AmneziaWG не поднимается после reboot или kernel-update
+
+```bash
+sudo systemctl status awg-quick@awg0
 # Смотреть journalctl:
-sudo journalctl -u wg-quick@wg0 -n 50
+sudo journalctl -u awg-quick@awg0 -n 50
 # Часто: неправильные права на ключи.
-sudo chmod 600 /etc/wireguard/*.key
-sudo systemctl restart wg-quick@wg0
+sudo chmod 600 /etc/amnezia/amneziawg/*.key
+sudo systemctl restart awg-quick@awg0
+
+# DKMS-модуль не пересобрался после обновления ядра?
+lsmod | grep amneziawg
+# Пусто → sudo apt-get install --reinstall amneziawg-dkms
 ```
 
 ## SSL / certbot

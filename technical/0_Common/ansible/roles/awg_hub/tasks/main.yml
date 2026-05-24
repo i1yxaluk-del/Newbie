@@ -1,0 +1,58 @@
+---
+- name: guard — private key required
+  ansible.builtin.assert:
+    that: awg_hub_private_key | length > 0
+    fail_msg: "awg_hub_private_key пустой. Получи через awg_bootstrap.sh и положи в vault."
+
+- name: add amnezia ppa (Ubuntu)
+  ansible.builtin.apt_repository:
+    repo: "ppa:amnezia/ppa"
+    state: present
+    update_cache: true
+  when: ansible_facts['distribution'] == 'Ubuntu'
+
+- name: install amneziawg + tools
+  ansible.builtin.apt:
+    name:
+      - amneziawg-dkms
+      - amneziawg-tools
+      - qrencode
+    state: present
+
+- name: enable ip_forward
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: "1"
+    state: present
+    reload: true
+    sysctl_file: /etc/sysctl.d/99-awg.conf
+
+- name: ensure /etc/amnezia/amneziawg directory exists
+  ansible.builtin.file:
+    path: /etc/amnezia/amneziawg
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: awg0.conf from template
+  ansible.builtin.template:
+    src: awg0.conf.j2
+    dest: "/etc/amnezia/amneziawg/{{ awg_hub_interface }}.conf"
+    owner: root
+    group: root
+    mode: "0600"
+  notify: restart awg-quick
+  no_log: true
+
+- name: ufw open AmneziaWG UDP port
+  community.general.ufw:
+    rule: allow
+    port: "{{ awg_hub_listen_port }}"
+    proto: udp
+
+- name: enable awg-quick@{{ awg_hub_interface }}
+  ansible.builtin.systemd:
+    name: "awg-quick@{{ awg_hub_interface }}"
+    enabled: true
+    state: started

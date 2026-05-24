@@ -113,6 +113,7 @@
               <directories check_all="yes" report_changes="yes">/var/www</directories>
               <directories check_all="yes">/root/.ssh</directories>
               <directories check_all="yes">/opt/restic-scripts</directories>
+              <directories check_all="yes">/etc/amnezia/amneziawg</directories>
               <directories check_all="yes">/etc/wireguard</directories>
               <ignore type="sregex">.log$</ignore>
               <ignore type="sregex">.tmp$</ignore>

@@ -8,7 +8,7 @@
 # Архитектура (без изменений):
 #   - Рабочая станция администратора: Windows 10 / 11 + PowerShell
 #   - Cloud-площадка: Yandex Cloud (ru-central1), Ubuntu 22.04 LTS VM
-#   - Клиенты: Linux/Windows, подключаются по WireGuard
+#   - Клиенты: Linux/Windows, подключаются по AmneziaWG (UDP/443)
 #
 # Все блоки бывают двух типов:
 #   • PowerShell (` ```powershell `) — выполняются на Win10 ноутбуке.
@@ -23,7 +23,7 @@
 1. Архитектура Исполнителя
 2. Развёртывание VM в Yandex Cloud (из PowerShell)
 3. Базовая настройка ОС (Ubuntu VM)
-4. WireGuard Bastion Server
+4. AmneziaWG Bastion Server (UDP/443, обфускация против РКН-DPI)
 5. Docker Compose — Мониторинг стек
 6. Добавление клиента (PowerShell-обёртка + bash-скрипт на VM)
 7. Еженедельный отчёт
@@ -162,7 +162,7 @@ WINDOWS 10 АДМИН-СТАНЦИЯ                       YANDEX CLOUD ru-centr
                                                │ └─────────────────────────────────────────────────────────┘  │
                                                │                                                               │
                                                │ Хост (Ubuntu 22.04 LTS):                                     │
-                                               │ ├── WireGuard :51820/udp   ← VPN для клиентов               │
+                                               │ ├── AmneziaWG :443/udp     ← VPN для клиентов (DPI-obf)        │
                                                │ ├── ufw / nftables         ← firewall                        │
                                                │ ├── fail2ban               ← защита SSH                      │
                                                │ └── SSH :22                ← только из доверенных IP         │
@@ -298,7 +298,12 @@ sudo apt update && sudo apt upgrade -y
 sudo apt install -y \
     curl wget git nano htop iotop \
     chrony ufw fail2ban jq \
-    wireguard wireguard-tools
+    software-properties-common
+
+# AmneziaWG (PPA — форк WireGuard с обфускацией против РКН-DPI).
+sudo add-apt-repository -y ppa:amnezia/ppa
+sudo apt update
+sudo apt install -y amneziawg-dkms amneziawg-tools qrencode
 
 # Часовой пояс
 sudo timedatectl set-timezone Europe/Moscow
@@ -330,7 +335,7 @@ sudo systemctl enable --now fail2ban
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
 sudo ufw allow 22/tcp     comment "SSH"
-sudo ufw allow 51820/udp  comment "WireGuard VPN"
+sudo ufw allow 443/udp    comment "AmneziaWG VPN (DPI-obf)"
 sudo ufw --force enable
 sudo ufw status verbose
 
@@ -368,8 +373,10 @@ ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i $Env:MSP_SSH_KEY ub
 ```powershell
 $bash = @'
 set -euo pipefail
-cd /etc/wireguard
-sudo wg genkey | sudo tee server_private.key | sudo wg pubkey | sudo tee server_public.key >/dev/null
+sudo mkdir -p /etc/amnezia/amneziawg
+sudo chmod 700 /etc/amnezia/amneziawg
+cd /etc/amnezia/amneziawg
+sudo awg genkey | sudo tee server_private.key | sudo awg pubkey | sudo tee server_public.key >/dev/null
 sudo chmod 600 server_private.key
 
 echo "=== BASTION PUBLIC KEY ==="
@@ -380,36 +387,55 @@ $bash | ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i $Env:MSP_SS
 
 Сохраните вывод в безопасное место:
 ```powershell
-$ServerPubKey = (msp-bash 'sudo cat /etc/wireguard/server_public.key').Trim()
+$ServerPubKey = (msp-bash 'sudo cat /etc/amnezia/amneziawg/server_public.key').Trim()
 $ServerPubKey | Set-Content "$env:USERPROFILE\.msp-secrets\bastion_pubkey.txt"
 ```
 
-### 4.2. Конфигурация WireGuard
+### 4.2. Конфигурация AmneziaWG
+
+> **Критично:** параметры `Jc/Jmin/Jmax/S1/S2/H1..H4` — это
+> индивидуальный «профиль обфускации» деплоя. Он должен быть
+> ИДЕНТИЧЕН на сервере и всех клиентах; различие хотя бы в
+> одном числе — handshake не пройдёт. `tenant_add.sh` и
+> `onboard_client.sh` читают эти параметры из серверного конфига
+> автоматически.
 
 ```powershell
 $bash = @'
 set -euo pipefail
 
-PRIV=$(sudo cat /etc/wireguard/server_private.key)
+PRIV=$(sudo cat /etc/amnezia/amneziawg/server_private.key)
 
-sudo tee /etc/wireguard/wg0.conf >/dev/null << EOF
+sudo tee /etc/amnezia/amneziawg/awg0.conf >/dev/null << EOF
 [Interface]
 PrivateKey = $PRIV
 Address    = 10.9.0.1/24
-ListenPort = 51820
+ListenPort = 443
 SaveConfig = false
+
+# AmneziaWG обфускация — общий профиль с клиентами.
+Jc   = 4
+Jmin = 50
+Jmax = 1000
+S1   = 86
+S2   = 574
+H1   = 1779539752
+H2   = 1138729192
+H3   = 2050378563
+H4   = 8345423
+
 PostUp     = iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
 PostDown   = iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
 
 # === PEERS КЛИЕНТОВ (добавлять при онбординге) ===
 EOF
-sudo chmod 600 /etc/wireguard/wg0.conf
+sudo chmod 600 /etc/amnezia/amneziawg/awg0.conf
 
-echo "net.ipv4.ip_forward=1" | sudo tee /etc/sysctl.d/99-wireguard.conf
-sudo sysctl -p /etc/sysctl.d/99-wireguard.conf
+echo "net.ipv4.ip_forward=1" | sudo tee /etc/sysctl.d/99-awg.conf
+sudo sysctl -p /etc/sysctl.d/99-awg.conf
 
-sudo systemctl enable --now wg-quick@wg0
-sudo wg show wg0
+sudo systemctl enable --now awg-quick@awg0
+sudo awg show awg0
 '@
 $bash | ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP bash -s
 ```
@@ -425,7 +451,7 @@ set -euo pipefail
 CLIENT="${1:?Usage: $0 CLIENT_SLUG VPN_IP CLIENT_PUBKEY}"
 VPN_IP="${2:?}"
 CLIENT_PUBKEY="${3:?}"
-CONFIG="/etc/wireguard/wg0.conf"
+CONFIG="/etc/amnezia/amneziawg/awg0.conf"
 
 cat >> "$CONFIG" << EOF
 
@@ -435,7 +461,7 @@ PublicKey  = ${CLIENT_PUBKEY}
 AllowedIPs = ${VPN_IP}/32
 EOF
 
-wg set wg0 peer "$CLIENT_PUBKEY" allowed-ips "${VPN_IP}/32"
+awg set awg0 peer "$CLIENT_PUBKEY" allowed-ips "${VPN_IP}/32"
 echo "OK: ${CLIENT} -> ${VPN_IP}"
 SCRIPT
 sudo chmod +x /usr/local/bin/add_vpn_peer.sh

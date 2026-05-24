@@ -1,11 +1,11 @@
 # Онбординг клиента (тенанта)
 
-Цель: за 1–7 дней развернуть клиенту его стек (Bronze/Silver/Gold), подключить его к WireGuard, запустить бэкапы и мониторинг, начать выполнение SLA.
+Цель: за 1–7 дней развернуть клиенту его стек (Bronze/Silver/Gold), подключить его к AmneziaWG (UDP/443, обфускация против РКН-DPI), запустить бэкапы и мониторинг, начать выполнение SLA.
 
 **Предпосылки:**
 
 - Лендинг уже развернут ([`landing_production.md`](landing_production.md)).
-- Bastion с WireGuard работает.
+- Bastion с AmneziaWG работает (UDP/443).
 - Контракт с клиентом подписан (НПД).
 - Получены реквизиты клиента, описание инфры, админ-доступы.
 
@@ -38,7 +38,7 @@
 
 ---
 
-## Шаг 1. Создать tenant-подсеть WireGuard
+## Шаг 1. Создать tenant-подсеть AmneziaWG
 
 Подсеть клиенту выдаётся из `10.20.0.0/16` (10.20.x.0/24 на клиента).
 
@@ -47,7 +47,7 @@
 ```bash
 ssh ubuntu@mspshield-bastion
 cd ~/Newbie
-sudo bash technical/0_Common/wireguard/tenant_add.sh acme 10.20.10.0/24
+sudo bash technical/0_Common/amneziawg/tenant_add.sh acme 10.20.10.0/24
 ```
 
 Скрипт напечатает peer-config. Сохранить временно (НЕ в git) для следующего шага.
@@ -56,21 +56,36 @@ sudo bash technical/0_Common/wireguard/tenant_add.sh acme 10.20.10.0/24
 
 ```bash
 # На клиентском сервере:
-sudo apt install -y wireguard
-sudo tee /etc/wireguard/wg0.conf <<EOF
+sudo apt install -y software-properties-common
+sudo add-apt-repository -y ppa:amnezia/ppa
+sudo apt update && sudo apt install -y amneziawg-dkms amneziawg-tools
+sudo mkdir -p /etc/amnezia/amneziawg && sudo chmod 700 /etc/amnezia/amneziawg
+sudo tee /etc/amnezia/amneziawg/awg0.conf <<EOF
 [Interface]
 PrivateKey = <client_private_key>
 Address = 10.20.10.11/24
 
+# AmneziaWG обфускация — ИДЕНТИЧные значения как на bastion
+# (их выведет tenant_add.sh).
+Jc   = 4
+Jmin = 50
+Jmax = 1000
+S1   = 86
+S2   = 574
+H1   = 1779539752
+H2   = 1138729192
+H3   = 2050378563
+H4   = 8345423
+
 [Peer]
 PublicKey = <bastion_server_public_key>
 PresharedKey = <psk>
-Endpoint = <bastion_public_ip>:51820
+Endpoint = <bastion_public_ip>:443
 AllowedIPs = 10.10.0.0/16, 10.20.0.0/16
 PersistentKeepalive = 25
 EOF
-sudo chmod 600 /etc/wireguard/wg0.conf
-sudo systemctl enable --now wg-quick@wg0
+sudo chmod 600 /etc/amnezia/amneziawg/awg0.conf
+sudo systemctl enable --now awg-quick@awg0
 ```
 
 Проверка с bastion:
@@ -262,7 +277,7 @@ Ansible это уже делает через `targets/tenants/acme.yml` (ген
 
 ## Чек-лист готовности тенанта
 
-- [ ] WireGuard peer работает (`ping 10.20.10.11` с bastion).
+- [ ] AmneziaWG peer работает (`ping 10.20.10.11` с bastion).
 - [ ] Ansible site.yml прошёл без ошибок (`--limit acme --tags tier_bronze`).
 - [ ] `systemctl status` на всех сервисах клиента — active.
 - [ ] Первый restic-снапшот создан (`restic snapshots`).

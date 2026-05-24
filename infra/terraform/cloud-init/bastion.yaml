@@ -1,9 +1,10 @@
 #cloud-config
+# AmneziaWG bastion — Path B (отдельная VM).
+# Path A (deploy/yandex/cloud-init.yaml) совмещает bastion с landing-VM на одном IP.
 package_update: true
 package_upgrade: true
 packages:
-  - wireguard
-  - wireguard-tools
+  - software-properties-common
   - ufw
   - fail2ban
   - prometheus-node-exporter
@@ -16,13 +17,17 @@ users:
     shell: /bin/bash
 
 runcmd:
+  # AmneziaWG (форк WireGuard с обфускацией handshake против РКН-DPI).
+  - add-apt-repository -y ppa:amnezia/ppa
+  - apt-get update
+  - DEBIAN_FRONTEND=noninteractive apt-get install -y amneziawg-dkms amneziawg-tools qrencode
   - sysctl -w net.ipv4.ip_forward=1
-  - echo "net.ipv4.ip_forward=1" >> /etc/sysctl.d/99-wg.conf
+  - echo "net.ipv4.ip_forward=1" >> /etc/sysctl.d/99-awg.conf
   - ufw default deny incoming
   - ufw default allow outgoing
   - ufw allow 22/tcp
-  - ufw allow 51820/udp
+  - ufw allow 443/udp
   - ufw --force enable
   - systemctl enable --now fail2ban
-  - mkdir -p /etc/wireguard/tenants
-  - chmod 700 /etc/wireguard /etc/wireguard/tenants
+  - mkdir -p /etc/amnezia/amneziawg/tenants
+  - chmod 700 /etc/amnezia /etc/amnezia/amneziawg /etc/amnezia/amneziawg/tenants

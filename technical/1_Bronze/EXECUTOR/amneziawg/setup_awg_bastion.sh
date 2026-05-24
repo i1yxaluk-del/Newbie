@@ -1,10 +1,21 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════════════
-# setup_wireguard_bastion.sh — Настройка WireGuard Bastion Server
-# Файл: /usr/local/bin/setup_wireguard_bastion.sh
-# Запуск: sudo bash setup_wireguard_bastion.sh
+# setup_awg_bastion.sh — Настройка AmneziaWG Bastion Server
+# Файл: /usr/local/bin/setup_awg_bastion.sh
+# Запуск: sudo bash setup_awg_bastion.sh
 #
-# Выполняется ОДИН РАЗ на Bastion VM при первоначальной настройке
+# Выполняется ОДИН РАЗ на Bastion VM (или совмещённой landing+bastion VM)
+# при первоначальной настройке.
+#
+# ПОЧЕМУ AmneziaWG, а не WireGuard:
+#   РКН-DPI ловит обычный WireGuard handshake — клиенты в РФ не
+#   подключаются. AmneziaWG = форк WG с обфускацией handshake.
+#   Те же команды (awg вместо wg, awg-quick вместо wg-quick), тот же
+#   kernel-интерфейс. См. docs/runbooks/R-08.md.
+#
+# ПОЧЕМУ UDP/443:
+#   Один публичный IP на старте; Caddy занимает TCP/443 (лендинг).
+#   UDP/443 и TCP/443 — разные протоколы, не конфликтуют.
 # ═══════════════════════════════════════════════════════════════════
 set -euo pipefail
 
@@ -15,23 +26,41 @@ warn() { echo -e "${Y}!${NC} $*"; }
 
 [[ $EUID -ne 0 ]] && { echo "sudo required"; exit 1; }
 
-WG_IFACE="wg0"
-WG_PORT="51820"
+WG_IFACE="awg0"
+WG_PORT="443"
 VPN_NET="10.9.0.0/24"
 VPN_IP="10.9.0.1"
-WG_DIR="/etc/wireguard"
+WG_DIR="/etc/amnezia/amneziawg"
+
+# AmneziaWG-обфускация (общий профиль для всего деплоя).
+# Эти значения должны совпадать на сервере и всех клиентах.
+# При смене — придётся обновить конфиги у всех существующих клиентов.
+AWG_JC="${AWG_JC:-4}"
+AWG_JMIN="${AWG_JMIN:-50}"
+AWG_JMAX="${AWG_JMAX:-1000}"
+AWG_S1="${AWG_S1:-86}"
+AWG_S2="${AWG_S2:-574}"
+AWG_H1="${AWG_H1:-1779539752}"
+AWG_H2="${AWG_H2:-1138729192}"
+AWG_H3="${AWG_H3:-2050378563}"
+AWG_H4="${AWG_H4:-8345423}"
 
 echo "════════════════════════════════════════════"
-echo " MSPShield WireGuard Bastion Setup"
-echo " Interface: ${WG_IFACE} | Port: ${WG_PORT}"
+echo " MSPShield AmneziaWG Bastion Setup"
+echo " Interface: ${WG_IFACE} | Port: ${WG_PORT}/udp"
 echo " VPN Network: ${VPN_NET}"
 echo "════════════════════════════════════════════"
 
-# ── Установить WireGuard ───────────────────────────────────────────
-info "Устанавливаю WireGuard..."
+# ── Установить AmneziaWG ───────────────────────────────────────────
+info "Устанавливаю AmneziaWG (PPA ppa:amnezia/ppa)..."
+if ! command -v add-apt-repository >/dev/null 2>&1; then
+    apt-get update -qq
+    apt-get install -y software-properties-common
+fi
+add-apt-repository -y ppa:amnezia/ppa
 apt-get update -qq
-apt-get install -y wireguard wireguard-tools iptables
-ok "WireGuard $(wg --version)"
+apt-get install -y amneziawg-dkms amneziawg-tools iptables
+ok "AmneziaWG установлен: $(awg --version 2>&1 | head -1)"
 
 # ── Включить IP Forwarding ─────────────────────────────────────────
 info "Включаю IP forwarding..."
@@ -52,7 +81,7 @@ info "Генерирую ключевую пару Bastion..."
 mkdir -p "$WG_DIR"
 chmod 700 "$WG_DIR"
 
-wg genkey | tee "${WG_DIR}/server_private.key" | wg pubkey > "${WG_DIR}/server_public.key"
+awg genkey | tee "${WG_DIR}/server_private.key" | awg pubkey > "${WG_DIR}/server_public.key"
 chmod 600 "${WG_DIR}/server_private.key"
 chmod 644 "${WG_DIR}/server_public.key"
 
@@ -61,10 +90,10 @@ SERVER_PUBKEY=$(cat "${WG_DIR}/server_public.key")
 ok "Ключи сгенерированы"
 
 # ── Создать конфиг WireGuard ───────────────────────────────────────
-info "Создаю /etc/wireguard/${WG_IFACE}.conf..."
+info "Создаю ${WG_DIR}/${WG_IFACE}.conf..."
 cat > "${WG_DIR}/${WG_IFACE}.conf" << EOF
 # ══════════════════════════════════════════════════════
-# WireGuard Bastion Server — MSPShield
+# AmneziaWG Bastion Server — MSPShield
 # Создан: $(date '+%Y-%m-%d %H:%M:%S')
 # ══════════════════════════════════════════════════════
 
@@ -73,6 +102,18 @@ PrivateKey = ${SERVER_PRIVKEY}
 Address    = ${VPN_IP}/24
 ListenPort = ${WG_PORT}
 SaveConfig = false
+
+# AmneziaWG обфускация (общий профиль для всех peers).
+# Эти параметры должны совпадать на сервере и всех клиентских конфигах.
+Jc   = ${AWG_JC}
+Jmin = ${AWG_JMIN}
+Jmax = ${AWG_JMAX}
+S1   = ${AWG_S1}
+S2   = ${AWG_S2}
+H1   = ${AWG_H1}
+H2   = ${AWG_H2}
+H3   = ${AWG_H3}
+H4   = ${AWG_H4}
 
 # NAT: позволить клиентам VPN выходить через основной интерфейс
 PostUp   = iptables -A FORWARD -i %i -j ACCEPT; \
@@ -107,7 +148,7 @@ set -euo pipefail
 CLIENT="${1:?Usage: $0 CLIENT_SLUG VPN_IP CLIENT_PUBKEY}"
 VPN_IP="${2:?}"
 CLIENT_PUBKEY="${3:?}"
-WG_CONF="/etc/wireguard/wg0.conf"
+WG_CONF="/etc/amnezia/amneziawg/awg0.conf"
 
 cat >> "$WG_CONF" << EOF
 
@@ -118,7 +159,7 @@ AllowedIPs = ${VPN_IP}/32
 EOF
 
 # Hot reload (без перезапуска)
-wg set wg0 peer "$CLIENT_PUBKEY" allowed-ips "${VPN_IP}/32"
+awg set awg0 peer "$CLIENT_PUBKEY" allowed-ips "${VPN_IP}/32"
 echo "✓ Peer добавлен: ${CLIENT} → ${VPN_IP}"
 SCRIPT
 chmod +x /usr/local/bin/add_vpn_peer.sh
@@ -128,21 +169,21 @@ info "Настраиваю UFW..."
 ufw default deny incoming
 ufw default allow outgoing
 ufw allow 22/tcp   comment "SSH"
-ufw allow "${WG_PORT}/udp" comment "WireGuard VPN"
+ufw allow "${WG_PORT}/udp" comment "AmneziaWG VPN (UDP/443, не конфликтует с Caddy TCP/443)"
 # Мониторинг-сервисы — только через VPN
 # НЕ открывать 3000, 9090, 3100 наружу!
 ufw --force enable
 ok "UFW настроен"
 
-# ── Запустить WireGuard ────────────────────────────────────────────
-info "Запускаю WireGuard..."
-systemctl enable --now "wg-quick@${WG_IFACE}"
+# ── Запустить AmneziaWG ────────────────────────────────────────────
+info "Запускаю AmneziaWG..."
+systemctl enable --now "awg-quick@${WG_IFACE}"
 sleep 2
 
 if ip link show "$WG_IFACE" | grep -q UP; then
-    ok "WireGuard ${WG_IFACE} запущен"
+    ok "AmneziaWG ${WG_IFACE} запущен"
 else
-    warn "WireGuard запущен, но статус неопределён. Проверьте: wg show ${WG_IFACE}"
+    warn "AmneziaWG запущен, но статус неопределён. Проверьте: awg show ${WG_IFACE}"
 fi
 
 # ── Финал ─────────────────────────────────────────────────────────
@@ -150,7 +191,7 @@ PUBLIC_IP=$(curl -sf --max-time 5 https://checkip.amazonaws.com 2>/dev/null || e
 
 echo ""
 echo "════════════════════════════════════════════"
-echo " ✅ WireGuard Bastion готов!"
+echo " ✅ AmneziaWG Bastion готов!"
 echo ""
 echo " Публичный IP:  ${PUBLIC_IP}"
 echo " VPN IP:        ${VPN_IP}"
@@ -159,20 +200,36 @@ echo ""
 echo " ⭐ ПУБЛИЧНЫЙ КЛЮЧ (передать клиентам):"
 echo " ${SERVER_PUBKEY}"
 echo ""
-echo " Статус:  wg show ${WG_IFACE}"
+echo " ⚠️  AmneziaWG-обфускация (передать клиентам ВМЕСТЕ С ключом):"
+echo "    Jc=${AWG_JC} Jmin=${AWG_JMIN} Jmax=${AWG_JMAX}"
+echo "    S1=${AWG_S1} S2=${AWG_S2}"
+echo "    H1=${AWG_H1} H2=${AWG_H2} H3=${AWG_H3} H4=${AWG_H4}"
+echo ""
+echo " Статус:  awg show ${WG_IFACE}"
 echo " Клиенты: cat ${WG_DIR}/${WG_IFACE}.conf"
 echo " Добавить клиента: add_vpn_peer.sh SLUG IP PUBKEY"
 echo "════════════════════════════════════════════"
 
 # Сохранить в файл
 cat > "${WG_DIR}/bastion_info.txt" << EOF
-# MSPShield Bastion Info
+# MSPShield Bastion Info (AmneziaWG)
 # Created: $(date '+%Y-%m-%d %H:%M:%S')
 Public IP:  ${PUBLIC_IP}
 VPN IP:     ${VPN_IP}
-Port:       ${WG_PORT}
+Port:       ${WG_PORT}/udp
 Public Key: ${SERVER_PUBKEY}
 Interface:  ${WG_IFACE}
+
+# AmneziaWG обфускация (общий профиль):
+Jc=${AWG_JC}
+Jmin=${AWG_JMIN}
+Jmax=${AWG_JMAX}
+S1=${AWG_S1}
+S2=${AWG_S2}
+H1=${AWG_H1}
+H2=${AWG_H2}
+H3=${AWG_H3}
+H4=${AWG_H4}
 EOF
 chmod 600 "${WG_DIR}/bastion_info.txt"
 ok "Информация сохранена: ${WG_DIR}/bastion_info.txt"

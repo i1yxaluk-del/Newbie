@@ -126,7 +126,7 @@ CORS_ALLOW_ORIGIN_REGEX=^http://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\
 
 ```
 mspshield-landing  ── nginx + frontend build + FastAPI + Mongo (1 VM)
-mspshield-bastion  ── WireGuard + центр управления (опц., см. docs/deployment/)
+mspshield-bastion  ── AmneziaWG (UDP/443, обфускация против РКН-DPI) + центр управления (опц., см. docs/deployment/)
 mspshield-monitor  ── Prometheus + Grafana (опц.)
 ```
 

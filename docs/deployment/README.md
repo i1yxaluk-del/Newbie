@@ -37,17 +37,17 @@
           │                       MongoDB 27017 (local)   │
           └───────────────────────────────────────────────┘
                      ▲
-                     │ WireGuard 10.10.0.0/16
+                     │ AmneziaWG 10.10.0.0/16 (UDP/443)
                      │
           ┌──────────┴──────────────────────────┐
           │   mspshield-bastion (Yandex Cloud)  │
           │                                     │
-          │   wg0 UDP 51820 ◄───┐               │
+          │   awg0 UDP 443  ◄───┐               │
           │                     │               │
           │   Vaultwarden       │               │
           │   Prometheus/Alertmanager           │
           └─────────────────────┼───────────────┘
-                                │ WireGuard 10.20.x.x
+                                │ AmneziaWG 10.20.x.x
                                 ▼
           ┌──────────────────────────────────────┐
           │   Tenant VMs (каждый клиент — /24)   │
@@ -61,9 +61,9 @@
 Ключевые факты:
 
 - **Один landing-VM** для публичного сайта — не горизонтально масштабируется, это side-project.
-- **Один bastion-VM** — точка входа для всех админ-подключений и WireGuard-концентратор.
+- **Один bastion-VM** — точка входа для всех админ-подключений и AmneziaWG-концентратор (UDP/443, обфускация против РКН-DPI). В Path A бастион совмещён с landing-VM (TCP/443 у Caddy + UDP/443 у AmneziaWG — разные протоколы, не конфликтуют).
 - **Бэкапы** — Yandex Object Storage через `restic` (см. `technical/0_Common/ansible/playbooks/backup_install.yml`).
-- **Мониторинг** — Prometheus scrape'ает всех клиентов через WireGuard-оверлей.
+- **Мониторинг** — Prometheus scrape'ает всех клиентов через AmneziaWG-оверлей.
 
 ---
 
@@ -102,7 +102,7 @@
 
 **Основные шаги:**
 
-1. `tenant_add.sh` на bastion — создать WireGuard-peer.
+1. `tenant_add.sh` на bastion — создать AmneziaWG-peer (UDP/443 с обфускацией).
 2. `ansible-playbook playbooks/site.yml --limit <client> --tags tier_bronze`.
 3. Установить `restic` и запустить первый бэкап.
 4. Передать welcome-package (см. `docs/onboarding/welcome_package.md`).
@@ -118,7 +118,7 @@
 - `infra/terraform/terraform.tfvars` (только `.tfvars.example`, которого пока нет — создаём локально).
 - `infra/terraform/terraform.tfstate*` (state хранится в Yandex Object Storage backend, см. `main.tf`).
 - Любые `*.key`, `*.pem`, `*.tgz` с данными клиентов.
-- `/etc/wireguard/*.key` (даже в описаниях).
+- `/etc/amnezia/amneziawg/*.key` и `/etc/wireguard/*.key` (даже в описаниях).
 - Telegram bot-token, SMTP-пароль.
 
 ✅ **Что проверяется на каждом коммите:**

@@ -27,7 +27,7 @@
 0. Рабочая станция администратора (Windows 10)
 1. Обзор архитектуры
 2. Предварительные требования
-3. WireGuard VPN-подключение
+3. AmneziaWG VPN-подключение (UDP/443, обфускация против РКН-DPI)
 4. node_exporter (Linux)
 5. windows_exporter (Windows)
 6. restic Backup (Linux + Windows)
@@ -76,8 +76,8 @@ WINDOWS 10 АДМИН-СТАНЦИЯ          СЕРВЕРЫ ЗАКАЗЧИКА 
 │  PowerShell 5.1 / 7     │ ───▶  │ Linux-серверы            │  │ Monitoring VM                │
 │   ssh + scp             │       │ ├── node_exporter :9100  │◀▶│ ├── Prometheus :9090         │
 │   Invoke-Command (WinRM)│       │ ├── restic (backup)      │  │ ├── Grafana :3000            │
-│   RDP                   │       │ └── WireGuard client     │VPN│ ├── Alertmanager :9093     │
-│   yc CLI                │ ───▶  │                          │  │ └── Bastion :51820           │
+│   RDP                   │       │ └── AmneziaWG client     │VPN│ ├── Alertmanager :9093     │
+│   yc CLI                │ ───▶  │                          │  │ └── Bastion :443/udp        │
 └─────────────────────────┘       │ Windows-серверы          │  │                              │
                                   │ ├── windows_exporter :9182│  │ Object Storage (S3)          │
                                   │ ├── restic (backup)      │  │ └── restic бэкапы клиента    │
@@ -99,12 +99,13 @@ WINDOWS 10 АДМИН-СТАНЦИЯ          СЕРВЕРЫ ЗАКАЗЧИКА 
 - [ ] SSH-доступ к Linux-серверам (ключ или пароль)
 - [ ] RDP/WinRM-доступ к Windows-серверам (для PowerShell Remoting)
 - [ ] Права администратора/sudo
-- [ ] Разрешён исходящий UDP 51820 с серверов наружу (WireGuard)
+- [ ] Разрешён исходящий **UDP/443** с серверов наружу (AmneziaWG)
 - [ ] Интернет-доступ с серверов (загрузка агентов)
 
 ### От Исполнителя (заранее, в одной таблице):
 - [ ] VPN-IP для каждого сервера клиента (`10.9.0.X`)
-- [ ] Публичный ключ Bastion WireGuard
+- [ ] Публичный ключ Bastion AmneziaWG
+- [ ] 9 параметров обфускации (`Jc, Jmin, Jmax, S1, S2, H1..H4`) — выдаёт Исполнитель, ДОЛЖНЫ совпадать с сервером
 - [ ] Public IP Bastion
 - [ ] S3-bucket + ключи доступа для бэкапов
 - [ ] restic-пароль (`openssl rand -hex 32`, сохранить в KeePass / 1Password)
@@ -134,7 +135,13 @@ $client | ConvertTo-Json -Depth 5 | Set-Content "$env:USERPROFILE\.msp-secrets\c
 
 ---
 
-## 3. WIREGUARD VPN — ПОДКЛЮЧЕНИЕ КЛИЕНТА
+## 3. AMNEZIAWG VPN — ПОДКЛЮЧЕНИЕ КЛИЕНТА
+
+> AmneziaWG — российский форк WireGuard с обфускацией handshake
+> против РКН-DPI. Команды идентичны WG (`awg show` = `wg show`,
+> `awg-quick` = `wg-quick`); интерфейс именуется `awg0-msp` (вместо
+> `wg0-msp`), конфиг лежит в `/etc/amnezia/amneziawg/` (вместо
+> `/etc/wireguard/`). На Windows GUI «AmneziaVPN» вместо «WireGuard».
 
 ### 3.1. Linux-сервер клиента — установка из PowerShell
 
@@ -148,38 +155,54 @@ $BastPub  = $client.BastionPubKey
 $bash = @"
 set -euo pipefail
 
-# 1) Установка пакетов
-sudo apt update && sudo apt install -y wireguard wireguard-tools
+# 1) Установка пакетов из AmneziaWG PPA
+sudo apt update
+sudo apt install -y software-properties-common
+sudo add-apt-repository -y ppa:amnezia/ppa
+sudo apt update && sudo apt install -y amneziawg-dkms amneziawg-tools
 
 # 2) Генерация ключевой пары
-cd /etc/wireguard
-sudo wg genkey | sudo tee client_private.key | sudo wg pubkey | sudo tee client_public.key >/dev/null
+sudo mkdir -p /etc/amnezia/amneziawg && sudo chmod 700 /etc/amnezia/amneziawg
+cd /etc/amnezia/amneziawg
+sudo awg genkey | sudo tee client_private.key | sudo awg pubkey | sudo tee client_public.key >/dev/null
 sudo chmod 600 client_private.key
 
-PRIV=\$(sudo cat /etc/wireguard/client_private.key)
-PUB=\$(sudo cat /etc/wireguard/client_public.key)
+PRIV=\$(sudo cat /etc/amnezia/amneziawg/client_private.key)
+PUB=\$(sudo cat /etc/amnezia/amneziawg/client_public.key)
 
-# 3) Конфиг туннеля
-sudo tee /etc/wireguard/wg0-msp.conf >/dev/null << EOF
+# 3) Конфиг туннеля.
+#    Параметры Jc/Jmin/Jmax/S1/S2/H1..H4 ниже — выдаёт Исполнитель;
+#    они ОБЯЗАНЫ совпадать с теми, что у bastion, иначе handshake не пройдёт.
+sudo tee /etc/amnezia/amneziawg/awg0-msp.conf >/dev/null << EOF
 [Interface]
 PrivateKey = \$PRIV
 Address    = $VpnIp/32
 DNS        = 77.88.8.8, 77.88.8.1
 
+Jc   = 4
+Jmin = 50
+Jmax = 1000
+S1   = 86
+S2   = 574
+H1   = 1779539752
+H2   = 1138729192
+H3   = 2050378563
+H4   = 8345423
+
 [Peer]
 PublicKey           = $BastPub
-Endpoint            = ${Bastion}:51820
+Endpoint            = ${Bastion}:443
 AllowedIPs          = 10.9.0.0/24
 PersistentKeepalive = 25
 EOF
-sudo chmod 600 /etc/wireguard/wg0-msp.conf
+sudo chmod 600 /etc/amnezia/amneziawg/awg0-msp.conf
 
 # 4) Старт + автозапуск
-sudo systemctl enable --now wg-quick@wg0-msp
+sudo systemctl enable --now awg-quick@awg0-msp
 
 # 5) Вывести client public key — нужно Исполнителю, чтобы добавить peer на Bastion
 echo "CLIENT_PUBKEY=\$PUB"
-sudo wg show wg0-msp
+sudo awg show awg0-msp
 "@
 
 $out = $bash | ssh root@$srv bash -s
@@ -193,7 +216,7 @@ Add-MspVpnPeer -ClientSlug $client.Slug -VpnIp $VpnIp -ClientPubKey $clientPubKe
 
 Проверка из PowerShell:
 ```powershell
-ssh root@$srv 'sudo wg show wg0-msp ; ping -c 3 10.9.0.1'
+ssh root@$srv 'sudo awg show awg0-msp ; ping -c 3 10.9.0.1'
 ```
 
 ### 3.2. Windows-сервер клиента — установка из PowerShell Remoting
@@ -208,7 +231,11 @@ $BastPub  = $client.BastionPubKey
 Invoke-Command -ComputerName $srv -Credential $cred -ScriptBlock {
     param($VpnIp, $Bastion, $BastPub)
 
-    # 1) Установить WireGuard (winget или MSI)
+    # 1) Установить AmneziaVPN (Windows-клиент с поддержкой AmneziaWG-обфускации).
+    #    Прямые релизы: https://github.com/amnezia-vpn/amnezia-client/releases
+    #    Импорт awg0-msp.conf в AmneziaVPN GUI после установки.
+    #    Ниже — fallback на обычный WireGuard-клиент без обфускации
+    #    (работает только если у клиента НЕТ РКН-DPI).
     if (-not (Get-Command wg.exe -ErrorAction SilentlyContinue)) {
         winget install --id WireGuard.WireGuard --silent --accept-package-agreements --accept-source-agreements
     }
@@ -228,7 +255,7 @@ DNS        = 77.88.8.8, 77.88.8.1
 
 [Peer]
 PublicKey           = $BastPub
-Endpoint            = ${Bastion}:51820
+Endpoint            = ${Bastion}:443
 AllowedIPs          = 10.9.0.0/24
 PersistentKeepalive = 25
 "@
@@ -659,8 +686,8 @@ function Test-MspBronzeClient {
 
         if ($s.OS -eq 'linux') {
             $checks = @'
-echo -n "WireGuard handshake .... "
-sudo wg show wg0-msp 2>/dev/null | grep -q "latest handshake" && echo OK || echo FAIL
+echo -n "AmneziaWG handshake .... "
+sudo awg show awg0-msp 2>/dev/null | grep -q "latest handshake" && echo OK || echo FAIL
 
 echo -n "Bastion reachable ...... "
 ping -c 2 -W 3 10.9.0.1 >/dev/null && echo OK || echo FAIL
@@ -669,7 +696,7 @@ echo -n "node_exporter active ... "
 systemctl is-active --quiet node_exporter && echo OK || echo FAIL
 
 echo -n "metrics from VPN ....... "
-MY=$(ip addr show wg0-msp 2>/dev/null | awk '/inet /{print $2}' | cut -d/ -f1)
+MY=$(ip addr show awg0-msp 2>/dev/null | awk '/inet /{print $2}' | cut -d/ -f1)
 curl -s --max-time 5 "http://${MY}:9100/metrics" | head -1 | grep -q '^#' && echo OK || echo FAIL
 
 echo -n "restic timer enabled ... "
@@ -687,7 +714,7 @@ restic snapshots --quiet 2>/dev/null >/dev/null && echo OK || echo FAIL
                 @{
                     'WinExporter service' = (Get-Service windows_exporter -ErrorAction SilentlyContinue).Status
                     'Metrics HTTP 200'    = (Invoke-WebRequest -Uri http://localhost:9182/metrics -UseBasicParsing).StatusCode
-                    'WireGuard service'   = (Get-Service 'WireGuardTunnel$wg0-msp' -ErrorAction SilentlyContinue).Status
+                    'AmneziaWG service'   = (Get-Service 'WireGuardTunnel$wg0-msp' -ErrorAction SilentlyContinue).Status
                     'Backup task'         = (Get-ScheduledTask -TaskName MSP-ResticBackup -ErrorAction SilentlyContinue).State
                     'Bastion ping'        = (Test-Connection -ComputerName 10.9.0.1 -Count 2 -Quiet)
                 }
@@ -706,8 +733,8 @@ Test-MspBronzeClient -Client $client
 
 | Проблема                          | Диагностика                                | Решение                                                                       |
 |-----------------------------------|---------------------------------------------|-------------------------------------------------------------------------------|
-| VPN — нет handshake (Linux)       | `ssh root@srv 'sudo wg show wg0-msp'`       | Проверить endpoint, перезапустить: `sudo systemctl restart wg-quick@wg0-msp`  |
-| VPN — нет handshake (Windows)     | `Invoke-Command ... Get-Service WireGuardTunnel*` | Открыть WireGuard UI → Reconnect; проверить outbound UDP 51820          |
+| VPN — нет handshake (Linux)       | `ssh root@srv 'sudo awg show awg0-msp'`     | Проверить endpoint, параметры Jc/Jmin/Jmax/S1/S2/H1..H4 совпадают с bastion; перезапустить: `sudo systemctl restart awg-quick@awg0-msp` |
+| VPN — нет handshake (Windows)     | `Invoke-Command ... Get-Service WireGuardTunnel*` | Открыть AmneziaVPN UI → Reconnect; проверить outbound UDP/443 |
 | node_exporter не стартует         | `ssh root@srv 'journalctl -u node_exporter -n 50'` | Проверить права на `/var/lib/node_exporter/textfile_collector`         |
 | Метрики недоступны из VPN         | `ssh root@srv 'sudo ufw status'`            | `ufw allow from 10.9.0.0/24 to any port 9100`                                 |
 | Бэкап падает (Linux)              | `ssh root@srv 'journalctl -u restic-backup -n 100'` | Проверить ключи S3, свободное место, сеть к `storage.yandexcloud.net`  |

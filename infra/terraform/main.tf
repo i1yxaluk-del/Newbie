@@ -6,8 +6,9 @@
 # Поднимает:
 #  • mspshield-landing VM — backend + frontend + mongo + nginx.
 #    Публичный IP, открыты порты 80/443 (HTTP/HTTPS) всему миру.
-#  • mspshield-bastion VM — WireGuard-концентратор для всех тенантов.
-#    Публичный IP, открыт UDP 51820 (WireGuard) и TCP 22 (только для
+#  • mspshield-bastion VM — AmneziaWG-концентратор для всех тенантов
+#    (форк WireGuard с обфускацией против РКН-DPI).
+#    Публичный IP, открыт UDP 443 (AmneziaWG) и TCP 22 (только для
 #    admin IP из var.admin_ssh_sources).
 #  • Object Storage bucket — S3-совместимый бакет для restic-бэкапов,
 #    версионирование включено в блоке ниже.
@@ -32,7 +33,7 @@
 #  5. terraform apply.
 # После apply:
 #  • Получить bastion-IP: `terraform output bastion_public_ip`.
-#  • Запустить wg_bootstrap.sh на bastion (см. technical/0_Common/wireguard).
+#  • Запустить awg_bootstrap.sh на bastion (см. technical/0_Common/amneziawg).
 #  • Запустить Ansible site.yml (см. docs/deployment/landing_production.md).
 # ──────────────────────────────────────────────────────────────
 
@@ -182,10 +183,14 @@ resource "yandex_vpc_security_group" "bastion" {
   name       = "mspshield-bastion-sg"
   network_id = yandex_vpc_network.core.id
 
+  # AmneziaWG (форк WireGuard с обфускацией handshake против РКН-DPI).
+  # UDP/443 — намеренно тот же номер, что у HTTPS, но другой протокол
+  # → не конфликтует с Caddy TCP/443 (если bastion совмещён с landing-VM).
+  # См. docs/runbooks/R-08.md и technical/0_Common/amneziawg/.
   ingress {
     protocol       = "UDP"
-    description    = "WireGuard"
-    port           = 51820
+    description    = "AmneziaWG (UDP/443, не конфликтует с Caddy TCP/443)"
+    port           = 443
     v4_cidr_blocks = ["0.0.0.0/0"]
   }
   ingress {

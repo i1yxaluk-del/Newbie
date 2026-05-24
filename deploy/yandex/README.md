@@ -264,7 +264,7 @@ docker compose -f /opt/msp/Newbie/deploy/yandex/docker-compose.yml \
 - **Пароль:** из `msp-deploy-secrets.txt`
 
 Входящие письма из интернета **прилетают через внешний MX-провайдер**
-(Yandex 360 / Mailgun routes) → forwards на наш :587 → Stalwart кладёт
+(Yandex 360 / Mailgun routes / Cloudflare Email Routing) → forwards на наш :587 → Stalwart кладёт
 в локальные ящики. Конфигурация — в [STALWART_RELAY_MODE.md](STALWART_RELAY_MODE.md).
 
 ---
@@ -289,7 +289,7 @@ docker compose -f /opt/msp/Newbie/deploy/yandex/docker-compose.yml \
 | Submission auth на наш Stalwart `:465` / `:587` | ✅ да |
 | Локальная доставка между ящиками `*@msp-claude.online` | ✅ да |
 | Grafana/Wazuh/Alertmanager → Stalwart `:587` (внутри VM) | ✅ да |
-| Outbound через smarthost (Yandex 360 / Mailgun) на их `:465`/`:587` | ✅ да |
+| Outbound через smarthost Yandex Cloud Postbox `postbox.cloud.yandex.net:587` STARTTLS | ✅ да |
 | Чтение ящиков через IMAPS `:993` | ✅ да |
 
 ### Архитектурное решение — submit-only Stalwart + внешний MX
@@ -298,7 +298,9 @@ Stalwart **не работает как MX**. Inbound почта приходи�
 провайдера (Yandex 360 / Mailgun routes / Cloudflare Email Routing),
 который принимает её на свой `:25` и пересылает к нам на `:587`.
 
-Outbound — через smarthost на `:465`/`:587` к тому же провайдеру.
+Outbound — через smarthost Yandex Cloud Postbox на `:587` STARTTLS
+(auth = API key ID + secret service account `postbox-sender`). Postbox
+MX-записи НЕ выдаёт — он только отправляет.
 
 Полный пошаговый план настройки (DNS, smarthost, DKIM, проверка):
 [STALWART_RELAY_MODE.md](STALWART_RELAY_MODE.md).
@@ -716,7 +718,7 @@ dig +short -x <public-ip>
 - Раз в 3 месяца — `docker compose pull && docker compose up -d` для обновления mongo/stalwart
 - Раз в неделю — `tail -100 /var/log/caddy/access.log` на странные запросы
 - DKIM ротация — через WebUI Stalwart, раз в 6 месяцев
-- Smarthost-пароль (Yandex 360 / Mailgun) — ротация раз в 6 месяцев
+- Postbox API key (smarthost auth: `POSTBOX_API_KEY_ID` + `POSTBOX_API_KEY_SECRET`) — ротация раз в 6 месяцев или при компрометации
 
 ---
 

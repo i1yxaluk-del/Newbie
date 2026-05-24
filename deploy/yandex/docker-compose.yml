@@ -54,10 +54,15 @@ services:
   #   блокируется (анти-спам). Получить адрес с открытым :25 в YC
   #   сейчас технически невозможно. Поэтому Stalwart работает в
   #   submit-only режиме: только 465/587 для отправки + 143/993 для
-  #   чтения локальных ящиков. Inbound MX-приём почты к нашему IP
-  #   не работает — внешний MX-провайдер (Yandex 360 для бизнеса,
-  #   Mail.ru для бизнеса, Mailgun routes) принимает почту и
-  #   forwards на наш :587. Полное руководство: STALWART_RELAY_MODE.md
+  #   чтения локальных ящиков.
+  #
+  #   Outbound: через Yandex Cloud Postbox (postbox.cloud.yandex.net:587
+  #   STARTTLS, auth = API key ID + secret). Это канонический smarthost
+  #   для нашего деплоя — см. STALWART_RELAY_MODE.md §2 · Вариант A.
+  #
+  #   Inbound (если нужны входящие ящики): отдельный MX-провайдер
+  #   (Yandex 360, Mail.ru для бизнеса, Mailgun routes) принимает почту
+  #   и forwards на наш :587. Postbox MX НЕ выдаёт — это outbound-only.
   #
   # Активные порты:
   #   465   — SMTPS submission (implicit TLS) — клиенты шлют ИСХОДЯЩЕЕ
@@ -69,8 +74,10 @@ services:
   #
   # Закрыто (заблокировано Yandex Cloud):
   #   25    — НЕ открываем. Outgoing к чужим :25 всё равно режется YC.
-  #           Outbound идёт через smarthost (Yandex 360 / Mailgun / Brevo)
-  #           на их :465 или :587 (настраивается в Stalwart admin UI).
+  #           Outbound идёт через smarthost Yandex Cloud Postbox
+  #           (postbox.cloud.yandex.net:587 STARTTLS, auth = API key).
+  #           Настраивается через stalwart-cli или Admin UI — см.
+  #           STALWART_RELAY_MODE.md §2 · Вариант A.
   #
   # TLS-сертификаты для mail.<domain> Caddy получает у Let's Encrypt и
   # Stalwart читает их через bind-mount /var/lib/caddy → /etc/stalwart-certs:ro
@@ -81,6 +88,17 @@ services:
       # Bootstrap admin (первый вход в WebUI). Пароль генерируется
       # setup-on-vm.sh и пишется в ~/msp-deploy-secrets.txt
       STALWART_RECOVERY_ADMIN: "admin:${STALWART_ADMIN_PASSWORD:-changeme}"
+      # Outbound smarthost через Yandex Cloud Postbox (см. STALWART_RELAY_MODE.md §2).
+      # ВНИМАНИЕ: для :587 implicitTls=false (STARTTLS), иначе хэндшейк сломается.
+      # Подхватывается ТОЛЬКО при первом запуске (bootstrap). Дальше менять через
+      # stalwart-cli или WebUI; конфиг живёт в volume stalwart-etc.
+      STALWART_QUEUE_DEFAULT_ROUTE: postbox-outbound
+      STALWART_ROUTES_POSTBOX_OUTBOUND_TYPE: relay
+      STALWART_ROUTES_POSTBOX_OUTBOUND_ADDRESS: postbox.cloud.yandex.net
+      STALWART_ROUTES_POSTBOX_OUTBOUND_PORT: "587"
+      STALWART_ROUTES_POSTBOX_OUTBOUND_TLS_IMPLICIT: "false"
+      STALWART_ROUTES_POSTBOX_OUTBOUND_AUTH_USERNAME: ${POSTBOX_API_KEY_ID:-}
+      STALWART_ROUTES_POSTBOX_OUTBOUND_AUTH_SECRET: ${POSTBOX_API_KEY_SECRET:-}
     volumes:
       - stalwart-etc:/etc/stalwart
       - stalwart-data:/var/lib/stalwart

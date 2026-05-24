@@ -32,10 +32,18 @@ mongo_admin_password: "REPLACE"
 
 # ── alertmanager (K2) ──
 alertmanager_tg_bot_token: "REPLACE"
+# Пароль локального alert@-юзера в Stalwart (Alertmanager шлёт через
+# stalwart:587, Stalwart дальше форвардит в Yandex Cloud Postbox).
 alertmanager_smtp_password: "REPLACE"
 alertmanager_tg_chat_id_general: "-1001234567890"
 alertmanager_tg_chat_id_p1:      "-1001234567891"
 alertmanager_tg_chat_id_backup:  "-1001234567892"
+
+# ── Yandex Cloud Postbox (outbound smarthost для Stalwart) ──
+# Получение: Console → Postbox → Service Account "postbox-sender" → API key.
+# Scope = yc.postbox.send. См. deploy/yandex/STALWART_RELAY_MODE.md §2.
+postbox_api_key_id:     "aje-REPLACE"
+postbox_api_key_secret: "REPLACE"
 
 # ── restic_client ──
 restic_repository:    "s3:storage.yandexcloud.net/mspshield-backups/landing"

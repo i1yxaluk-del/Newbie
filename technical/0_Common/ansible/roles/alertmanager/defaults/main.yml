@@ -6,7 +6,11 @@ alertmanager_tg_chat_id_general: ""
 alertmanager_tg_chat_id_p1: ""
 alertmanager_tg_chat_id_backup: ""
 alertmanager_smtp_from: "alert@msp-claude.online"
-alertmanager_smtp_smarthost: "smtp.yandex.ru:587"
+## Alertmanager отправляет письма через ЛОКАЛЬНЫЙ Stalwart, а тот форвардит
+## через Yandex Cloud Postbox (см. deploy/yandex/STALWART_RELAY_MODE.md §2).
+## Для two-VM (Path B) на monitor-VM нужен либо локальный stalwart-relay,
+## либо изменить значение на IP/hostname mail-VM (через WireGuard mesh).
+alertmanager_smtp_smarthost: "stalwart:587"
 alertmanager_smtp_user: "alert@msp-claude.online"
 alertmanager_email_p3_to: "alert@msp-claude.online"
 alertmanager_resolve_timeout: "5m"

@@ -14,6 +14,7 @@
 | `MAX_WEBHOOK_SECRET` | `/etc/mspshield/backend.env` (верификация `X-Max-Bot-Api-Secret`) | `root` |
 | `ALERTMANAGER_WEBHOOK_TOKEN` | `/etc/mspshield/backend.env` + `/etc/alertmanager/max_webhook_token` | `root` |
 | `SMARTCAPTCHA_SERVER_KEY` | `/etc/mspshield/backend.env` | `root` |
+| `POSTBOX_API_KEY_ID` + `POSTBOX_API_KEY_SECRET` (Yandex Cloud Postbox — outbound SMTP smarthost для Stalwart) | `/etc/mspshield/backend.env` + Stalwart route config (`/etc/stalwart/`); см. [`deploy/yandex/STALWART_RELAY_MODE.md`](../../deploy/yandex/STALWART_RELAY_MODE.md) §2 · Вариант A | `root` |
 | Restic S3-ключи (клиент → бэкап бакет) | `/etc/restic/env` на каждом клиентском хосте (chmod 600) | `root` |
 | Пароли клиентов (RDP, админки, сайтов) | **Vaultwarden** на bastion | Владелец + Junior (после приёма на работу) |
 | Terraform state | S3-бакет `mspshield-tfstate` (зашифрован на стороне Yandex Object Storage) | Владелец |
@@ -87,6 +88,7 @@ ssh -L 8443:localhost:8443 ubuntu@<bastion_public_ip>
 | `TG_BOT_TOKEN` | По необходимости | При увольнении Junior (если у него был доступ к чату) |
 | `MAX_BOT_TOKEN` | По необходимости | При увольнении Junior, при компрометации webhook'а |
 | `ALERTMANAGER_WEBHOOK_TOKEN` | 12 мес | При увольнении Junior — `openssl rand -hex 32` в `backend/.env` + `/etc/alertmanager/max_webhook_token` |
+| `POSTBOX_API_KEY_*` (Yandex Cloud) | 6 мес | При увольнении сотрудника с доступом, при компрометации, при смене service account: создать новый API key в YC консоли → обновить `backend/.env` → пересоздать Stalwart route (`stalwart-cli mta route update postbox-outbound …`) → инвалидировать старый ключ |
 | WireGuard peer-keys клиента | 12 мес | Или по договорённости с клиентом |
 | Restic S3-ключи | Каждые 12 мес | — |
 | SSH-ключи Junior | При уходе / повышении | См. [`../../technical/0_Common/scripts/rotate_junior_access.sh`](../../technical/0_Common/scripts/rotate_junior_access.sh) |

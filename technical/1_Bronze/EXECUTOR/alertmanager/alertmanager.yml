@@ -27,7 +27,9 @@
 
 global:
   resolve_timeout: 5m
-  smtp_smarthost: 'smtp.yandex.ru:587'
+  # Alertmanager отправляет через локальный Stalwart, а тот форвардит наружу
+  # через Yandex Cloud Postbox (см. deploy/yandex/STALWART_RELAY_MODE.md §2).
+  smtp_smarthost: 'stalwart:587'
   smtp_from: '${SMTP_FROM}'
   smtp_auth_username: '${SMTP_USER}'
   smtp_auth_password: '${SMTP_PASSWORD}'

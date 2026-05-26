@@ -732,10 +732,84 @@ dig +short -x <public-ip>
 - Раз в неделю — `tail -100 /var/log/caddy/access.log` на странные запросы
 - DKIM ротация — через WebUI Stalwart, раз в 6 месяцев
 - Postbox API key (smarthost auth: `POSTBOX_API_KEY_ID` + `POSTBOX_API_KEY_SECRET`) — ротация раз в 6 месяцев или при компрометации
+- См. секцию 13 «Почта — чеклист доделать» для пошагового плана
 
 ---
 
-## 13. Дополнительно
+## 13. Почта — чеклист доделать после деплоя
+
+Ниже — конкретные шаги, которые нужно выполнить в Stalwart Admin UI
+для завершения настройки почты. API-ключ Postbox уже создан и лежит
+в `.env`, но Stalwart v0.16 не имеет CLI в Docker-образе — всё через WebUI.
+
+### Подключение к Admin UI
+
+```powershell
+# SSH-туннель (через VPN или внешний IP)
+ssh -L 8080:localhost:8080 -i "$env:USERPROFILE\.ssh\id_ed25519_yc" ubuntu@10.10.0.21
+# Или через внешний IP:
+ssh -L 8080:localhost:8080 -i "$env:USERPROFILE\.ssh\id_ed25519_yc" ubuntu@93.77.184.219
+# → http://localhost:8080/admin
+# Логин: admin / Пароль: из ~/msp-deploy-secrets.txt на ВМ
+```
+
+### Шаги
+
+| # | Шаг | Где в Admin UI | Статус |
+|---|-----|----------------|--------|
+| 1 | **Указать auth в маршруте `postbox-outbound`** | Settings → SMTP → Routes → postbox-outbound → Edit → Auth user = `POSTBOX_API_KEY_ID` из `.env`, Auth password = `POSTBOX_API_KEY_SECRET` из `.env` | **Не сделано** |
+| 2 | **Убедиться что outbound strategy = postbox-outbound** | MTA → Outbound → Strategy → default route = `postbox-outbound` | Проверить |
+| 3 | **Добавить TLS-сертификат для mail.** | Settings → TLS → Certificates → Add Manual → cert/key пути к Caddy-сертификатам | **Не сделано** (ждёт Caddy cert issuance для `mail.msp-claude.online`) |
+| 4 | **Создать аккаунты** admin@, sales@, alert@ | Settings → Accounts → Add User → тип Individual, пароли из `msp-deploy-secrets.txt` | **Не сделано** |
+| 5 | **Сгенерировать DKIM-ключ** | Settings → Domains → msp-claude.online → Generate DKIM | **Не сделано** |
+| 6 | **Прописать DNS TXT-записи** (SPF + DKIM + DMARC) у регистратора | Вне VM — Namecheap/Cloudflare DNS | **Ждёт шаг 5** |
+
+### DNS TXT-записи (после DKIM из шага 5)
+
+```
+TXT  msp-claude.online                     v=spf1 a ip4:93.77.184.219 include:_spf.yandex.net -all
+TXT  default._domainkey.msp-claude.online   v=DKIM1; k=rsa; p=<из Stalwart Admin шаг 5>
+TXT  _dmarc.msp-claude.online              v=DMARC1; p=quarantine; rua=mailto:admin@msp-claude.online
+```
+
+`include:_spf.yandex.net` обязателен — Postbox отправляет от нашего имени.
+
+### Postbox — привязка домена
+
+В YC Console → **Postbox → Домены** → добавить `msp-claude.online` →
+подтвердить TXT-записью. После подтверждения Postbox начнёт принимать
+входящие на `mx.yandex.net` и форвардить на наш `:587`.
+
+### Интеграции (после шагов 1-4)
+
+| Сервис | Как подключить | Куда вписать |
+|--------|---------------|--------------|
+| Grafana | `stalwart:587` STARTTLS, user=`alert@`, pass из secrets | `deploy/yandex/monitoring/.env` → `GF_SMTP_*` |
+| Alertmanager | `stalwart:587`, user=`alert@`, pass из secrets | `deploy/yandex/monitoring/alertmanager/alertmanager.yml` |
+| Vaultwarden | `stalwart:587` STARTTLS, user=`alert@`, pass из secrets | Vaultwarden Admin UI → Settings → SMTP |
+| Backend (FastAPI) | `stalwart:587`, user=`alert@`, pass из secrets | `backend/.env` → `SMTP_*` |
+
+### Тест отправки
+
+```bash
+# На VM — отправка через Stalwart
+docker exec -it msp-stalwart-1 /bin/sh
+# Внутри контейнера:
+curl -v --url 'smtp://postbox.cloud.yandex.net:587' \
+  --mail-from 'alert@msp-claude.online' \
+  --mail-rcpt '<ваш-личний-email>' \
+  -u '<POSTBOX_API_KEY_ID>:<POSTBOX_API_KEY_SECRET>' \
+  -T <(echo "Subject: Test from Stalwart via Postbox
+
+Test body")
+```
+
+Или просто с Outlook/Thunderbird: SMTP `mail.msp-claude.online:587`,
+user=`alert@`, STARTTLS.
+
+---
+
+## 14. Дополнительно
 
 - **Stalwart docs:** https://stalw.art/docs/
 - **Caddy docs:** https://caddyserver.com/docs/

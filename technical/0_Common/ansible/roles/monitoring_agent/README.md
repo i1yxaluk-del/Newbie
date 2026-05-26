@@ -1,7 +1,7 @@
 # role: `monitoring_agent`
 
 > node_exporter + promtail на клиентских хостах (и на нашем landing/bastion).
-> Prometheus на нашем monitoring-VM скрейпит через WireGuard.
+> Prometheus на нашем monitoring-VM скрейпит через AmneziaWG.
 
 ## Что делает
 

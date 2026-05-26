@@ -44,7 +44,7 @@
     # Отключаем HTTP/3 (QUIC) на :443 — UDP/443 занят AmneziaWG.
     # Без этого Caddy слушает UDP/443 для QUIC и конфликтует с awg0.
     servers :443 {
-        protocols h1 h2c
+        protocols h1 h2
     }
 }
 
@@ -151,8 +151,8 @@ mail.{$MSP_DOMAIN} {
 
 # ─── Vaultwarden (Bitwarden-compatible vault) ──────────────────
 # Container: vaultwarden in docker-compose (127.0.0.1:8180 + :3012)
-# Admin panel: https://vault.msp-claude.online/admin
-vault.msp-claude.online {
+# Admin panel: https://vault.<domain>/admin
+vault.{$MSP_DOMAIN} {
     encode gzip
 
     header {

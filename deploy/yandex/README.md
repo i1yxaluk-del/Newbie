@@ -174,6 +174,8 @@ cd C:\путь\к\репозиторию\Newbie
 | `A` | `msp-claude.online` | `<public IP из вывода скрипта>` |
 | `A` | `www.msp-claude.online` | `<public IP>` |
 | `A` | `mail.msp-claude.online` | `<public IP>` |
+| `A` | `vault.msp-claude.online` | `<public IP>` |
+| `A` | `bastion.msp-claude.online` | `<public IP>` |
 | `MX` | `msp-claude.online` | `10 mail.msp-claude.online` |
 | `TXT` | `msp-claude.online` | `v=spf1 a mx ip4:<public IP> -all` |
 | `TXT` | `_dmarc.msp-claude.online` | `v=DMARC1; p=quarantine; rua=mailto:admin@msp-claude.online` |

@@ -121,10 +121,10 @@ services:
     image: vaultwarden/server:latest
     restart: unless-stopped
     environment:
-      DOMAIN: https://vault.msp-claude.online
+      DOMAIN: ${VAULTWARDEN_DOMAIN:-https://vault.msp-claude.online}
       SIGNUPS_ALLOWED: "false"
       INVITATIONS_ALLOWED: "true"
-      ADMIN_TOKEN: ${VAULTWARDEN_ADMIN_TOKEN:-changeme}
+      ADMIN_TOKEN: ${VAULTWARDEN_ADMIN_TOKEN:?set VAULTWARDEN_ADMIN_TOKEN in deploy/yandex/.env}
       WEBSOCKET_ENABLED: "true"
       LOG_FILE: /data/vaultwarden.log
       LOG_LEVEL: warn

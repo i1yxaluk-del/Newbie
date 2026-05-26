@@ -7,7 +7,7 @@
 | Секрет | Где хранится | Кто имеет доступ |
 |--------|--------------|------------------|
 | SSH-ключи владельца (личные) | `~/.ssh/` на личной машине | Только владелец |
-| WireGuard peer-keys (клиентов) | `/etc/wireguard/tenants/<client>.conf` на bastion | `root` на bastion |
+| AmneziaWG peer-keys (клиентов) | `/etc/amnezia/amneziawg/tenants/<client>.conf` на bastion | `root` на bastion |
 | `ADMIN_TOKEN` backend | `/etc/mspshield/backend.env` (chmod 600) | `root` на landing-VM |
 | `TG_BOT_TOKEN` | `/etc/mspshield/backend.env` + `/etc/alertmanager/tg_bot_token` | `root` |
 | `MAX_BOT_TOKEN` | `/etc/mspshield/backend.env` (бот из `@MasterBot` MAX) | `root` |
@@ -78,7 +78,7 @@ ssh -L 8443:localhost:8443 ubuntu@<bastion_public_ip>
 
 ### Бэкапы Vaultwarden
 
-Ежедневный `restic backup /opt/vaultwarden/data/` в отдельный S3-бакет `mspshield-vaultwarden-backup`. Проверка — квартальный DR-drill.
+Ежедневный `restic backup /var/lib/docker/volumes/msp_vaultwarden-data/_data/` в отдельный S3-бакет `mspshield-vaultwarden-backup`. Проверка — квартальный DR-drill.
 
 ## Ротация секретов
 
@@ -89,7 +89,7 @@ ssh -L 8443:localhost:8443 ubuntu@<bastion_public_ip>
 | `MAX_BOT_TOKEN` | По необходимости | При увольнении Junior, при компрометации webhook'а |
 | `ALERTMANAGER_WEBHOOK_TOKEN` | 12 мес | При увольнении Junior — `openssl rand -hex 32` в `backend/.env` + `/etc/alertmanager/max_webhook_token` |
 | `POSTBOX_API_KEY_*` (Yandex Cloud) | 6 мес | При увольнении сотрудника с доступом, при компрометации, при смене service account: создать новый API key в YC консоли → обновить `backend/.env` → пересоздать Stalwart route (`stalwart-cli mta route update postbox-outbound …`) → инвалидировать старый ключ |
-| WireGuard peer-keys клиента | 12 мес | Или по договорённости с клиентом |
+| AmneziaWG peer-keys клиента | 12 мес | Или по договорённости с клиентом |
 | Restic S3-ключи | Каждые 12 мес | — |
 | SSH-ключи Junior | При уходе / повышении | См. [`../../technical/0_Common/scripts/rotate_junior_access.sh`](../../technical/0_Common/scripts/rotate_junior_access.sh) |
 | Пароли в Vaultwarden | По ситуации | При компрометации / уходе сотрудника |

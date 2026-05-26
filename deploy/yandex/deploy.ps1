@@ -15,7 +15,7 @@
   - yc через cmd /c: PowerShell 5.1 не может корректно обработать
     stderr от yc (пишет ErrorRecord). Команда `cmd /c "yc ... 2>&1"`
     сливает stderr в stdout, и PS видит чистый текст.
-  - SCP через WireGuard: ненадёжно (таймауты). Используйте
+  - SCP через VPN (AmneziaWG): ненадёжно (таймауты). Используйте
     echo BASE64 | base64 -d > file через SSH для маленьких файлов,
     или архив zip через scp без WireGuard.
 #>
@@ -306,6 +306,7 @@ try {
             "--rule", "direction=ingress,port=22,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=SSH",
             "--rule", "direction=ingress,port=80,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=HTTP",
             "--rule", "direction=ingress,port=443,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=HTTPS",
+            "--rule", "direction=ingress,port=443,protocol=udp,v4-cidrs=[0.0.0.0/0],description=AmneziaWG-VPN",
             "--rule", "direction=ingress,port=465,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=SMTPS",
             "--rule", "direction=ingress,port=587,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=SMTP-STARTTLS",
             "--rule", "direction=ingress,port=143,protocol=tcp,v4-cidrs=[0.0.0.0/0],description=IMAP",
@@ -510,7 +511,7 @@ try {
     Write-Ok "Архив создан: $([math]::Round($archiveSize,1)) MB"
 
     Write-Info "Загружаю на ВМ (scp)..."
-    # ВАЖНО: SCP через WireGuard может таймаутиться. Если не работает —
+    # ВАЖНО: SCP через VPN (AmneziaWG) может таймаутиться. Если не работает —
     # используйте base64+SSH для маленьких файлов: echo BASE64 | ssh ... "base64 -d > file"
     cmd /c "scp $SshOpts -i `"$SshKeyPath`" `"$archive`" ubuntu@${publicIp}:/tmp/msp-repo.zip 2>nul"
     if ($LASTEXITCODE -ne 0) { Write-Fail "SCP не сработал"; exit 1 }
@@ -561,6 +562,8 @@ try {
         Write-Host "    @   -> $publicIp" -ForegroundColor White
         Write-Host "    www -> $publicIp" -ForegroundColor White
         Write-Host "    mail -> $publicIp" -ForegroundColor White
+        Write-Host "    vault -> $publicIp" -ForegroundColor White
+        Write-Host "    bastion -> $publicIp" -ForegroundColor White
     }
     Write-Host ""
     Write-Host "  Deploy log: $LogFile" -ForegroundColor DarkGray

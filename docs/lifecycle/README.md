@@ -90,18 +90,18 @@ dig @8.8.8.8 +short msp-claude.online
 
 Пока DNS не зарезолвился на всех резолверах — **не запускай certbot**, он не сможет выпустить сертификат.
 
-### 1.4 WireGuard между тобой и bastion'ом (15 мин)
+### 1.4 AmneziaWG между тобой и bastion'ом (15 мин)
 
 Bastion — это «дверь» в приватную сеть. Через него ты заходишь на landing-VM и, позже, на VM клиентов.
 
 ```bash
 # На своём ноутбуке (или где запускаешь Ansible):
 ssh ubuntu@<bastion-IP>                       # первый раз по публичному ключу из terraform
-sudo bash /root/wg_bootstrap.sh               # поднимет WG-сервер
-sudo bash /root/tenant_add.sh owner           # выдаст owner.conf — импортировать в WireGuard app
+sudo bash /root/awg_bootstrap.sh              # поднимет AWG-сервер
+sudo bash /root/tenant_add.sh owner           # выдаст owner.conf — импортировать в AmneziaWG app
 ```
 
-После импорта конфига в WireGuard клиент (mac/win/linux/ios) — у тебя появляется приватный IP `10.9.0.x` и ты **видишь landing-VM напрямую** через его внутренний IP.
+После импорта конфига в AmneziaWG клиент (mac/win/linux/ios) — у тебя появляется приватный IP `10.9.0.x` и ты **видишь landing-VM напрямую** через его внутренний IP.
 
 ### 1.5 Ansible раскатывает landing-стек (20 мин)
 
@@ -120,7 +120,7 @@ ansible-playbook -i inventory/prod.yml playbooks/site.yml --limit landing
 
 ### 1.6 Docker-стек на landing-VM (ручной путь, 15 мин)
 
-Через WireGuard зайти на landing-VM:
+Через AmneziaWG зайти на landing-VM:
 
 ```bash
 ssh ubuntu@10.9.0.2                          # внутренний IP лендинга
@@ -511,7 +511,7 @@ docker compose logs mongo | tail -30
 
 ### 4.8 Ansible: «role not found»
 
-Известная проблема в v4.2 — `site.yml` ссылается на роли (`baseline`, `nginx`, `fastapi_backend`, `mongo`, `wireguard_hub`, `monitoring_agent`, `restic_client`, `base_hardening`, `ad_health_check`), которые ещё не имплементированы как директории `roles/*`.
+Известная проблема в v4.2 — `site.yml` ссылается на роли (`baseline`, `nginx`, `fastapi_backend`, `mongo`, `amneziawg_hub`, `monitoring_agent`, `restic_client`, `base_hardening`, `ad_health_check`), которые ещё не имплементированы как директории `roles/*`.
 
 **Текущий обход:** использовать Ansible только для **патчей уже работающей VM** (`playbooks/patch_nondisruptive.yml`) и `backup_install.yml`. Первичная раскатка делается вручную по `docs/deployment/landing_production.md`.
 

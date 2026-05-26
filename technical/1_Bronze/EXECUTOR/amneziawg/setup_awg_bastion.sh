@@ -64,11 +64,11 @@ ok "AmneziaWG установлен: $(awg --version 2>&1 | head -1)"
 
 # ── Включить IP Forwarding ─────────────────────────────────────────
 info "Включаю IP forwarding..."
-cat > /etc/sysctl.d/99-wireguard.conf << 'EOF'
+cat > /etc/sysctl.d/99-awg.conf << 'EOF'
 net.ipv4.ip_forward = 1
 net.ipv6.conf.all.forwarding = 1
 EOF
-sysctl -p /etc/sysctl.d/99-wireguard.conf
+sysctl -p /etc/sysctl.d/99-awg.conf
 ok "IP forwarding включён"
 
 # ── Определить основной сетевой интерфейс ─────────────────────────
@@ -89,7 +89,7 @@ SERVER_PRIVKEY=$(cat "${WG_DIR}/server_private.key")
 SERVER_PUBKEY=$(cat "${WG_DIR}/server_public.key")
 ok "Ключи сгенерированы"
 
-# ── Создать конфиг WireGuard ───────────────────────────────────────
+# ── Создать конфиг AmneziaWG ───────────────────────────────────────
 info "Создаю ${WG_DIR}/${WG_IFACE}.conf..."
 cat > "${WG_DIR}/${WG_IFACE}.conf" << EOF
 # ══════════════════════════════════════════════════════

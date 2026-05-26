@@ -118,7 +118,7 @@
 - `infra/terraform/terraform.tfvars` (только `.tfvars.example`, которого пока нет — создаём локально).
 - `infra/terraform/terraform.tfstate*` (state хранится в Yandex Object Storage backend, см. `main.tf`).
 - Любые `*.key`, `*.pem`, `*.tgz` с данными клиентов.
-- `/etc/amnezia/amneziawg/*.key` и `/etc/wireguard/*.key` (даже в описаниях).
+- `/etc/amnezia/amneziawg/*.key` (даже в описаниях).
 - Telegram bot-token, SMTP-пароль.
 
 ✅ **Что проверяется на каждом коммите:**

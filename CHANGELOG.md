@@ -20,7 +20,7 @@ single-VM в Yandex Cloud. 7 инцидентов во время деплоя, 
 - **Restic backup** — S3 bucket `mspshield-backups-prod`, SA `restic-backup-sa`,
   systemd timer (02:00 daily). Первый бэкап 1278 файлов / 191 MB, test-restore PASS.
 - **YC SA + S3 ключи** для restic (`storage.admin` на folder)
-- **Caddy HTTP3 disabled** — `servers :443 { protocols h1 h2c }` в global block
+- **Caddy HTTP3 disabled** — `servers :443 { protocols h1 h2 }` в global block
 
 ### Fixed (deployment postmortem — 7 incidents)
 
@@ -30,7 +30,7 @@ single-VM в Yandex Cloud. 7 инцидентов во время деплоя, 
   15 files: bootstrap, tenant_add, ansible roles, docs, prometheus, nginx.
 - **I2 (Caddy QUIC vs AmneziaWG):** Caddy v2.6+ включает HTTP/3 (QUIC)
   на UDP/443 по умолчанию → AmneziaWG не может bind. Fix: `servers :443
-  { protocols h1 h2c }` в Caddyfile global block.
+  { protocols h1 h2 }` в Caddyfile global block.
 - **I3 (UFW 443/udp missing):** AmneziaWG на UDP/443, но UFW правило
   только для 443/tcp. Fix: `ufw allow 443/udp comment 'AmneziaWG VPN'`.
   Already present in `cloud-init.yaml` and `setup_awg_bastion.sh`.
@@ -143,7 +143,7 @@ Win10-станции выполняются в PowerShell 5.1/7, а Linux-ком
 запускаются как `bash`-блоки через OpenSSH client (`ssh root@srv 'bash …'`
 или `... | ssh ... bash -s`). Управление Windows-серверами клиента —
 через `Invoke-Command` (WinRM) или RDP. Серверная архитектура
-(Yandex Cloud, Ubuntu 22.04, WireGuard, Docker Compose, Prometheus,
+(Yandex Cloud, Ubuntu 22.04, AmneziaWG, Docker Compose, Prometheus,
 Grafana, Loki, Wazuh, Puppet, Ansible) не изменилась.
 
 - `technical/3_Gold/SOP_gold_complete.md` — добавлено явное
@@ -213,7 +213,7 @@ Yandex Cloud блокирует TCP/25 на публичных IP VPC. Все up
 - `deploy/docker-compose.yml` + `Dockerfile.{backend,frontend}` — dev/staging стенд.
 - `deploy/vaultwarden/` — secrets store deployment.
 - `infra/terraform/` — Yandex Cloud baseline (VPC, landing+bastion VMs, S3 backups, IAM).
-- `technical/0_Common/wireguard/` — bootstrap + tenant_add scripts.
+- `technical/0_Common/amneziawg/` — bootstrap + tenant_add scripts.
 - `technical/0_Common/ansible/` — inventory, playbooks (site, backup_install, patch_non/disruptive).
 - `technical/0_Common/monitoring/` — Prometheus config + alert rules (common, backups, ssl, ad) + Alertmanager.
 - `technical/0_Common/scripts/dr_drill.sh`, `monthly_report.py`.

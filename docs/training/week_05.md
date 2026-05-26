@@ -1,4 +1,4 @@
-# Week 5 · Networking + WireGuard
+# Week 5 · Networking + AmneziaWG
 
 ## Цель
 
@@ -7,7 +7,7 @@
 
 ## Задачи
 
-- [ ] Прочитать `technical/0_Common/wireguard/tenant_add.sh` построчно.
+- [ ] Прочитать `technical/0_Common/amneziawg/tenant_add.sh` построчно.
 - [ ] Сессия с owner: 1 час про TCP/IP, `iptables` NAT, `ip route`,
       `mtu`.
 - [ ] Завести test-tenant на тестовом bastion: сгенерить ключи,
@@ -27,12 +27,12 @@
 
 ## Read
 
-- WireGuard whitepaper (первые 5 страниц — достаточно).
-- `man wg` + `man wg-quick`.
+- AmneziaWG whitepaper (первые 5 страниц — достаточно).
+- `man awg` + `man awg-quick`.
 
 ## Check-in
 
-1. Чем WireGuard отличается от OpenVPN и IPsec (в двух словах)?
+1. Чем AmneziaWG отличается от OpenVPN и IPsec (в двух словах)?
 2. Что такое `AllowedIPs` и зачем?
 3. Как проверить, что peer включён и работает?
 

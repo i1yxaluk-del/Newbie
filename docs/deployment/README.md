@@ -1,6 +1,20 @@
 # Развёртывание MSPShield — оглавление
 
-Инструкции по развёртыванию всего стека MSPShield на русском, от локальной разработки до первого клиента в продакшене.
+> **Канонический deploy-flow.** Инструкции по развёртыванию всего стека
+> MSPShield на русском, от локальной разработки до первого клиента в
+> продакшене. Если попал сюда из корневого README — ты на правильной
+> странице.
+
+## Два пути к проду
+
+В репо живут **два независимых пути** к продакшен-лендингу. Выбери один:
+
+| Путь | Когда выбрать | Подробности |
+|---|---|---|
+| **Path A** — единая VM, Caddy + Docker, `deploy.ps1` | Быстро поднять MVP с Windows-машины (PowerShell-флоу). Сайт + bastion на одном статическом IP. **TCP/443 у Caddy + UDP/443 у AmneziaWG — не конфликтуют.** | [`../../deploy/yandex/README.md`](../../deploy/yandex/README.md) |
+| **Path B** — две VM (landing + bastion), Terraform + Ansible + Nginx | Production-grade с разделением ролей, IaC, повторяемостью. | [`landing_production.md`](landing_production.md) |
+
+Дальше документ описывает оба пути одинаково через сценарии A/B/C.
 
 ## Три сценария (выбирай по цели)
 
@@ -110,24 +124,11 @@
 
 ---
 
-## Безопасность и что НЕ коммитить
+## Безопасность
 
-⛔ **НИКОГДА не попадает в git:**
-
-- `backend/.env` (только `.env.example`).
-- `infra/terraform/terraform.tfvars` (только `.tfvars.example`, которого пока нет — создаём локально).
-- `infra/terraform/terraform.tfstate*` (state хранится в Yandex Object Storage backend, см. `main.tf`).
-- Любые `*.key`, `*.pem`, `*.tgz` с данными клиентов.
-- `/etc/amnezia/amneziawg/*.key` (даже в описаниях).
-- Telegram bot-token, SMTP-пароль.
-
-✅ **Что проверяется на каждом коммите:**
-
-```bash
-git diff --cached | grep -iE "(TOKEN|PASSWORD|SECRET|PRIVATE.*KEY)" && echo "STOP" || echo "OK"
-```
-
-Если попалось — `git reset HEAD <file>` и исправить.
+Полный гид по работе с секретами — [`secrets_management.md`](secrets_management.md)
+(Vaultwarden, Yandex Lockbox, ротация, что не коммитить, pre-commit hook).
+Не дублируем здесь, чтобы не разъезжалось.
 
 ---
 

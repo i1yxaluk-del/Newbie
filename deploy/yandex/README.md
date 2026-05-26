@@ -1,10 +1,21 @@
-# Деплой МСП Облако в Yandex Cloud
+# Path A: единая VM (Caddy + Docker) — deep-dive
+
+> **Где это в общей картине.** Это **полный raw-флоу Path A** —
+> production-стек на одной статической IP-VM в Yandex Cloud, с автоматизацией
+> через PowerShell-скрипт `deploy.ps1`.
+>
+> **Обзор обоих путей (Path A vs Path B)** — в [`../../docs/deployment/README.md`](../../docs/deployment/README.md).
+> **Path B (две VM, Terraform + Ansible)** — в [`../../docs/deployment/landing_production.md`](../../docs/deployment/landing_production.md).
+>
+> Этот документ нужен, если ты уже выбрал Path A и хочешь пошаговый
+> командный флоу с Win10.
 
 Автоматическое развёртывание production-стека:
 
 - **Лендинг** (React static) + **Backend** (FastAPI + MongoDB)
-- **Caddy** — авто-HTTPS через Let's Encrypt
-- **Stalwart Mail Server** — admin@, sales@, alert@ ящики (submit-only режим 465/587, см. [STALWART_RELAY_MODE.md](STALWART_RELAY_MODE.md))
+- **Caddy** — авто-HTTPS через Let's Encrypt, TCP/443
+- **AmneziaWG** на UDP/443 (bastion-функция совмещена с landing VM; см. [`../../technical/0_Common/amneziawg/`](../../technical/0_Common/amneziawg/))
+- **Stalwart Mail Server** — admin@, sales@, alert@ ящики (submit-only 465/587, outbound через Yandex Cloud Postbox; см. [STALWART_RELAY_MODE.md](STALWART_RELAY_MODE.md))
 
 Запускается одной командой PowerShell на Windows 10.
 

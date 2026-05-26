@@ -1,5 +1,55 @@
 # CHANGELOG
 
+## v4.5 — 2026-05-22 · "READMEs cleanup — один канонический README на задачу"
+
+После серии PR #43–#49 в репо накопилось 6 «корневых» README, каждый
+позиционировался как «начни здесь», и они пересекались на 50–80%.
+Реорганизация: один канонический README на тему, чёткие 4 маршрута
+по ролям, навигация по тарифам в `technical/README.md`.
+
+### Changed
+
+- **`README.md`** сокращён с 561 → 160 строк. Теперь только обзор +
+  4 маршрута (deploy / tariffs / training / landing-edit) + таблица
+  тарифов + стек + локальный запуск + структура.
+- **`technical/README.md`** переписан как **канонический tariff-навигатор**.
+  Удалены дубли по ролям (training/runbooks теперь в своих README).
+- **`docs/deployment/README.md`** — добавлен явный выбор Path A vs Path B,
+  удалена дублирующая секция «что не коммитить» (теперь в `secrets_management.md`).
+- **`docs/training/README.md`** — добавлены cross-link'и на runbooks /
+  checklists / troubleshooting / secrets, фикс WireGuard → AmneziaWG.
+- **`deploy/yandex/README.md`** — хедер «это deep-dive Path A», AmneziaWG/Postbox.
+- **`docs/runbooks/README.md`** — R-08 переименован WireGuard → AmneziaWG
+  (унификация с PR #47).
+
+### Renamed
+
+- **`docs/JUNIOR_GUIDE.md`** → **`docs/LANDING_ADMIN_GUIDE.md`** — старое
+  название путало: этот файл про сайт MSPShield (поднять локально,
+  починить форму, посмотреть лиды в Kaiten), а не про обслуживание
+  клиентских серверов. Реальный Junior-слой живёт в `docs/training/`.
+
+### Added
+
+- **`docs/audit/v4.1_inventory.md`** — перенесён список 53 артефактов
+  Марафона 3.1–3.5 + DoD из корневого README. Это исторический snapshot,
+  не нужен в ежедневной навигации.
+
+### Removed
+
+- **`docs/lifecycle/`** (570 строк) — каталог удалён целиком. 80% содержимого
+  дублировало `docs/deployment/landing_production.md` и `LANDING_ADMIN_GUIDE.md`,
+  устаревшая версия v4.2 (до AmneziaWG/Postbox). «Friendly tone» — теперь
+  внутри dedicated README'ев.
+
+### Импакт
+
+- −950 строк дублей.
+- Один канонический источник на каждую задачу (нет противоречий).
+- Junior понимает «куда идти» по своей роли за 30 секунд.
+
+---
+
 ## v5.2 — 2026-05-26 · "AmneziaWG + Vaultwarden + Restic backup — postmortem"
 
 Развёртывание AmneziaWG VPN, Vaultwarden secret store и restic backup на

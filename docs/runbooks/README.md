@@ -38,7 +38,7 @@
 | R-05 | AD replication failure | P2 | Silver/Gold | [R-05.md](R-05.md) |
 | R-06 | Disk space critical (>90%) | P2 | all | [R-06.md](R-06.md) |
 | R-07 | SSL expired / expiring | P2 / P3 | all | [R-07.md](R-07.md) |
-| R-08 | VPN/WireGuard tunnel down | P2 | all | [R-08.md](R-08.md) |
+| R-08 | VPN/AmneziaWG tunnel down | P2 | all | [R-08.md](R-08.md) |
 | R-09 | User access lost (reset password) | P3 | all | [R-09.md](R-09.md) |
 | R-10 | Monthly patch window | P4 (планово) | all | [R-10.md](R-10.md) |
 | R-11 | DR drill (ежеквартально) | P4 (планово) | all | [R-11.md](R-11.md) |

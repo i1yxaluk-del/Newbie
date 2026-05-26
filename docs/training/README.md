@@ -1,5 +1,17 @@
 # 12-недельная программа обучения · Junior MSP Engineer
 
+> **Канонический Junior-слой.** Этот документ — главная точка входа
+> для Junior-инженера, который обслуживает клиентов (не путать с
+> [`../LANDING_ADMIN_GUIDE.md`](../LANDING_ADMIN_GUIDE.md) — там про
+> наш сайт MSPShield, не про клиентов).
+>
+> **После прохождения программы** Junior использует ежедневно:
+> - [`../runbooks/README.md`](../runbooks/README.md) — R-01..R-11 при инцидентах.
+> - [`../checklists/weekly.md`](../checklists/weekly.md), [`monthly.md`](../checklists/monthly.md), [`quarterly.md`](../checklists/quarterly.md) — регулярные ритуалы.
+> - [`../deployment/troubleshooting.md`](../deployment/troubleshooting.md) — типовые ошибки развёртывания.
+> - [`../deployment/secrets_management.md`](../deployment/secrets_management.md) — Vaultwarden.
+> - [`../../technical/README.md`](../../technical/README.md) — тарифные SOP'ы.
+
 ## Философия
 
 1. **50% времени первые 2 недели — в паре с тобой (owner).** После
@@ -27,7 +39,7 @@
 | 2 | Linux deep-dive + our baseline | [week_02.md](week_02.md) |
 | 3 | Monitoring (Prometheus + Grafana) | [week_03.md](week_03.md) |
 | 4 | Backup & Recovery (restic + DR) | [week_04.md](week_04.md) |
-| 5 | Networking + WireGuard | [week_05.md](week_05.md) |
+| 5 | Networking + AmneziaWG (UDP/443) | [week_05.md](week_05.md) |
 | 6 | Security (hardening, SIEM basics) | [week_06.md](week_06.md) |
 | 7 | Active Directory + GPO | [week_07.md](week_07.md) |
 | 8 | 1С и специфика РФ | [week_08.md](week_08.md) |

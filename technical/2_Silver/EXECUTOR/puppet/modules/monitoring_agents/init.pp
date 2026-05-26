@@ -16,12 +16,10 @@ class monitoring_agents (
   # ── Флаги для каждого агента ──────────────────────────────────────
   Boolean $manage_node_exporter   = true,    # Всегда для Bronze+
   Boolean $manage_restic_timer    = true,    # Всегда для Bronze+
-  Boolean $manage_wireguard       = true,    # Всегда для Bronze+
-  Boolean $manage_promtail        = false,   # Silver+
-  Boolean $manage_wazuh_agent     = false,   # Gold только
+  Boolean $manage_wireguard       = true,    # Всегда для Bronze+ (AmneziaWG)
 
-  # ── Имя WireGuard интерфейса ─────────────────────────────────────
-  String $wg_interface = 'wg0-msp',
+  # ── Имя AmneziaWG интерфейса ─────────────────────────────────────
+  String $awg_interface = 'awg0',
 
 ) {
 
@@ -78,16 +76,16 @@ class monitoring_agents (
   }
 
   # ════════════════════════════════════════════════════════════════
-  # WireGuard VPN — туннель должен быть включён
+  # AmneziaWG VPN — туннель должен быть включён
   # ════════════════════════════════════════════════════════════════
   if $manage_wireguard {
-    service { "wg-quick@${wg_interface}":
+    service { "awg-quick@${awg_interface}":
       ensure => running,
       enable => true,
     }
 
     # Конфиг должен быть защищён (содержит приватный ключ)
-    file { "/etc/wireguard/${wg_interface}.conf":
+    file { "/etc/amnezia/amneziawg/${awg_interface}.conf":
       ensure => file,
       owner  => root,
       group  => root,

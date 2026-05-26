@@ -294,7 +294,7 @@ Ansible это уже делает через `targets/tenants/acme.yml` (ген
 Если клиент ушёл:
 
 1. `ansible-playbook playbooks/site.yml --limit acme --tags cleanup`.
-2. Удалить peer на bastion: `sudo wg set wg0 peer <client_pubkey> remove`.
+2. Удалить peer на bastion: `sudo awg set awg0 peer <client_pubkey> remove`.
 3. Экспортировать restic-снапшоты на отдельный диск (оставить у себя 30 дней на случай спора).
 4. Через 30 дней — `restic forget --keep-last 0 --prune`.
 5. Удалить блок из `inventory/prod.yml`, закоммитить.

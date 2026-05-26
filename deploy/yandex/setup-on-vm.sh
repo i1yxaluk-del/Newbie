@@ -60,6 +60,7 @@ STALWART_ADMIN_PASSWORD=$(gen_pass)
 MAIL_ADMIN_PASSWORD=$(gen_pass)
 MAIL_SALES_PASSWORD=$(gen_pass)
 MAIL_ALERT_PASSWORD=$(gen_pass)
+VAULTWARDEN_ADMIN_TOKEN=$(gen_hex)
 
 # backend/.env — секреты приложения
 if [ ! -f "$BACKEND_DIR/.env" ]; then
@@ -94,9 +95,11 @@ ALERT_CHANNELS=max,telegram
 ALERT_RESOLVED_NOTIFY=true
 
 # ─── Kaiten CRM (опционально) ───
+KAITEN_DOMAIN=
 KAITEN_API_TOKEN=
-KAITEN_SPACE_ID=
 KAITEN_BOARD_ID=
+KAITEN_COLUMN_ID=
+KAITEN_LANE_ID=
 
 # ─── SMTP (Stalwart, localhost для бэка) ───
 SMTP_HOST=stalwart
@@ -149,13 +152,31 @@ alert@$DOMAIN     $MAIL_ALERT_PASSWORD
 MAX_WEBHOOK_SECRET           $MAX_WEBHOOK_SECRET
 ALERTMANAGER_WEBHOOK_TOKEN   $ALERTMANAGER_WEBHOOK_TOKEN
 
+[Vaultwarden]
+URL:              https://vault.$DOMAIN/admin
+VAULTWARDEN_ADMIN_TOKEN: $VAULTWARDEN_ADMIN_TOKEN
+
+[Postbox outbound relay]
+POSTBOX_API_KEY_ID / POSTBOX_API_KEY_SECRET are not generated automatically.
+Create them in Yandex Cloud Postbox and add them to:
+  $DEPLOY_DIR/.env
+
 ═══════════════════════════════════════════════════════════════════
 EOF
 chmod 600 "$SECRETS_FILE"
 log "  Пароли сохранены в $SECRETS_FILE (chmod 600)"
 
-# Экспортим для docker-compose (substitution в STALWART_RECOVERY_ADMIN)
-echo "STALWART_ADMIN_PASSWORD=$STALWART_ADMIN_PASSWORD" > "$DEPLOY_DIR/.env"
+# Экспортим для docker-compose substitutions.
+cat > "$DEPLOY_DIR/.env" <<EOF
+STALWART_ADMIN_PASSWORD=$STALWART_ADMIN_PASSWORD
+VAULTWARDEN_ADMIN_TOKEN=$VAULTWARDEN_ADMIN_TOKEN
+VAULTWARDEN_DOMAIN=https://vault.$DOMAIN
+
+# Yandex Cloud Postbox outbound relay. Fill before first Stalwart bootstrap
+# or configure the route later via Stalwart Admin UI.
+POSTBOX_API_KEY_ID=
+POSTBOX_API_KEY_SECRET=
+EOF
 chmod 600 "$DEPLOY_DIR/.env"
 
 # ─── 3. Frontend build ─────────────────────────────────────────────
@@ -179,6 +200,7 @@ log "▶ Caddyfile установка..."
 # Подкладываем наш Caddyfile с подстановкой {$MSP_DOMAIN} → реальный домен.
 # ВАЖНО: Caddy НЕ поддерживает env-var подстановку в именах серверных
 # блоков (sudo сбрасывает переменные окружения). Поэтому делаем sed:
+sudo install -m 0644 "$DEPLOY_DIR/Caddyfile" /etc/caddy/Caddyfile
 sudo sed -i "s/{\$MSP_DOMAIN}/$DOMAIN/g" /etc/caddy/Caddyfile
 
 # Проверяем что не осталось неразрешённых плейсхолдеров

@@ -116,37 +116,53 @@ Host msp-wazuh
 ### 2.3. Подключить VM к VPN (10.9.0.3)
 
 ```powershell
-# На Wazuh VM пробросить туннель wg0-msp (тот же скрипт что для
+# На Wazuh VM пробросить AmneziaWG-туннель awg0 (тот же скрипт что для
 # клиентских серверов из Bronze §3.1) — VPN_IP = 10.9.0.3.
 $bash = @'
 set -euo pipefail
-sudo apt update && sudo apt install -y wireguard wireguard-tools
-cd /etc/wireguard
-sudo wg genkey | sudo tee client_private.key | sudo wg pubkey | sudo tee client_public.key >/dev/null
+sudo add-apt-repository -y ppa:amnezia/ppa
+sudo apt update && sudo apt install -y amneziawg-dkms amneziawg-tools
+sudo mkdir -p /etc/amnezia/amneziawg
+cd /etc/amnezia/amneziawg
+sudo awg genkey | sudo tee client_private.key | sudo awg pubkey | sudo tee client_public.key >/dev/null
 sudo chmod 600 client_private.key
-echo "WAZUH_PUBKEY=$(sudo cat /etc/wireguard/client_public.key)"
+echo "WAZUH_PUBKEY=$(sudo cat /etc/amnezia/amneziawg/client_public.key)"
 '@
 $out = $bash | ssh msp-wazuh bash -s
 $wazuhPub = ($out | Select-String '^WAZUH_PUBKEY=(.+)').Matches.Groups[1].Value
 
-# Добавить peer на Bastion (Add-MspVpnPeer определён в Bronze SOP §4.3)
-Add-MspVpnPeer -ClientSlug 'internal-wazuh' -VpnIp '10.9.0.3' -ClientPubKey $wazuhPub
+# Добавить peer на Bastion через tenant_add.sh
+$bash3 = "sudo bash /opt/msp/Newbie/technical/0_Common/amneziawg/tenant_add.sh internal-wazuh 10.9.0.0/24"
+$bash3 | ssh msp-bastion bash -s
 
-# Записать клиентский wg0-msp.conf
+# Записать клиентский awg0.conf (обфускация Jc/Jmin/Jmax/S1/S2/H1..H4
+# берётся из bastion /etc/amnezia/amneziawg/awg0.conf)
 $bash2 = @"
 set -euo pipefail
-sudo tee /etc/wireguard/wg0-msp.conf >/dev/null << EOF
+sudo tee /etc/amnezia/amneziawg/awg0.conf >/dev/null << 'AWGEOF'
 [Interface]
-PrivateKey = \$(sudo cat /etc/wireguard/client_private.key)
+PrivateKey = \$(sudo cat /etc/amnezia/amneziawg/client_private.key)
 Address    = 10.9.0.3/32
+DNS        = 1.1.1.1
+Jc   = 4
+Jmin = 50
+Jmax = 1000
+S1   = 86
+S2   = 574
+H1   = 1779539752
+H2   = 1138729192
+H3   = 2050378563
+H4   = 8345423
+
 [Peer]
 PublicKey           = $($Env:MSP_BASTION_PUBKEY)
-Endpoint            = $($Env:MSP_VM_IP):51820
+PresharedKey        = $($Env:MSP_BASTION_PSK)
+Endpoint            = bastion.$($Env:MSP_DOMAIN):443
 AllowedIPs          = 10.9.0.0/24
 PersistentKeepalive = 25
-EOF
-sudo chmod 600 /etc/wireguard/wg0-msp.conf
-sudo systemctl enable --now wg-quick@wg0-msp
+AWGEOF
+sudo chmod 600 /etc/amnezia/amneziawg/awg0.conf
+sudo awg-quick up awg0
 ping -c 2 10.9.0.1
 "@
 $bash2 | ssh msp-wazuh bash -s

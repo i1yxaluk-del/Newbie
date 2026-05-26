@@ -366,7 +366,7 @@ ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i $Env:MSP_SSH_KEY ub
 
 ---
 
-## 4. WIREGUARD BASTION SERVER
+## 4. AMNEZIAWG BASTION SERVER
 
 ### 4.1. Генерация ключей сервера (на VM)
 
@@ -481,6 +481,8 @@ function Add-MspVpnPeer {
     ssh -i $Env:MSP_SSH_KEY ubuntu@$Env:MSP_VM_IP $cmd
 }
 # Пример: Add-MspVpnPeer -ClientSlug company1 -VpnIp 10.9.0.10 -ClientPubKey 'abc123...'
+# NOTE: канонический способ добавления peer — tenant_add.sh (см. technical/0_Common/amneziawg/tenant_add.sh),
+# который генерирует полный клиентский конфиг с обфускацией. add_vpn_peer.sh — для ручных/edge-случаев.
 ```
 
 ---

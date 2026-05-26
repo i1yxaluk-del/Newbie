@@ -57,7 +57,7 @@ node default {
     manage_wireguard     => true,
     manage_promtail      => false,   # Silver: изменить на true
     manage_wazuh_agent   => false,   # Gold: изменить на true
-    wg_interface         => 'wg0-msp',
+    awg_interface        => 'awg0',
   }
 }
 

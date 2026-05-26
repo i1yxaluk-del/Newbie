@@ -7,7 +7,7 @@
 Organizations, Collections, 2FA, attachments — всё доступно без подписки
 (в Bitwarden Cloud Free лимит — 2 пользователя на Organization).
 
-Хранит: пароли админов клиентов, SSH-ключи, API-токены, WireGuard-конфиги.
+Хранит: пароли админов клиентов, SSH-ключи, API-токены, AmneziaWG-конфиги.
 Организация в виде Collections: `client/<name>`, `internal/infra`,
 `internal/billing`.
 

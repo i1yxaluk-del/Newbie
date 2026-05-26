@@ -1,5 +1,63 @@
 # CHANGELOG
 
+## v5.2 — 2026-05-26 · "AmneziaWG + Vaultwarden + Restic backup — postmortem"
+
+Развёртывание AmneziaWG VPN, Vaultwarden secret store и restic backup на
+single-VM в Yandex Cloud. 7 инцидентов во время деплоя, все разрешены,
+все уроки закодированы в репозитории.
+
+### Added
+
+- **AmneziaWG VPN** (`awg0`, UDP/443) вместо WireGuard — РКН-DPI блокирует
+  стандартный WG handshake. Обфускация (Jc/Jmin/Jmax/S1/S2/H1..H4).
+  - `technical/0_Common/amneziawg/` — bootstrap + tenant_add скрипты
+  - VPN subnet `10.9.0.0/24` (не 10.10.0.0/16 — конфликт с YC internal 10.10.0.0/24)
+  - Endpoint `bastion.msp-claude.online:443`
+- **Vaultwarden** на той же VM (не отдельная VM), за Caddy reverse proxy.
+  - `deploy/yandex/docker-compose.yml` — сервис `vaultwarden` (127.0.0.1:8180)
+  - `deploy/yandex/Caddyfile` — блок `vault.msp-claude.online`
+  - `deploy/vaultwarden/` — обновлён README (single-VM), убран SMTP из compose
+- **Restic backup** — S3 bucket `mspshield-backups-prod`, SA `restic-backup-sa`,
+  systemd timer (02:00 daily). Первый бэкап 1278 файлов / 191 MB, test-restore PASS.
+- **YC SA + S3 ключи** для restic (`storage.admin` на folder)
+- **Caddy HTTP3 disabled** — `servers :443 { protocols h1 h2c }` в global block
+
+### Fixed (deployment postmortem — 7 incidents)
+
+- **I1 (VPN subnet conflict):** `awg_bootstrap.sh` default `10.10.0.1/16`
+  конфликтует с YC internal `10.10.0.0/24` на eth0 → `RTNETLINK answers:
+  Address already in use`. Fix: VPN subnet → `10.9.0.0/24`. Updated in
+  15 files: bootstrap, tenant_add, ansible roles, docs, prometheus, nginx.
+- **I2 (Caddy QUIC vs AmneziaWG):** Caddy v2.6+ включает HTTP/3 (QUIC)
+  на UDP/443 по умолчанию → AmneziaWG не может bind. Fix: `servers :443
+  { protocols h1 h2c }` в Caddyfile global block.
+- **I3 (UFW 443/udp missing):** AmneziaWG на UDP/443, но UFW правило
+  только для 443/tcp. Fix: `ufw allow 443/udp comment 'AmneziaWG VPN'`.
+  Already present in `cloud-init.yaml` and `setup_awg_bastion.sh`.
+- **I4 (Vaultwarden SMTP crash):** Vaultwarden 1.36.0 падает при неполных
+  SMTP vars (SMTP_HOST set, SMTP_FROM empty). Fix: убрать SMTP env vars
+  из compose — настроить позже через /admin когда Stalwart relay заработает.
+- **I5 (AWG client config BOM):** AmneziaWG Windows client не читает
+  конфиг с UTF-8 BOM (`\xEF\xBB\xBF`) — "Unable to load configuration".
+  Fix: `sed -i '1s/^\xEF\xBB\xBF//'` в `tenant_add.sh`; записывать конфиг
+  без BOM (`UTF8Encoding($false)` в PowerShell).
+- **I6 (Vaultwarden separate VM vs single VM):** README предписывал
+  отдельную VM + `certbot --nginx`. Реальность: одна VM + Caddy. Fix:
+  обновлён README, Caddyfile, docker-compose.
+- **I7 (Restic env.sh permissions):** install script создаёт env.sh как
+  root:root 0600 → `source` от ubuntu user fails. Fix: `sudo chmod 644`
+  перед source, потом вернуть 600.
+
+### Changed
+
+- VPN overlay subnet: `10.10.0.0/16` → `10.9.0.0/24` (15 files)
+- `deploy/vaultwarden/docker-compose.yml` — removed SMTP vars, updated comment
+- `deploy/vaultwarden/README.md` — single-VM deployment, Caddy auto-HTTPS
+- `deploy/yandex/Caddyfile` — disabled QUIC, added vault.msp-claude.online
+- `deploy/yandex/docker-compose.yml` — added vaultwarden service
+- `technical/0_Common/amneziawg/tenant_add.sh` — BOM strip, 10.9.0.0/24
+- `technical/0_Common/amneziawg/awg_bootstrap.sh` — default 10.9.0.1/24
+
 ## v5.1 — 2026-05 · "Deployment lessons from real prod deploy"
 
 Кодификация 12 уроков из реального деплоя одиночной preemptible-VM в Yandex

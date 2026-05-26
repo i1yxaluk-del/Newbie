@@ -5,7 +5,7 @@
 # RU: Запускается ОДИН РАЗ на свежей VM (mspshield-bastion или
 # совмещённая landing+bastion VM), сразу после terraform apply или
 # cloud-init. Генерирует приватный/публичный ключи сервера, создаёт
-# /etc/amnezia/amneziawg/awg0.conf с адресом 10.10.0.1/16, добавляет
+# /etc/amnezia/amneziawg/awg0.conf с адресом 10.9.0.1/24, добавляет
 # AmneziaWG-обфускацию (Jc/Jmin/Jmax/S1/S2/H1..H4) и включает
 # systemd-сервис awg-quick@awg0.
 #
@@ -28,7 +28,7 @@ if [[ $EUID -ne 0 ]]; then echo "root only"; exit 1; fi
 AWG_DIR="/etc/amnezia/amneziawg"
 CONF="$AWG_DIR/awg0.conf"
 LISTEN_PORT="${LISTEN_PORT:-443}"
-VPN_NET="${VPN_NET:-10.10.0.1/16}"
+VPN_NET="${VPN_NET:-10.9.0.1/24}"
 
 # Проверка что AmneziaWG установлен (PPA ppa:amnezia/ppa или собран вручную).
 if ! command -v awg >/dev/null 2>&1; then

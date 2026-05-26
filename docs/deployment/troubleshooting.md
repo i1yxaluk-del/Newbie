@@ -154,7 +154,7 @@ sudo apt install -y python3
 # На обеих сторонах проверить:
 sudo awg show
 # В AllowedIPs должны быть подсети противоположной стороны.
-# Например, на клиенте AllowedIPs = 10.10.0.0/16, 10.20.0.0/16.
+# Например, на клиенте AllowedIPs = 10.9.0.0/24, 10.20.0.0/16.
 
 # На bastion:
 sudo iptables -t nat -L POSTROUTING -v

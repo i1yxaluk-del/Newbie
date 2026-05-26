@@ -1,5 +1,5 @@
 # Vaultwarden self-hosted — secrets vault for MSPShield and clients.
-# Deployed on a separate VM, not mixed with landing stack.
+# Moved to deploy/yandex/docker-compose.yml (single-VM deployment behind Caddy). This file kept as standalone reference.
 # Reference: https://github.com/dani-garcia/vaultwarden
 
 services:
@@ -14,12 +14,7 @@ services:
       WEBSOCKET_ENABLED: "true"
       LOG_FILE: /data/vaultwarden.log
       LOG_LEVEL: warn
-      SMTP_HOST: ${SMTP_HOST}
-      SMTP_FROM: ${SMTP_FROM}
-      SMTP_PORT: 587
-      SMTP_SECURITY: starttls
-      SMTP_USERNAME: ${SMTP_USERNAME}
-      SMTP_PASSWORD: ${SMTP_PASSWORD}
+
     volumes:
       - ./data:/data
     ports:

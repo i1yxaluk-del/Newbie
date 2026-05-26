@@ -168,7 +168,7 @@ sudo bash technical/0_Common/amneziawg/awg_bootstrap.sh
 Скрипт:
 
 - Сгенерирует server_private.key / server_public.key в `/etc/amnezia/amneziawg/`.
-- Создаст `/etc/amnezia/amneziawg/awg0.conf` с Address = 10.10.0.1/16, ListenPort = 443, плюс 9 параметров обфускации (Jc/Jmin/Jmax/S1/S2/H1..H4).
+- Создаст `/etc/amnezia/amneziawg/awg0.conf` с Address = 10.9.0.1/24, ListenPort = 443, плюс 9 параметров обфускации (Jc/Jmin/Jmax/S1/S2/H1..H4).
 - Включит `awg-quick@awg0.service` — на UDP/443, не конфликтует с Caddy на TCP/443.
 
 Проверка:
@@ -184,7 +184,7 @@ sudo awg show
 ### 4.3. Добавить peer для landing-VM
 
 ```bash
-sudo bash technical/0_Common/amneziawg/tenant_add.sh landing 10.10.0.11/32
+sudo bash technical/0_Common/amneziawg/tenant_add.sh landing 10.9.0.11/32
 # Вывод: peer-config для landing, сохранить временно.
 ```
 
@@ -218,7 +218,7 @@ Host mspshield-bastion
     # StrictHostKeyChecking no
     # UserKnownHostsFile /dev/null
 
-Host 10.10.0.*
+Host 10.9.0.*
     ProxyJump mspshield-bastion
     User ubuntu
 ```
@@ -241,7 +241,7 @@ Playbook поставит:
 - nginx с конфигом из `deploy/nginx/mspshield.conf`;
 - FastAPI как systemd-сервис;
 - MongoDB локально;
-- AmneziaWG-peer к bastion (подключение к оверлею 10.10.0.0/16, UDP/443);
+- AmneziaWG-peer к bastion (подключение к оверлею 10.9.0.0/24, UDP/443);
 - Prometheus node_exporter на 9100.
 
 Время: ~10–15 минут.

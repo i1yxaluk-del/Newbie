@@ -13,10 +13,10 @@ Organizations, Collections, 2FA, attachments — всё доступно без 
 
 ## Развёртывание
 
-1. Отдельная VM (2 vCPU / 4 GB / 40 GB) в Yandex Cloud, отдельная security-group.
+1. Развёрнут на той же VM, что и landing-стек, за Caddy reverse proxy (единая VM в Yandex Cloud).
 2. DNS: `vault.msp-claude.online` → А-запись на публичный IP VM.
-3. Let's Encrypt: `certbot --nginx -d vault.msp-claude.online`.
-4. `docker compose up -d`.
+3. Caddy auto-HTTPS: reverse-proxy vault.msp-claude.online → 127.0.0.1:8180.
+4. Added to `deploy/yandex/docker-compose.yml` as `vaultwarden` service (port 127.0.0.1:8180).
 5. Сгенерировать `ADMIN_TOKEN`: `openssl rand -base64 48`.
 6. Зайти в `/admin`, пригласить первого пользователя (владельца).
 7. Отключить `SIGNUPS_ALLOWED=false` навсегда.

@@ -11,7 +11,7 @@
 - [ ] Сессия с owner: 1 час про TCP/IP, `iptables` NAT, `ip route`,
       `mtu`.
 - [ ] Завести test-tenant на тестовом bastion: сгенерить ключи,
-      подключиться с ноутбука, пройти pinog 10.10.0.1.
+      подключиться с ноутбука, пройти pinog 10.9.0.1.
 - [ ] Прочитать R-08 (VPN tunnel down) и разобрать пошагово.
 - [ ] ⚠️ **Урок из деплоя:** На test-VM проверить SSH-опции для
       preemptible: `-o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL`.
@@ -39,5 +39,5 @@
 ## DoD
 
 - Развернул test-tenant на своих ресурсах.
-- Понимает overlay 10.10/16 и tenant-subnets.
+- Понимает overlay 10.9/24 и tenant-subnets.
 - Может без помощи запустить R-08.

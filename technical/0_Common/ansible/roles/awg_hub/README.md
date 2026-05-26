@@ -3,7 +3,7 @@
 > AmneziaWG-концентратор на bastion-VM (или совмещённой landing+bastion VM
 > с одним публичным IP). Все тенанты подключаются через одну точку,
 > Ansible/мониторинг ходят в клиентские сети через `ProxyJump`.
-> Сеть 10.10.0.0/16 (mgmt), 10.20.0.0/16 (tenants).
+> Сеть 10.9.0.0/24 (mgmt), 10.20.0.0/16 (tenants).
 >
 > **Почему AmneziaWG, а не WireGuard:** РКН-DPI ловит обычный WG handshake;
 > AmneziaWG = форк WG с обфускацией handshake (junk-пакеты, рандомизированная
@@ -25,7 +25,7 @@
 
 - `awg_hub_interface` (default `awg0`)
 - `awg_hub_listen_port` (default `443`)
-- `awg_hub_address` (default `10.10.0.1/24`)
+- `awg_hub_address` (default `10.9.0.1/24`)
 - `awg_hub_peers` (list of dicts: `name`, `public_key`, `allowed_ips`)
 - `awg_hub_private_key` (**required, vault**)
 - **AmneziaWG обфускация** (общая для всех peer'ов): `awg_hub_jc`, `awg_hub_jmin`, `awg_hub_jmax`, `awg_hub_s1`, `awg_hub_s2`, `awg_hub_h1..h4`. Менять только если текущие значения начнут детектиться DPI — изменение требует обновить конфиги у ВСЕХ клиентов.

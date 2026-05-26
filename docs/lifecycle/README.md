@@ -101,7 +101,7 @@ sudo bash /root/wg_bootstrap.sh               # поднимет WG-сервер
 sudo bash /root/tenant_add.sh owner           # выдаст owner.conf — импортировать в WireGuard app
 ```
 
-После импорта конфига в WireGuard клиент (mac/win/linux/ios) — у тебя появляется приватный IP `10.10.0.x` и ты **видишь landing-VM напрямую** через его внутренний IP.
+После импорта конфига в WireGuard клиент (mac/win/linux/ios) — у тебя появляется приватный IP `10.9.0.x` и ты **видишь landing-VM напрямую** через его внутренний IP.
 
 ### 1.5 Ansible раскатывает landing-стек (20 мин)
 
@@ -123,7 +123,7 @@ ansible-playbook -i inventory/prod.yml playbooks/site.yml --limit landing
 Через WireGuard зайти на landing-VM:
 
 ```bash
-ssh ubuntu@10.10.0.2                          # внутренний IP лендинга
+ssh ubuntu@10.9.0.2                          # внутренний IP лендинга
 git clone https://github.com/i1yxaluk-del/Newbie.git mspshield
 cd mspshield/deploy
 
@@ -202,14 +202,14 @@ curl -H "X-Admin-Token: $(grep ADMIN_TOKEN backend/.env | cut -d= -f2)" \
 Способ А — через `curl` (быстро, 10 секунд):
 
 ```bash
-ssh ubuntu@10.10.0.2
+ssh ubuntu@10.9.0.2
 curl -H "X-Admin-Token: $ADMIN_TOKEN" http://localhost:8001/api/leads | jq .
 ```
 
 Способ Б — через `mongosh` (для нестандартных выборок):
 
 ```bash
-ssh ubuntu@10.10.0.2
+ssh ubuntu@10.9.0.2
 docker exec -it deploy-mongo-1 mongosh mspshield
 
 > db.leads.find().sort({created_at: -1}).limit(10).pretty()
@@ -264,7 +264,7 @@ docker compose --profile monitoring up -d
 ### 2.3 Еженедельный ритуал (10 минут каждый понедельник)
 
 1. Открыть Telegram- и/или MAX-чат с заявками — пересчитать, сколько новых.
-2. `ssh ubuntu@10.10.0.2 && docker compose ps` — все ли сервисы Up.
+2. `ssh ubuntu@10.9.0.2 && docker compose ps` — все ли сервисы Up.
 3. `curl https://msp-claude.online/api/health` — отвечает ли API.
 4. Посмотреть Let's Encrypt cert: `echo | openssl s_client -connect msp-claude.online:443 2>/dev/null | openssl x509 -noout -dates`. Если `notAfter` < 7 дней — certbot умер, см. траблшутинг.
 5. Записать в `docs/checklists/weekly.md` (или Kaiten) — «прошёл checklist».
@@ -289,7 +289,7 @@ git push -u origin fix/pricing-silver
 # Открываешь PR на GitHub → мёрджишь в main
 
 # 2. На landing-VM:
-ssh ubuntu@10.10.0.2
+ssh ubuntu@10.9.0.2
 cd mspshield
 git pull origin main
 cd deploy

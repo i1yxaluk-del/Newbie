@@ -12,8 +12,8 @@
 
 ## Переменные
 
-- `monitoring_agent_scraper_cidrs` (default `["10.10.0.0/24"]`) — откуда пустить на 9100
-- `monitoring_agent_loki_url` (default `http://10.10.0.20:3100/loki/api/v1/push`)
+- `monitoring_agent_scraper_cidrs` (default `["10.9.0.0/24"]`) — откуда пустить на 9100
+- `monitoring_agent_loki_url` (default `http://10.9.0.20:3100/loki/api/v1/push`)
 - `monitoring_agent_extra_logs` (list, default `[]`) — дополнительные файлы для promtail
 
 ## Telegraf?

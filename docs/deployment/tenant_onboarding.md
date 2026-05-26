@@ -81,7 +81,7 @@ H4   = 8345423
 PublicKey = <bastion_server_public_key>
 PresharedKey = <psk>
 Endpoint = <bastion_public_ip>:443
-AllowedIPs = 10.10.0.0/16, 10.20.0.0/16
+AllowedIPs = 10.9.0.0/24, 10.20.0.0/16
 PersistentKeepalive = 25
 EOF
 sudo chmod 600 /etc/amnezia/amneziawg/awg0.conf

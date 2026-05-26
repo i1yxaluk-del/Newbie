@@ -18,7 +18,7 @@ awg_hub_interface: "awg0"
 awg_hub_listen_port: 443
 
 # Адрес сервера в management overlay'е.
-awg_hub_address: "10.10.0.1/24"
+awg_hub_address: "10.9.0.1/24"
 
 # Приватный ключ AmneziaWG (берётся из vault'а, см. group_vars/landing/vault.yml).
 # Генерация: awg genkey.
@@ -28,7 +28,7 @@ awg_hub_private_key: ""
 # Пример элемента:
 #   - name: acme
 #     public_key: "AAAA...="
-#     allowed_ips: "10.20.10.0/24, 10.10.0.10/32"
+#     allowed_ips: "10.20.10.0/24, 10.9.0.10/32"
 awg_hub_peers: []
 
 # Параметры обфускации AmneziaWG. ДОЛЖНЫ совпадать на сервере и всех

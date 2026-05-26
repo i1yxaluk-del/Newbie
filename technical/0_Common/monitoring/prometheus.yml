@@ -62,7 +62,7 @@ scrape_configs:
   # AmneziaWG (метрики продолжают префиксоваться wireguard_*).
   - job_name: wireguard
     static_configs:
-      - targets: ["10.10.0.1:9586"]
+      - targets: ["10.9.0.1:9586"]
 
   # Per-tenant file_sd — populated by Ansible from inventory.
   - job_name: tenant-nodes

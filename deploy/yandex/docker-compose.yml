@@ -117,10 +117,29 @@ services:
       # Admin WebUI — ТОЛЬКО локально (доступ через SSH tunnel)
       - "127.0.0.1:8080:8080"
 
+  vaultwarden:
+    image: vaultwarden/server:latest
+    restart: unless-stopped
+    environment:
+      DOMAIN: https://vault.msp-claude.online
+      SIGNUPS_ALLOWED: "false"
+      INVITATIONS_ALLOWED: "true"
+      ADMIN_TOKEN: ${VAULTWARDEN_ADMIN_TOKEN:-changeme}
+      WEBSOCKET_ENABLED: "true"
+      LOG_FILE: /data/vaultwarden.log
+      LOG_LEVEL: warn
+    volumes:
+      - vaultwarden-data:/data
+    ports:
+      - "127.0.0.1:8180:80"
+      - "127.0.0.1:3012:3012"
+
 volumes:
   mongo-data:
     driver: local
   stalwart-etc:
     driver: local
   stalwart-data:
+    driver: local
+  vaultwarden-data:
     driver: local

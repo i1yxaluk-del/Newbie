@@ -17,7 +17,7 @@
 #
 # Предпосылка: awg0 уже поднят через awg_bootstrap.sh.
 # Сетевой план:
-#   10.10.0.0/16 — management overlay (bastion + наши landing/mon).
+#   10.9.0.0/24 — management overlay (bastion + наши landing/mon).
 #   10.20.0.0/16 — тенанты (каждый клиент = свой /24).
 #
 # Параметры обфускации AmneziaWG (Jc/Jmin/Jmax/S1/S2/H1..H4) берутся
@@ -106,9 +106,12 @@ H4   = ${AWG_H4}
 PublicKey           = $SERVER_PUB
 PresharedKey        = $PSK
 Endpoint            = ${ENDPOINT_HOST}:${LISTEN_PORT}
-AllowedIPs          = ${CIDR}, 10.10.0.0/16
+AllowedIPs          = ${CIDR}, 10.9.0.0/24
 PersistentKeepalive = 25
 EOF
+
+# Ensure no BOM (AmneziaWG Windows client fails with UTF-8 BOM)
+sed -i '1s/^\xEF\xBB\xBF//' "$AWG_DIR/client.conf"
 
 # Append tenant to server config
 cat >>"$AWG_CONF" <<EOF

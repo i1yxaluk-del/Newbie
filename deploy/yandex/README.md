@@ -251,21 +251,28 @@ ssh -i $SshKey ubuntu@$IP "shred -u ~/msp-deploy-secrets.txt"
 
 ### 5.5. Тестовая отправка письма (через локальный submit)
 
-```powershell
-# С Windows-станции — отправка через 465 SMTPS с auth
-$secret = ssh -i "$env:USERPROFILE\.ssh\id_ed25519_yc" ubuntu@<vm-ip> `
-    "grep '^sales@' ~/msp-deploy-secrets.txt"
-# (далее любой SMTP-клиент с auth: Outlook, Thunderbird, swaks, scripts)
+```bash
+# На VM — отправка через Stalwart SMTPS (stalwart-cli НЕТ в Docker v0.16)
+python3 -c "
+import smtplib, ssl
+from email.mime.text import MIMEText
+msg = MIMEText('Test from Stalwart')
+msg['Subject'] = 'Test'
+msg['From'] = 'alert@msp-claude.online'
+msg['To'] = 'admin@msp-claude.online'
+ctx = ssl.create_default_context()
+ctx.check_hostname = False
+ctx.verify_mode = ssl.CERT_NONE
+s = smtplib.SMTP_SSL('127.0.0.1', 465, timeout=15, context=ctx)
+s.login('alert@msp-claude.online', '<alert-password>')
+s.send_message(msg)
+s.quit()
+print('SENT OK')
+"
 ```
 
 ```bash
-# Или с самой ВМ — через docker exec и stalwart-cli
-docker compose -f /opt/msp/Newbie/deploy/yandex/docker-compose.yml \
-  exec stalwart stalwart-cli queue message send \
-  --from alert@msp-claude.online --to admin@msp-claude.online \
-  --subject "local-submit test" --body "ok"
-docker compose -f /opt/msp/Newbie/deploy/yandex/docker-compose.yml \
-  logs stalwart | tail -20
+# Или просто с Outlook/Thunderbird: SMTP mail.msp-claude.online:465, implicit TLS
 ```
 
 ### 5.6. Чтение почты в Thunderbird/Outlook
@@ -302,7 +309,7 @@ docker compose -f /opt/msp/Newbie/deploy/yandex/docker-compose.yml \
 | Submission auth на наш Stalwart `:465` / `:587` | ✅ да |
 | Локальная доставка между ящиками `*@msp-claude.online` | ✅ да |
 | Grafana/Wazuh/Alertmanager → Stalwart `:587` (внутри VM) | ✅ да |
-| Outbound через smarthost Yandex Cloud Postbox `postbox.cloud.yandex.net:587` STARTTLS | ✅ да |
+| Outbound через smarthost Yandex Cloud Postbox `postbox.cloud.yandex.net:465` implicit TLS | ✅ да |
 | Чтение ящиков через IMAPS `:993` | ✅ да |
 
 ### Архитектурное решение — submit-only Stalwart + внешний MX
@@ -311,7 +318,7 @@ Stalwart **не работает как MX**. Inbound почта приходи�
 провайдера (Yandex 360 / Mailgun routes / Cloudflare Email Routing),
 который принимает её на свой `:25` и пересылает к нам на `:587`.
 
-Outbound — через smarthost Yandex Cloud Postbox на `:587` STARTTLS
+Outbound — через smarthost Yandex Cloud Postbox на `:465` implicit TLS
 (auth = API key ID + secret service account `postbox-sender`). Postbox
 MX-записи НЕ выдаёт — он только отправляет.
 
@@ -351,24 +358,22 @@ MX-записи НЕ выдаёт — он только отправляет.
 
 ## 8. Подключение к интеграциям
 
-### 8.1. Grafana → SMTP-алерты на alert@
+### 8.1. Grafana → SMTP-алерты через Postbox
 
-В `/etc/grafana/grafana.ini` (Grafana на нашей VM подключается к Stalwart
-по **внутреннему** docker-compose имени, без выхода в публичную сеть):
-```ini
-[smtp]
-enabled = true
-host = stalwart:587
-user = alert@msp-claude.online
-password = <из msp-deploy-secrets.txt>
-from_address = alert@msp-claude.online
-from_name = MSP Grafana
-startTLS_policy = MandatoryStartTLS
+Grafana отправляет email **напрямую через Postbox** (не через внутренний Stalwart),
+т.к. мониторинг-стек работает в отдельной Docker-сети `msp-monitoring`.
+Настройка через env vars в `deploy/yandex/monitoring/.env`:
+```
+GF_SMTP_ENABLED=true
+GF_SMTP_HOST=postbox.cloud.yandex.net:465
+GF_SMTP_USER=<postbox-api-key-id>
+GF_SMTP_PASSWORD=<postbox-api-key-secret>
+GF_SMTP_FROM_ADDRESS=alert@msp-claude.online
 ```
 
 ### 8.2. Wazuh → SMTP
 
-В `/var/ossec/etc/ossec.conf` (Wazuh на той же VM — также внутреннее имя):
+В `/var/ossec/etc/ossec.conf` (Wazuh на той же VM — через внутренний Stalwart):
 ```xml
 <global>
   <email_notification>yes</email_notification>
@@ -378,19 +383,18 @@ startTLS_policy = MandatoryStartTLS
 </global>
 ```
 
-### 8.3. Alertmanager → Stalwart (если кому-то нравится email вместо MAX)
+### 8.3. Alertmanager → Postbox (email для критических алёртов)
 
-В уже существующем `deploy/alertmanager/alertmanager.yml` добавьте receiver:
+Alertmanager отправляет email **напрямую через Postbox** (как Grafana),
+т.к. работает в сети `msp-monitoring`. Конфиг в
+`deploy/yandex/monitoring/alertmanager/alertmanager.yml`:
 ```yaml
-receivers:
-  - name: 'msp-email'
-    email_configs:
-      - to: 'alert@msp-claude.online'
-        from: 'alert@msp-claude.online'
-        smarthost: 'stalwart:587'
-        auth_username: 'alert@msp-claude.online'
-        auth_password: '<password>'
-        require_tls: true
+global:
+  smtp_smarthost: "postbox.cloud.yandex.net:465"
+  smtp_from: "alert@msp-claude.online"
+  smtp_auth_username: "<postbox-api-key-id>"
+  smtp_auth_password: "<postbox-api-key-secret>"
+  smtp_require_tls: true
 ```
 
 ---
@@ -517,6 +521,81 @@ production LE endpoint предотвращает silent fallback на staging.
 - `Start-Process scp` вместо прямого вызова (PS5.1 stderr конфликт)
 - Для маленьких файлов: `echo BASE64 | ssh ... "base64 -d > file"`
 - Отключить WireGuard перед SCP, если возможно
+
+### 10.0.6. Postbox :587 STARTTLS не работает — используйте :465 implicit TLS
+
+**Симптом:** Stalwart не может отправить письмо через `postbox.cloud.yandex.net:587 STARTTLS`. Соединение устанавливается, но Postbox отбрасывает его.
+
+**Причина:** Yandex Cloud Postbox на порту 587 с STARTTLS **не принимает релей**.
+Единственный рабочий вариант — порт 465 с implicit TLS.
+
+**Фикс:**
+1. В Stalwart route: Port=465, Implicit TLS=ВКЛ
+2. В docker-compose.yml bootstrap: `STALWART_ROUTES_POSTBOX_OUTBOUND_PORT: "465"`, `STALWART_ROUTES_POSTBOX_OUTBOUND_TLS_IMPLICIT: "true"`
+3. В Grafana/Alertmanager/Vaultwarden: `postbox.cloud.yandex.net:465`
+
+**Профилактика:** docker-compose.yml теперь использует :465 по умолчанию.
+
+### 10.0.7. Stalwart v0.16 — нет CLI в Docker-образе
+
+**Симптом:** `docker exec msp-stalwart-1 stalwart-cli ...` → `stalwart-cli: not found`
+
+**Причина:** Docker-образ `stalwartlabs/stalwart:v0.16` не включает CLI.
+Все управление — через JMAP API или Admin WebUI.
+
+**Обходные пути:**
+- Admin WebUI: http://localhost:8080/admin (SSH tunnel)
+- JMAP API: `POST http://127.0.0.1:8080/jmap/` с Basic auth
+- Custom methods через `x:` prefix: `x:MtaRoute/get`, `x:MtaRoute/set`
+
+### 10.0.8. Stalwart v0.16 — Principal/set JMAP баг
+
+**Симптом:** JMAP `Principal/set` всегда возвращает `{"type":"notRequest"}`.
+
+**Причина:** Баг в Stalwart v0.16. Создание/изменение аккаунтов (пароли)
+через JMAP не работает.
+
+**Обход:** создавать аккаунты и менять пароли только через Admin WebUI.
+
+### 10.0.9. Necoray TUN-режим ломает AmneziaWG
+
+**Симптом:** AmneziaWG handshake не проходит — VPN-туннель не поднимается,
+ping к 10.9.0.1 не идёт.
+
+**Причина:** Necoray в TUN-режиме создаёт адаптер `neko-tun`, который
+перехватывает UDP-пакеты AWG handshake (UDP/443). AWG не получает ответ
+от сервера.
+
+**Фикс:** переключить Necoray в **proxy-режим** (не TUN). В proxy-режиме
+Necoray не создаёт TUN-адаптер, AWG работает через свой Wintun-адаптер
+`awg0-msp` без конфликтов.
+
+**Профилактика:** не использовать TUN-клиенты на Windows-станции совместно
+с AmneziaWG на том же endpoint.
+
+### 10.0.10. Monitoring-стек в отдельной сети — SMTP через Postbox direct
+
+**Симптом:** Grafana/Alertmanager не могут отправить email через `stalwart:587`.
+
+**Причина:** мониторинг-стек развёрнут из отдельного compose-файла
+(`/opt/msp-monitoring/docker-compose.yml`) в сети `msp-monitoring`
+(172.20.0.0/24). Stalwart работает в сети `msp_default` — сети не связаны.
+
+**Фикс:** Grafana и Alertmanager отправляют email **напрямую через Postbox**
+(`postbox.cloud.yandex.net:465`), минуя Stalwart.
+
+### 10.0.11. UFW зависает при множественных вызовах из SSH
+
+**Симптом:** `sudo ufw status` или `sudo ufw delete N` висит по SSH.
+
+**Причина:** предыдущий вызов ufw не завершился (Python3 процесс),
+последующие вызовы блокируются на lock-файле. Накопление процессов
+усугубляет проблему.
+
+**Фикс:**
+1. Убить зависшие процессы: `pkill -9 -f '/usr/sbin/ufw'`
+2. Удалять правила напрямую через iptables: `sudo iptables -D ufw-user-input -p tcp --dport N -j ACCEPT`
+3. Не использовать `ufw delete` в неинтерактивных SSH-скриптах
 
 ---
 
@@ -740,29 +819,36 @@ dig +short -x <public-ip>
 
 Ниже — конкретные шаги, которые нужно выполнить в Stalwart Admin UI
 для завершения настройки почты. API-ключ Postbox уже создан и лежит
-в `.env`, но Stalwart v0.16 не имеет CLI в Docker-образе — всё через WebUI.
+в `.env`, но Stalwart v0.16 не имеет CLI в Docker-образе — всё через WebUI
+или JMAP API.
+
+> **Важно**: env-переменные Postbox в docker-compose.yml подхватываются
+> **ТОЛЬКО при первом запуске** Stalwart (пустой volume stalwart-etc).
+> После первого запуска конфиг живёт в RocksDB volume — изменения через
+> Admin UI или JMAP API (`POST http://127.0.0.1:8080/jmap/`).
 
 ### Подключение к Admin UI
 
 ```powershell
 # SSH-туннель (через VPN или внешний IP)
-ssh -L 8080:localhost:8080 -i "$env:USERPROFILE\.ssh\id_ed25519_yc" ubuntu@10.10.0.21
-# Или через внешний IP:
-ssh -L 8080:localhost:8080 -i "$env:USERPROFILE\.ssh\id_ed25519_yc" ubuntu@93.77.184.219
+ssh -L 8080:localhost:8080 -i "$env:USERPROFILE\.ssh\id_ed25519_yc" ubuntu@10.9.0.1
 # → http://localhost:8080/admin
-# Логин: admin / Пароль: из ~/msp-deploy-secrets.txt на ВМ
+# Логин: admin / Пароль: из ~/msp-deploy-secrets.txt на ВМ (shred после копирования!)
 ```
 
 ### Шаги
 
 | # | Шаг | Где в Admin UI | Статус |
 |---|-----|----------------|--------|
-| 1 | **Указать auth в маршруте `postbox-outbound`** | Settings → SMTP → Routes → postbox-outbound → Edit → Auth user = `POSTBOX_API_KEY_ID` из `.env`, Auth password = `POSTBOX_API_KEY_SECRET` из `.env` | **Не сделано** |
-| 2 | **Убедиться что outbound strategy = postbox-outbound** | MTA → Outbound → Strategy → default route = `postbox-outbound` | Проверить |
-| 3 | **Добавить TLS-сертификат для mail.** | Settings → TLS → Certificates → Add Manual → cert/key пути к Caddy-сертификатам | **Не сделано** (ждёт Caddy cert issuance для `mail.msp-claude.online`) |
-| 4 | **Создать аккаунты** admin@, sales@, alert@ | Settings → Accounts → Add User → тип Individual, пароли из `msp-deploy-secrets.txt` | **Не сделано** |
-| 5 | **Сгенерировать DKIM-ключ** | Settings → Domains → msp-claude.online → Generate DKIM | **Не сделано** |
-| 6 | **Прописать DNS TXT-записи** (SPF + DKIM + DMARC) у регистратора | Вне VM — Namecheap/Cloudflare DNS | **Ждёт шаг 5** |
+| 1 | **Указать auth в маршруте `postbox-outbound`** — Port=465, Implicit TLS=ВКЛ, Auth user=API key ID, Auth password=API key secret | Settings → SMTP → Routes → postbox-outbound → Edit | ✅ Сделано (JMAP) |
+| 2 | **Убедиться что outbound strategy = postbox-outbound** | MTA → Outbound → Strategy → default route | ✅ Сделано |
+| 3 | **Добавить TLS-сертификат для mail.** | Settings → TLS → Certificates → Add Manual → cert/key пути к Caddy-сертификатам | ✅ Сделано (auto) |
+| 4 | **Создать аккаунты** admin@, sales@, alert@ | Settings → Accounts → Add User → тип Individual | ✅ Сделано |
+| 5 | **Сгенерировать DKIM-ключ** | Settings → Domains → msp-claude.online → Generate DKIM | ✅ Сделано |
+| 6 | **Прописать DNS TXT-записи** (SPF + DKIM + DMARC) у регистратора | Вне VM — Namecheap/Cloudflare DNS | ✅ Сделано |
+| 7 | **Настроить Grafana SMTP** — Postbox direct, :465 implicit TLS | `deploy/yandex/monitoring/.env` → `GF_SMTP_*` | ✅ Сделано |
+| 8 | **Настроить Alertmanager SMTP** — Postbox direct, :465 implicit TLS | `deploy/yandex/monitoring/alertmanager/alertmanager.yml` | ✅ Сделано |
+| 9 | **Настроить Vaultwarden SMTP** — Postbox direct, :465 force_tls | `deploy/yandex/.env` → `SMTP_*` | ✅ Сделано |
 
 ### DNS TXT-записи (после DKIM из шага 5)
 
@@ -780,32 +866,36 @@ TXT  _dmarc.msp-claude.online              v=DMARC1; p=quarantine; rua=mailto:ad
 подтвердить TXT-записью. После подтверждения Postbox начнёт принимать
 входящие на `mx.yandex.net` и форвардить на наш `:587`.
 
-### Интеграции (после шагов 1-4)
+### Интеграции (все настроены через Postbox direct)
 
-| Сервис | Как подключить | Куда вписать |
-|--------|---------------|--------------|
-| Grafana | `stalwart:587` STARTTLS, user=`alert@`, pass из secrets | `deploy/yandex/monitoring/.env` → `GF_SMTP_*` |
-| Alertmanager | `stalwart:587`, user=`alert@`, pass из secrets | `deploy/yandex/monitoring/alertmanager/alertmanager.yml` |
-| Vaultwarden | `stalwart:587` STARTTLS, user=`alert@`, pass из secrets | Vaultwarden Admin UI → Settings → SMTP |
-| Backend (FastAPI) | `stalwart:587`, user=`alert@`, pass из secrets | `backend/.env` → `SMTP_*` |
+| Сервис | SMTP сервер | Порт | TLS | Логин |
+|--------|-------------|------|-----|-------|
+| Grafana | postbox.cloud.yandex.net | 465 | implicit | API key ID |
+| Alertmanager | postbox.cloud.yandex.net | 465 | implicit | API key ID |
+| Vaultwarden | postbox.cloud.yandex.net | 465 | force_tls | API key ID |
+| Backend (FastAPI) | stalwart (внутр.) | 587 | STARTTLS | alert@... |
 
 ### Тест отправки
 
 ```bash
-# На VM — отправка через Stalwart
-docker exec -it msp-stalwart-1 /bin/sh
-# Внутри контейнера:
-curl -v --url 'smtp://postbox.cloud.yandex.net:587' \
-  --mail-from 'alert@msp-claude.online' \
-  --mail-rcpt '<ваш-личний-email>' \
-  -u '<POSTBOX_API_KEY_ID>:<POSTBOX_API_KEY_SECRET>' \
-  -T <(echo "Subject: Test from Stalwart via Postbox
-
-Test body")
+# На VM — через Stalwart SMTPS (нет stalwart-cli в Docker v0.16)
+python3 -c "
+import smtplib, ssl
+from email.mime.text import MIMEText
+msg = MIMEText('Test from Stalwart via Postbox')
+msg['Subject'] = 'Stalwart Postbox test'
+msg['From'] = 'alert@msp-claude.online'
+msg['To'] = 'admin@msp-claude.online'
+ctx = ssl.create_default_context()
+ctx.check_hostname = False
+ctx.verify_mode = ssl.CERT_NONE
+s = smtplib.SMTP_SSL('127.0.0.1', 465, timeout=15, context=ctx)
+s.login('alert@msp-claude.online', '<alert-password>')
+s.send_message(msg)
+s.quit()
+print('SENT OK')
+"
 ```
-
-Или просто с Outlook/Thunderbird: SMTP `mail.msp-claude.online:587`,
-user=`alert@`, STARTTLS.
 
 ---
 

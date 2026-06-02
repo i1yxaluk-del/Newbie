@@ -1,0 +1,257 @@
+{
+"uid": "msp-containers",
+"title": "1.1 Контейнеры",
+"tags": ["mspshield", "containers", "level-1.1"],
+"schemaVersion": 39,
+"version": 1,
+"time": { "from": "now-1h", "to": "now" },
+"refresh": "60s",
+"timezone": "browser",
+"graphTooltip": 1,
+"links": [
+  {
+    "title": "← MSP Overview",
+    "url": "/d/msp-overview",
+    "type": "link",
+    "icon": "arrow-left",
+    "targetBlank": false
+  }
+],
+"panels": [
+  {
+    "id": 1,
+    "title": "Статус контейнеров",
+    "type": "stat",
+    "gridPos": { "x": 0, "y": 0, "w": 6, "h": 3 },
+    "options": {
+      "reduceOptions": { "calcs": ["lastNotNull"] },
+      "orientation": "auto",
+      "textMode": "auto",
+      "colorMode": "value",
+      "graphMode": "none"
+    },
+    "fieldConfig": {
+      "defaults": {
+        "color": { "mode": "fixed", "fixedColor": "green" },
+        "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+      }
+    },
+    "targets": [
+      {
+        "expr": "count(container_last_seen{name=~\".+\"})",
+        "legendFormat": "Запущено",
+        "refId": "A"
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "title": "Перезапуски (15 мин)",
+    "type": "stat",
+    "gridPos": { "x": 6, "y": 0, "w": 6, "h": 3 },
+    "options": {
+      "reduceOptions": { "calcs": ["lastNotNull"] },
+      "orientation": "auto",
+      "textMode": "auto",
+      "colorMode": "background",
+      "graphMode": "none"
+    },
+    "fieldConfig": {
+      "defaults": {
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            { "color": "green", "value": null },
+            { "color": "orange", "value": 1 },
+            { "color": "red", "value": 3 }
+          ]
+        },
+        "color": { "mode": "thresholds" }
+      }
+    },
+    "targets": [
+      {
+        "expr": "sum(increase(container_start_time_seconds{name=~\".+\"}[15m]))",
+        "legendFormat": "Перезапуски",
+        "refId": "A"
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "title": "Суммарная RAM контейнеров",
+    "type": "stat",
+    "gridPos": { "x": 12, "y": 0, "w": 6, "h": 3 },
+    "options": {
+      "reduceOptions": { "calcs": ["lastNotNull"] },
+      "orientation": "auto",
+      "textMode": "auto",
+      "colorMode": "background",
+      "graphMode": "none"
+    },
+    "fieldConfig": {
+      "defaults": {
+        "unit": "bytes",
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            { "color": "green", "value": null },
+            { "color": "orange", "value": 536870912 },
+            { "color": "red", "value": 805306368 }
+          ]
+        },
+        "color": { "mode": "thresholds" }
+      }
+    },
+    "targets": [
+      {
+        "expr": "sum(container_memory_working_set_bytes{name=~\".+\"})",
+        "legendFormat": "RAM total",
+        "refId": "A"
+      }
+    ]
+  },
+  {
+    "id": 4,
+    "title": "Суммарный CPU контейнеров",
+    "type": "stat",
+    "gridPos": { "x": 18, "y": 0, "w": 6, "h": 3 },
+    "options": {
+      "reduceOptions": { "calcs": ["lastNotNull"] },
+      "orientation": "auto",
+      "textMode": "auto",
+      "colorMode": "background",
+      "graphMode": "none"
+    },
+    "fieldConfig": {
+      "defaults": {
+        "unit": "percent",
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            { "color": "green", "value": null },
+            { "color": "orange", "value": 60 },
+            { "color": "red", "value": 85 }
+          ]
+        },
+        "color": { "mode": "thresholds" }
+      }
+    },
+    "targets": [
+      {
+        "expr": "sum(rate(container_cpu_usage_seconds_total{name=~\".+\"}[5m])) * 100",
+        "legendFormat": "CPU total %",
+        "refId": "A"
+      }
+    ]
+  },
+  {
+    "id": 5,
+    "title": "RAM по контейнерам",
+    "type": "timeseries",
+    "gridPos": { "x": 0, "y": 3, "w": 12, "h": 7 },
+    "options": {
+      "tooltip": { "mode": "multi" },
+      "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] }
+    },
+    "fieldConfig": {
+      "defaults": {
+        "unit": "bytes",
+        "custom": { "lineWidth": 2, "fillOpacity": 10 }
+      }
+    },
+    "targets": [
+      {
+        "expr": "container_memory_working_set_bytes{name=~\".+\"}",
+        "legendFormat": "{{name}}",
+        "refId": "A"
+      }
+    ]
+  },
+  {
+    "id": 6,
+    "title": "CPU по контейнерам",
+    "type": "timeseries",
+    "gridPos": { "x": 12, "y": 3, "w": 12, "h": 7 },
+    "options": {
+      "tooltip": { "mode": "multi" },
+      "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] }
+    },
+    "fieldConfig": {
+      "defaults": {
+        "unit": "percent",
+        "custom": { "lineWidth": 2, "fillOpacity": 10 }
+      }
+    },
+    "targets": [
+      {
+        "expr": "rate(container_cpu_usage_seconds_total{name=~\".+\"}[5m]) * 100",
+        "legendFormat": "{{name}}",
+        "refId": "A"
+      }
+    ]
+  },
+  {
+    "id": 7,
+    "title": "Топ контейнеров по RAM",
+    "type": "bargauge",
+    "gridPos": { "x": 0, "y": 10, "w": 12, "h": 6 },
+    "options": {
+      "reduceOptions": { "calcs": ["lastNotNull"] },
+      "orientation": "horizontal",
+      "displayMode": "gradient",
+      "showUnfilled": true
+    },
+    "fieldConfig": {
+      "defaults": {
+        "unit": "bytes",
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            { "color": "green", "value": null },
+            { "color": "orange", "value": 268435456 },
+            { "color": "red", "value": 536870912 }
+          ]
+        },
+        "color": { "mode": "thresholds" }
+      }
+    },
+    "targets": [
+      {
+        "expr": "topk(8, container_memory_working_set_bytes{name=~\".+\"})",
+        "legendFormat": "{{name}}",
+        "refId": "A"
+      }
+    ]
+  },
+  {
+    "id": 8,
+    "title": "Сеть по контейнерам (RX)",
+    "type": "timeseries",
+    "gridPos": { "x": 12, "y": 10, "w": 12, "h": 6 },
+    "options": {
+      "tooltip": { "mode": "multi" },
+      "legend": { "displayMode": "list", "placement": "bottom" }
+    },
+    "fieldConfig": {
+      "defaults": {
+        "unit": "Bps",
+        "custom": { "lineWidth": 1, "fillOpacity": 5 }
+      }
+    },
+    "targets": [
+      {
+        "expr": "rate(container_network_receive_bytes_total{name=~\".+\"}[5m])",
+        "legendFormat": "{{name}} RX",
+        "refId": "A"
+      }
+    ]
+  }
+],
+"annotations": { "list": [] },
+"templating": { "list": [] },
+"timepicker": {},
+"fiscalYearStartMonth": 0,
+"editable": true,
+"id": null
+}

@@ -130,7 +130,6 @@ services:
     image: grafana/grafana:10.4.2
     container_name: msp-grafana
     restart: unless-stopped
-    env_file: .env
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
@@ -151,13 +150,6 @@ services:
       GF_DEFAULT_THEME: "dark"
       GF_INSTALL_PLUGINS: "grafana-clock-panel,grafana-piechart-panel"
       GF_LOG_LEVEL: "warn"
-      GF_SMTP_ENABLED: ${GF_SMTP_ENABLED:-false}
-      GF_SMTP_HOST: ${GF_SMTP_HOST:-}
-      GF_SMTP_USER: ${GF_SMTP_USER:-}
-      GF_SMTP_PASSWORD: ${GF_SMTP_PASSWORD:-}
-      GF_SMTP_FROM_ADDRESS: ${GF_SMTP_FROM_ADDRESS:-}
-      GF_SMTP_FROM_NAME: ${GF_SMTP_FROM_NAME:-MSPShield}
-      GF_SMTP_SKIP_VERIFY: ${GF_SMTP_SKIP_VERIFY:-false}
       # ── Палитра MSPShield (используется в дашборде) ───────────
       # Лесной зелёный #1b4d3e — основной бренд, UP-статусы
       # Мятный акцент #5fc9a2 — графики на тёмном фоне

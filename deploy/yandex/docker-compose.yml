@@ -56,14 +56,9 @@ services:
   #   submit-only режиме: только 465/587 для отправки + 143/993 для
   #   чтения локальных ящиков.
   #
-  #   Outbound: через Yandex Cloud Postbox (postbox.cloud.yandex.net:465
-  #   implicit TLS, auth = API key ID + secret). Это канонический smarthost
+  #   Outbound: через Yandex Cloud Postbox (postbox.cloud.yandex.net:587
+  #   STARTTLS, auth = API key ID + secret). Это канонический smarthost
   #   для нашего деплоя — см. STALWART_RELAY_MODE.md §2 · Вариант A.
-  #
-  #   ВАЖНО (урок из деплоя): порт 465 + implicit TLS = true, НЕ :587
-  #   STARTTLS. Postbox на :587 STARTTLS отбрасывает соединения.
-  #   Bootstrap env vars подхватываются ТОЛЬКО при первом запуске Stalwart
-  #   (пустой volume stalwart-etc). Дальше — JMAP API или Admin WebUI.
   #
   #   Inbound (если нужны входящие ящики): отдельный MX-провайдер
   #   (Yandex 360, Mail.ru для бизнеса, Mailgun routes) принимает почту
@@ -71,7 +66,7 @@ services:
   #
   # Активные порты:
   #   465   — SMTPS submission (implicit TLS) — клиенты шлют ИСХОДЯЩЕЕ
-  #   587   — STARTTLS submission — legacy клиенты / inbound forwarding
+  #   587   — STARTTLS submission — Grafana/Wazuh/Alertmanager шлют АЛЕРТЫ
   #   143   — IMAP STARTTLS (для legacy клиентов)
   #   993   — IMAPS (TLS) — основное чтение ящиков
   #   4190  — ManageSieve (фильтры на сервере)
@@ -80,8 +75,8 @@ services:
   # Закрыто (заблокировано Yandex Cloud):
   #   25    — НЕ открываем. Outgoing к чужим :25 всё равно режется YC.
   #           Outbound идёт через smarthost Yandex Cloud Postbox
-  #           (postbox.cloud.yandex.net:465 implicit TLS, auth = API key).
-  #           Настраивается через JMAP API или Admin WebUI — см.
+  #           (postbox.cloud.yandex.net:587 STARTTLS, auth = API key).
+  #           Настраивается через stalwart-cli или Admin UI — см.
   #           STALWART_RELAY_MODE.md §2 · Вариант A.
   #
   # TLS-сертификаты для mail.<domain> Caddy получает у Let's Encrypt и
@@ -94,14 +89,14 @@ services:
       # setup-on-vm.sh и пишется в ~/msp-deploy-secrets.txt
       STALWART_RECOVERY_ADMIN: "admin:${STALWART_ADMIN_PASSWORD:-changeme}"
       # Outbound smarthost через Yandex Cloud Postbox (см. STALWART_RELAY_MODE.md §2).
-      # ВНИМАНИЕ: порт 465 + implicitTls=true. Postbox на :587 STARTTLS НЕ работает.
+      # ВНИМАНИЕ: для :587 implicitTls=false (STARTTLS), иначе хэндшейк сломается.
       # Подхватывается ТОЛЬКО при первом запуске (bootstrap). Дальше менять через
-      # JMAP API или Admin WebUI; конфиг живёт в volume stalwart-etc.
+      # stalwart-cli или WebUI; конфиг живёт в volume stalwart-etc.
       STALWART_QUEUE_DEFAULT_ROUTE: postbox-outbound
       STALWART_ROUTES_POSTBOX_OUTBOUND_TYPE: relay
       STALWART_ROUTES_POSTBOX_OUTBOUND_ADDRESS: postbox.cloud.yandex.net
-      STALWART_ROUTES_POSTBOX_OUTBOUND_PORT: "465"
-      STALWART_ROUTES_POSTBOX_OUTBOUND_TLS_IMPLICIT: "true"
+      STALWART_ROUTES_POSTBOX_OUTBOUND_PORT: "587"
+      STALWART_ROUTES_POSTBOX_OUTBOUND_TLS_IMPLICIT: "false"
       STALWART_ROUTES_POSTBOX_OUTBOUND_AUTH_USERNAME: ${POSTBOX_API_KEY_ID:-}
       STALWART_ROUTES_POSTBOX_OUTBOUND_AUTH_SECRET: ${POSTBOX_API_KEY_SECRET:-}
     volumes:
@@ -133,13 +128,6 @@ services:
       WEBSOCKET_ENABLED: "true"
       LOG_FILE: /data/vaultwarden.log
       LOG_LEVEL: warn
-      SMTP_HOST: ${SMTP_HOST:-}
-      SMTP_PORT: ${SMTP_PORT:-465}
-      SMTP_SECURITY: ${SMTP_SECURITY:-force_tls}
-      SMTP_FROM: ${SMTP_FROM:-}
-      SMTP_USERNAME: ${SMTP_USERNAME:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      SMTP_AUTH_MECHANISM: ${SMTP_AUTH_MECHANISM:-Plain}
     volumes:
       - vaultwarden-data:/data
     ports:

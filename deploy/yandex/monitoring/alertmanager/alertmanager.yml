@@ -1,10 +1,5 @@
 global:
   resolve_timeout: 5m
-  smtp_smarthost: "${SMTP_HOST}:465"
-  smtp_from: "${SMTP_FROM}"
-  smtp_auth_username: "${SMTP_USER}"
-  smtp_auth_password: "${SMTP_PASSWORD}"
-  smtp_require_tls: true
 
 route:
   group_by: ['alertname', 'severity']
@@ -20,14 +15,7 @@ route:
       group_wait: 10s
       group_interval: 2m
       repeat_interval: 1h
-      continue: true
-
-    - matchers:
-        - severity =~ "critical|page|high|error"
-      receiver: email-alert
-      group_wait: 10s
-      group_interval: 2m
-      repeat_interval: 1h
+      continue: false
 
     - matchers:
         - severity =~ "warning|warn"
@@ -35,6 +23,7 @@ route:
       group_wait: 1m
       group_interval: 10m
       repeat_interval: 4h
+      continue: false
 
 receivers:
   - name: msp-backend
@@ -46,13 +35,6 @@ receivers:
           authorization:
             type: Bearer
             credentials: 'ALERTMANAGER_WEBHOOK_TOKEN_PLACEHOLDER'
-
-  - name: email-alert
-    email_configs:
-      - to: "${SMTP_FROM}"
-        send_resolved: true
-        headers:
-          Subject: "[MSPShield] {{ .GroupLabels.alertname }} - {{ .CommonAnnotations.summary }}"
 
 inhibit_rules:
   - source_matchers:

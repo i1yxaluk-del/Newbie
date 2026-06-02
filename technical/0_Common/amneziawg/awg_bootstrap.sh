@@ -81,22 +81,10 @@ H2   = ${AWG_H2}
 H3   = ${AWG_H3}
 H4   = ${AWG_H4}
 
-PostUp   = iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -o $(ip route get 8.8.8.8 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="dev") print $(i+1)}' | head -1) -j MASQUERADE
-PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -o $(ip route get 8.8.8.8 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="dev") print $(i+1)}' | head -1) -j MASQUERADE
+PostUp   = iptables -A FORWARD -i awg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+PostDown = iptables -D FORWARD -i awg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
 EOF
 
 systemctl enable --now awg-quick@awg0
 echo "✓ awg0 is up on UDP/${LISTEN_PORT}."
-echo ""
-echo "════════════════════════════════════════════"
-echo " Публичный ключ сервера (передать клиентам):"
-echo " $(cat "$AWG_DIR/server_public.key")"
-echo ""
-echo " Параметры обфускации (передать ВМЕСТЕ с ключом):"
-echo "   Jc=${AWG_JC} Jmin=${AWG_JMIN} Jmax=${AWG_JMAX}"
-echo "   S1=${AWG_S1} S2=${AWG_S2}"
-echo "   H1=${AWG_H1} H2=${AWG_H2} H3=${AWG_H3} H4=${AWG_H4}"
-echo ""
-echo " Добавить клиента: tenant_add.sh <name> <cidr>"
-echo "════════════════════════════════════════════"
 awg show

@@ -15,9 +15,9 @@ H2   = {{ awg_hub_h2 }}
 H3   = {{ awg_hub_h3 }}
 H4   = {{ awg_hub_h4 }}
 
-# NAT: tenant → external via eth0
-PostUp = iptables -A FORWARD -i {{ awg_hub_interface }} -j ACCEPT; iptables -A FORWARD -o {{ awg_hub_interface }} -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-PostDown = iptables -D FORWARD -i {{ awg_hub_interface }} -j ACCEPT; iptables -D FORWARD -o {{ awg_hub_interface }} -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+# NAT: tenant → external via dynamically detected main interface
+PostUp = iptables -A FORWARD -i {{ awg_hub_interface }} -j ACCEPT; iptables -A FORWARD -o {{ awg_hub_interface }} -j ACCEPT; iptables -t nat -A POSTROUTING -o {{ awg_hub_main_iface | default('eth0') }} -j MASQUERADE
+PostDown = iptables -D FORWARD -i {{ awg_hub_interface }} -j ACCEPT; iptables -D FORWARD -o {{ awg_hub_interface }} -j ACCEPT; iptables -t nat -D POSTROUTING -o {{ awg_hub_main_iface | default('eth0') }} -j MASQUERADE
 
 {% for peer in awg_hub_peers %}
 # ── peer: {{ peer.name }} ──

@@ -9,8 +9,8 @@ Yandex Cloud **блокирует TCP/25** на публичных IP VPC (ан�
 - исходящие коннекты к чужим `:25` тоже режутся;
 - получить адрес с открытым `:25` сейчас **технически невозможно** (YC прямо
   отказывает);
-- решение: исходящие через **Yandex Cloud Postbox** (`postbox.cloud.yandex.net:587`
-  STARTTLS, авторизация по API-ключу YC), входящие — forward к нам на :587.
+- решение: исходящие через **Yandex Cloud Postbox** (`postbox.cloud.yandex.net:465`
+  implicit TLS, авторизация по API-ключу YC), входящие — forward к нам на :587.
 
 Stalwart в `deploy/yandex/docker-compose.yml` настроен под эту реальность:
 
@@ -31,7 +31,7 @@ Stalwart в `deploy/yandex/docker-compose.yml` настроен под эту р
 ```
                                                        Internet
                                                           │
-            (входящие письма от чужих серверов на :25)     │
+             (входящие письма от чужих серверов на :25)     │
                                                           ▼
                 ┌──────────────────────────────────────────────────┐
                 │  Yandex Cloud Postbox                             │
@@ -44,14 +44,14 @@ Stalwart в `deploy/yandex/docker-compose.yml` настроен под эту р
    │  Yandex Cloud VM (наш Stalwart) — submit-only режим              │
    │                                                                  │
    │   :465  ◄── Outlook/Thunderbird/скрипты шлют ИСХОДЯЩЕЕ (auth)    │
-   │   :587  ◄── Grafana/Alertmanager шлют АЛЕРТЫ (auth)              │
+   │   :587  ◄── Legacy клиенты / inbound forwarding                  │
    │   :993  ◄── читают ящики (IMAPS)                                 │
    │                                                                  │
    │   Stalwart кладёт принятые письма в локальные ящики,              │
    │   фильтрует Sieve, отдаёт IMAP.                                  │
    │                                                                  │
    │   ИСХОДЯЩИЕ ── НЕ напрямую на :25 (YC блокирует) ──────────────► │
-   │   Stalwart → postbox.cloud.yandex.net:587 ──► Yandex Postbox      │
+   │   Stalwart → postbox.cloud.yandex.net:465 ──► Yandex Postbox      │
    │                                                                  │
    └──────────────────────────────────────────────────────────────────┘
 ```
@@ -62,12 +62,16 @@ Stalwart в `deploy/yandex/docker-compose.yml` настроен под эту р
 
 1. В Yandex Cloud Console → **IAM → Сервисные аккаунты** → создать аккаунт
    `postbox-sender` с ролью `postbox.sender`.
-2. Создать **API-ключ** (IAM → API-ключи → Создать).
+2. Создать **API-ключ** (IAM → API-ключи → Создать) со scope `yc.postbox.send`.
 3. Записать:
    - **ID ключа** (строка вида `aje...`) → `authUsername` в Stalwart;
    - **Секретный ключ** (длинная строка) → `authSecret` в Stalwart.
 4. Привязать домен в Postbox: YC Console → **Postbox → Домены** → добавить
    домен → подтвердить TXT-записью у регистратора.
+
+> **Важно**: API-ключ ОБЯЗАТЕЛЬНО должен иметь scope `yc.postbox.send`. Ключи
+> без этого scope проходят AUTH, но не могут отправлять — ошибка проявляется
+> только при фактической отправке письма.
 
 ---
 
@@ -75,7 +79,13 @@ Stalwart в `deploy/yandex/docker-compose.yml` настроен под эту р
 
 Поскольку Yandex Cloud режет `OUTBOUND :25`, Stalwart **не должен**
 напрямую коннектиться к MX-серверам Gmail / Outlook / Mail.ru. Весь
-исходящий трафик заворачиваем на `postbox.cloud.yandex.net:587` (STARTTLS).
+исходящий трафик заворачиваем на `postbox.cloud.yandex.net:465` (implicit TLS).
+
+> **Критический урок из деплоя**: порт **465 + implicit TLS** — единственный
+> рабочий вариант. Postbox на порту 587 STARTTLS **отбрасывает соединения**.
+> Мы потратили часы на диагностику почему Stalwart не может отправить почту
+> через `:587 STARTTLS` — переключение на `:465 implicit TLS` решило проблему
+> мгновенно.
 
 ### Вариант A · Настройка через Stalwart admin UI
 
@@ -92,48 +102,75 @@ Stalwart в `deploy/yandex/docker-compose.yml` настроен под эту р
    Name:                       postbox-outbound
    Mode:                       Relay
    Address:                    postbox.cloud.yandex.net
-   Port:                       587
-   TLS:                        Implicit TLS = ВЫКЛ (587 — STARTTLS, не implicit)
+   Port:                       465
+   TLS:                        Implicit TLS = ВКЛ (465 — implicit TLS, не STARTTLS)
    Allow Invalid Certs:        ВЫКЛ
    Auth user:                  <ID API-ключа (aje...)>
    Auth password:              <секретный ключ>
    ```
 
-   > **Важно**: порт 587 использует STARTTLS, а не Implicit TLS.
-   > Если включить Implicit TLS — Stalwart попытается установить шифрование
-   > с первого байта, что для :587 неверно, и соединение упадёт.
+   > **Важно**: порт 465 использует **implicit TLS** (шифрование с первого байта).
+   > Порт 587 использует STARTTLS (plain → upgrade), но Postbox на :587
+   > **не работает** для нашего сценария.
 
 4. **MTA → Outbound → Strategy** → выбрать `postbox-outbound` как маршрут
    по умолчанию.
 
 5. Тест отправки:
    ```bash
-   # На самой VM
-   docker compose exec stalwart stalwart-cli queue message send \
-       --from alert@<domain> --to <ваш-личный-email> \
-       --subject "Stalwart Postbox test" --body "ok"
+   # На самой VM — через Python (stalwart-cli НЕТ в Docker-образе v0.16)
+   python3 -c "
+   import smtplib
+   from email.mime.text import MIMEText
+   msg = MIMEText('Test from Stalwart via Postbox')
+   msg['Subject'] = 'Stalwart Postbox test'
+   msg['From'] = 'alert@<domain>'
+   msg['To'] = 'admin@<domain>'
+   import ssl
+   ctx = ssl.create_default_context()
+   ctx.check_hostname = False
+   ctx.verify_mode = ssl.CERT_NONE
+   s = smtplib.SMTP_SSL('127.0.0.1', 465, timeout=15, context=ctx)
+   s.login('alert@<domain>', '<alert-password>')
+   s.send_message(msg)
+   s.quit()
+   print('SENT OK')
+   "
    ```
 
-### Вариант B · Настройка через stalwart-cli (если UI скрывает поля auth)
+### Вариант B · Настройка через JMAP API
+
+> Stalwart v0.16 **не имеет CLI** в Docker-образе (`stalwart-cli` отсутствует).
+> Все управление — через JMAP API или Admin WebUI.
 
 ```bash
-# Создать маршрут
-stalwart-cli mta route create postbox-outbound --config '{
-  "@type": "Relay",
-  "address": "postbox.cloud.yandex.net",
-  "port": 587,
-  "protocol": "smtp",
-  "implicitTls": false,
-  "authUsername": "ЗДЕСЬ_ID_КЛЮЧА_AJE",
-  "authSecret": { "@type": "Value", "data": "ЗДЕСЬ_СЕКРЕТНЫЙ_КЛЮЧ" }
-}'
+# Получить текущие маршруты
+curl -s -u admin:<password> http://127.0.0.1:8080/jmap/ \
+  -H 'Content-Type: application/json' \
+  -d '{"using":["urn:ietf:params:jmap:core","urn:stalwart:jmap"],"methodCalls":[["x:MtaRoute/get",{},"0"]]}'
 
-# Назначить маршрутом по умолчанию
-stalwart-cli mta strategy update default --config '{
-  "@type": "Strategy",
-  "route": "postbox-outbound"
-}'
+# Обновить маршрут (id = isa3jzsgaaqa — подставить реальный из /get)
+curl -s -u admin:<password> http://127.0.0.1:8080/jmap/ \
+  -H 'Content-Type: application/json' \
+  -d '{"using":["urn:ietf:params:jmap:core","urn:stalwart:jmap"],"methodCalls":[["x:MtaRoute/set",{"update":{"isa3jzsgaaqa":{"address":"postbox.cloud.yandex.net","port":465,"implicitTls":true,"authUsername":"<API_KEY_ID>","authSecret":{"@type":"Value","secret":"<API_KEY_SECRET>"}}}},"0"]]}'
 ```
+
+> **Баг Stalwart v0.16**: `Principal/set` JMAP всегда возвращает `notRequest`.
+> Создание/изменение аккаунтов (пароли) — только через Admin WebUI.
+
+### Вариант C · Настройка через docker-compose env (только bootstrap)
+
+Env-переменные в `docker-compose.yml` подхватываются **только при первом
+запуске** с пустым volume `stalwart-etc`. После первого запуска конфиг
+хранится в RocksDB внутри volume, и env-переменные игнорируются.
+
+Для fresh-деплоя (правильные значения):
+```yaml
+STALWART_ROUTES_POSTBOX_OUTBOUND_PORT: "465"
+STALWART_ROUTES_POSTBOX_OUTBOUND_TLS_IMPLICIT: "true"
+```
+
+Для изменения на уже запущенном Stalwart — используйте Вариант A или B.
 
 ---
 
@@ -154,6 +191,9 @@ DKIM-ключ генерируется в Stalwart admin UI:
 `Settings → Domains → <domain> → Generate DKIM key`.
 Скопируйте TXT и положите в DNS у регистратора.
 
+> SPF **обязан** включать `include:_spf.yandex.net` — Postbox отправляет
+> от нашего имени через свои IP. Без этого SPF-провал у получателей.
+
 ---
 
 ## Шаг 4 · Проверка
@@ -169,10 +209,6 @@ openssl s_client -connect mail.<domain>:587 -starttls smtp -servername mail.<dom
 
 # 3. IMAPS работает
 openssl s_client -connect mail.<domain>:993 -servername mail.<domain> -brief
-
-# 4. Очередь отправки на VM
-ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i "$HOME\.ssh\id_ed25519_yc" ubuntu@<vm-ip> `
-  "docker compose -f /opt/msp/Newbie/deploy/yandex/docker-compose.yml exec -T stalwart stalwart-cli queue list"
 ```
 
 Логи Stalwart:
@@ -184,39 +220,61 @@ docker compose -f /opt/msp/Newbie/deploy/yandex/docker-compose.yml logs -f stalw
 
 ## Шаг 5 · Интеграция с MSP-сервисами
 
-### Grafana / Alertmanager — шлют на ВНУТРЕННИЙ `587`
+### Grafana / Alertmanager — SMTP напрямую через Postbox
 
-Поскольку Grafana и Alertmanager крутятся **на той же VM**, они
-подключаются к Stalwart на внутреннем `:587` (имя контейнера `stalwart`,
-без TLS-валидации внешнего сертификата — внутренняя сеть docker-compose):
+> **Архитектурное решение**: мониторинг-стек (`msp-monitoring` compose) работает
+> в отдельной Docker-сети `msp-monitoring` (172.20.0.0/24), **не подключённой**
+> к `msp_default` где крутится Stalwart. Поэтому Grafana и Alertmanager
+> отправляют email **напрямую через Postbox** (`postbox.cloud.yandex.net:465`),
+> а не через внутренний Stalwart.
 
-`deploy/grafana/grafana.ini` (или env-блок Grafana):
-```ini
-[smtp]
-enabled       = true
-host          = stalwart:587
-user          = alert@<domain>
-password      = <из msp-deploy-secrets.txt>
-from_address  = alert@<domain>
-from_name     = MSP Grafana
-startTLS_policy = MandatoryStartTLS
+`deploy/yandex/monitoring/.env`:
+```
+GF_SMTP_ENABLED=true
+GF_SMTP_HOST=postbox.cloud.yandex.net:465
+GF_SMTP_USER=<postbox-api-key-id>
+GF_SMTP_PASSWORD=<postbox-api-key-secret>
+GF_SMTP_FROM_ADDRESS=alert@<domain>
 ```
 
-`deploy/alertmanager/alertmanager.yml`:
+`deploy/yandex/monitoring/alertmanager/alertmanager.yml`:
 ```yaml
+global:
+  smtp_smarthost: "postbox.cloud.yandex.net:465"
+  smtp_from: "alert@<domain>"
+  smtp_auth_username: "<postbox-api-key-id>"
+  smtp_auth_password: "<postbox-api-key-secret>"
+  smtp_require_tls: true
+
 receivers:
-  - name: msp-email
+  - name: email-alert
     email_configs:
-      - to: alert@<domain>
-        from: alert@<domain>
-        smarthost: stalwart:587
-        auth_username: alert@<domain>
-        auth_password: '<из msp-deploy-secrets.txt>'
-        require_tls: true
+      - to: "alert@<domain>"
+        send_resolved: true
 ```
 
-Stalwart, в свою очередь, через Postbox-маршрут отправит письма наружу
-через `postbox.cloud.yandex.net:587` (STARTTLS, API-ключ).
+### Vaultwarden — SMTP через Postbox
+
+Vaultwarden тоже подключается напрямую к Postbox:
+```yaml
+SMTP_HOST: postbox.cloud.yandex.net
+SMTP_PORT: 465
+SMTP_SECURITY: force_tls
+SMTP_FROM: alert@<domain>
+SMTP_USERNAME: <postbox-api-key-id>
+SMTP_PASSWORD: <postbox-api-key-secret>
+```
+
+### Backend (FastAPI) — SMTP через внутренний Stalwart
+
+Backend работает в сети `msp_default` и может отправлять через Stalwart:
+```ini
+SMTP_HOST=stalwart
+SMTP_PORT=587
+SMTP_USER=alert@<domain>
+SMTP_PASSWORD=<alert-password>
+SMTP_FROM=alert@<domain>
+```
 
 ---
 
@@ -224,6 +282,7 @@ Stalwart, в свою очередь, через Postbox-маршрут отпр
 
 - ~~Прямой `OUTBOUND :25` к Gmail/Outlook~~ — Yandex Cloud режет на уровне VPC.
 - ~~Stalwart как самодостаточный MX через `:25`~~ — публичный `:25` нам не выдадут.
+- ~~Postbox `:587 STARTTLS`~~ — **не работает**, соединения отбрасываются. Используйте `:465 implicit TLS`.
 
 Если бизнес-сценарий требует **именно** автономный MX на собственном IP без
 внешнего провайдера — нужна другая площадка (Hetzner, OVH, собственная

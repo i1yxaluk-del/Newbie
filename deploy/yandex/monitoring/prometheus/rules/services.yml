@@ -1,0 +1,42 @@
+groups:
+- name: services
+  rules:
+    - alert: VaultwardenDown
+      expr: probe_success{job="blackbox-internal", instance="http://vaultwarden:80"} == 0
+      for: 3m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Vaultwarden недоступен — менеджер паролей не отвечает"
+
+    - alert: GrafanaDown
+      expr: probe_success{job="blackbox-internal", instance="http://grafana:3000/api/health"} == 0
+      for: 3m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Grafana недоступна — мониторинг не отвечает"
+
+    - alert: StalwartImapDown
+      expr: probe_success{job="blackbox-imap"} == 0
+      for: 3m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Stalwart IMAP {{ $labels.instance }} недоступен — почта не работает"
+
+    - alert: StalwartSmtpDown
+      expr: probe_success{job="blackbox-smtp"} == 0
+      for: 3m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Stalwart SMTP {{ $labels.instance }} недоступен — отправка почты не работает"
+
+    - alert: ServiceSlowResponse
+      expr: probe_duration_seconds{job=~"blackbox-http|blackbox-internal"} > 3
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Сервис {{ $labels.instance }} отвечает медленно (>3s)"

@@ -1,0 +1,291 @@
+{
+"uid": "msp-vm",
+"title": "1.2 VM Ресурсы",
+"tags": ["mspshield", "vm", "level-1.2"],
+"schemaVersion": 39,
+"version": 1,
+"time": { "from": "now-3h", "to": "now" },
+"refresh": "60s",
+"timezone": "browser",
+"graphTooltip": 1,
+"links": [
+  {
+    "title": "← MSP Overview",
+    "url": "/d/msp-overview",
+    "type": "link",
+    "icon": "arrow-left",
+    "targetBlank": false
+  }
+],
+"panels": [
+  {
+    "id": 1,
+    "title": "CPU %",
+    "type": "gauge",
+    "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+    "options": {
+      "reduceOptions": { "calcs": ["lastNotNull"] },
+      "orientation": "auto",
+      "showThresholdLabels": false,
+      "showThresholdMarkers": true
+    },
+    "fieldConfig": {
+      "defaults": {
+        "unit": "percent",
+        "min": 0,
+        "max": 100,
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            { "color": "green", "value": null },
+            { "color": "orange", "value": 70 },
+            { "color": "red", "value": 90 }
+          ]
+        },
+        "color": { "mode": "thresholds" }
+      }
+    },
+    "targets": [
+      {
+        "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+        "legendFormat": "CPU",
+        "refId": "A"
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "title": "RAM %",
+    "type": "gauge",
+    "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+    "options": {
+      "reduceOptions": { "calcs": ["lastNotNull"] },
+      "orientation": "auto",
+      "showThresholdLabels": false,
+      "showThresholdMarkers": true
+    },
+    "fieldConfig": {
+      "defaults": {
+        "unit": "percent",
+        "min": 0,
+        "max": 100,
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            { "color": "green", "value": null },
+            { "color": "orange", "value": 75 },
+            { "color": "red", "value": 90 }
+          ]
+        },
+        "color": { "mode": "thresholds" }
+      }
+    },
+    "targets": [
+      {
+        "expr": "(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100",
+        "legendFormat": "RAM",
+        "refId": "A"
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "title": "Disk %",
+    "type": "gauge",
+    "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+    "options": {
+      "reduceOptions": { "calcs": ["lastNotNull"] },
+      "orientation": "auto",
+      "showThresholdLabels": false,
+      "showThresholdMarkers": true
+    },
+    "fieldConfig": {
+      "defaults": {
+        "unit": "percent",
+        "min": 0,
+        "max": 100,
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            { "color": "green", "value": null },
+            { "color": "orange", "value": 70 },
+            { "color": "red", "value": 85 }
+          ]
+        },
+        "color": { "mode": "thresholds" }
+      }
+    },
+    "targets": [
+      {
+        "expr": "(1 - node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"}) * 100",
+        "legendFormat": "Disk /",
+        "refId": "A"
+      }
+    ]
+  },
+  {
+    "id": 4,
+    "title": "Load Average",
+    "type": "stat",
+    "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+    "options": {
+      "reduceOptions": { "calcs": ["lastNotNull"] },
+      "orientation": "horizontal",
+      "textMode": "auto",
+      "colorMode": "background",
+      "graphMode": "none"
+    },
+    "fieldConfig": {
+      "defaults": {
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            { "color": "green", "value": null },
+            { "color": "orange", "value": 2 },
+            { "color": "red", "value": 4 }
+          ]
+        },
+        "color": { "mode": "thresholds" },
+        "decimals": 2
+      }
+    },
+    "targets": [
+      {
+        "expr": "node_load1",
+        "legendFormat": "1m",
+        "refId": "A"
+      },
+      {
+        "expr": "node_load5",
+        "legendFormat": "5m",
+        "refId": "B"
+      },
+      {
+        "expr": "node_load15",
+        "legendFormat": "15m",
+        "refId": "C"
+      }
+    ]
+  },
+  {
+    "id": 5,
+    "title": "CPU по ядрам",
+    "type": "timeseries",
+    "gridPos": { "x": 0, "y": 4, "w": 12, "h": 7 },
+    "options": {
+      "tooltip": { "mode": "multi" },
+      "legend": { "displayMode": "list", "placement": "bottom" }
+    },
+    "fieldConfig": {
+      "defaults": {
+        "unit": "percent",
+        "min": 0,
+        "max": 100,
+        "custom": { "lineWidth": 2, "fillOpacity": 10 }
+      }
+    },
+    "targets": [
+      {
+        "expr": "100 - (rate(node_cpu_seconds_total{mode=\"idle\"}[5m]) * 100)",
+        "legendFormat": "CPU {{cpu}}",
+        "refId": "A"
+      }
+    ]
+  },
+  {
+    "id": 6,
+    "title": "RAM детально",
+    "type": "timeseries",
+    "gridPos": { "x": 12, "y": 4, "w": 12, "h": 7 },
+    "options": {
+      "tooltip": { "mode": "multi" },
+      "legend": { "displayMode": "list", "placement": "bottom" }
+    },
+    "fieldConfig": {
+      "defaults": {
+        "unit": "bytes",
+        "custom": { "lineWidth": 2, "fillOpacity": 10 }
+      }
+    },
+    "targets": [
+      {
+        "expr": "node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes",
+        "legendFormat": "Used",
+        "refId": "A"
+      },
+      {
+        "expr": "node_memory_MemAvailable_bytes",
+        "legendFormat": "Available",
+        "refId": "B"
+      },
+      {
+        "expr": "node_memory_Cached_bytes",
+        "legendFormat": "Cached",
+        "refId": "C"
+      }
+    ]
+  },
+  {
+    "id": 7,
+    "title": "Disk I/O",
+    "type": "timeseries",
+    "gridPos": { "x": 0, "y": 11, "w": 12, "h": 6 },
+    "options": {
+      "tooltip": { "mode": "multi" },
+      "legend": { "displayMode": "list", "placement": "bottom" }
+    },
+    "fieldConfig": {
+      "defaults": {
+        "unit": "Bps",
+        "custom": { "lineWidth": 2, "fillOpacity": 5 }
+      }
+    },
+    "targets": [
+      {
+        "expr": "rate(node_disk_read_bytes_total{device=\"vda\"}[5m])",
+        "legendFormat": "Read",
+        "refId": "A"
+      },
+      {
+        "expr": "rate(node_disk_written_bytes_total{device=\"vda\"}[5m])",
+        "legendFormat": "Write",
+        "refId": "B"
+      }
+    ]
+  },
+  {
+    "id": 8,
+    "title": "Сеть VM (eth0)",
+    "type": "timeseries",
+    "gridPos": { "x": 12, "y": 11, "w": 12, "h": 6 },
+    "options": {
+      "tooltip": { "mode": "multi" },
+      "legend": { "displayMode": "list", "placement": "bottom" }
+    },
+    "fieldConfig": {
+      "defaults": {
+        "unit": "Bps",
+        "custom": { "lineWidth": 2, "fillOpacity": 5 }
+      }
+    },
+    "targets": [
+      {
+        "expr": "rate(node_network_receive_bytes_total{device=\"eth0\"}[5m])",
+        "legendFormat": "RX",
+        "refId": "A"
+      },
+      {
+        "expr": "rate(node_network_transmit_bytes_total{device=\"eth0\"}[5m])",
+        "legendFormat": "TX",
+        "refId": "B"
+      }
+    ]
+  }
+],
+"annotations": { "list": [] },
+"templating": { "list": [] },
+"timepicker": {},
+"fiscalYearStartMonth": 0,
+"editable": true,
+"id": null
+}

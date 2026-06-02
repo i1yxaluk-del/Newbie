@@ -158,8 +158,13 @@ VAULTWARDEN_ADMIN_TOKEN: $VAULTWARDEN_ADMIN_TOKEN
 
 [Postbox outbound relay]
 POSTBOX_API_KEY_ID / POSTBOX_API_KEY_SECRET are not generated automatically.
-Create them in Yandex Cloud Postbox and add them to:
+Create them in Yandex Cloud Postbox (scope: yc.postbox.send) and add them to:
   $DEPLOY_DIR/.env
+Also fill SMTP_USERNAME/SMTP_PASSWORD in .env for Vaultwarden SMTP.
+
+Note: Stalwart v0.16 has NO CLI in Docker image. All management via:
+  - Admin WebUI: http://localhost:8080/admin (SSH tunnel)
+  - JMAP API: POST http://localhost:8080/jmap/ with Basic auth
 
 ═══════════════════════════════════════════════════════════════════
 EOF
@@ -172,10 +177,21 @@ STALWART_ADMIN_PASSWORD=$STALWART_ADMIN_PASSWORD
 VAULTWARDEN_ADMIN_TOKEN=$VAULTWARDEN_ADMIN_TOKEN
 VAULTWARDEN_DOMAIN=https://vault.$DOMAIN
 
-# Yandex Cloud Postbox outbound relay. Fill before first Stalwart bootstrap
-# or configure the route later via Stalwart Admin UI.
+# Yandex Cloud Postbox outbound relay.
+# Fill before first Stalwart bootstrap — env vars apply ONLY on first run.
+# After that, use JMAP API or Stalwart Admin WebUI.
+# ВАЖНО: порт 465 + implicit TLS (НЕ :587 STARTTLS — Postbox отбрасывает).
 POSTBOX_API_KEY_ID=
 POSTBOX_API_KEY_SECRET=
+
+# SMTP for Vaultwarden (direct Postbox relay, not through Stalwart)
+SMTP_HOST=postbox.cloud.yandex.net
+SMTP_PORT=465
+SMTP_SECURITY=force_tls
+SMTP_FROM=alert@$DOMAIN
+SMTP_USERNAME=
+SMTP_PASSWORD=
+SMTP_AUTH_MECHANISM=Plain
 EOF
 chmod 600 "$DEPLOY_DIR/.env"
 

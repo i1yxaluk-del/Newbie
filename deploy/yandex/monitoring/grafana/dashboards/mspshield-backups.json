@@ -174,37 +174,34 @@
       "defaults": {
         "color": { "mode": "thresholds" },
         "mappings": [
-          { "options": { "0": { "color": "#b45309", "index": 0, "text": "FAIL" }, "1": { "color": "#1b4d3e", "index": 1, "text": "OK" } }, "type": "value" }
+          { "options": { "0": { "color": "#b45309", "index": 0, "text": "FAIL" }, "1": { "color": "#1b4d3e", "index": 1, "text": "OK" }, "2": { "color": "#b45309", "index": 2, "text": "RUN" } }, "type": "value" }
         ],
-        "thresholds": { "mode": "absolute", "steps": [{ "color": "transparent", "value": null }, { "color": "#b45309", "value": 0 }, { "color": "#1b4d3e", "value": 1 }] },
-        "custom": { "fillOpacity": 100, "lineWidth": 0, "spanNulls": false },
-        "noValue": "—"
+        "thresholds": { "mode": "absolute", "steps": [{ "color": "#525252", "value": null }, { "color": "#b45309", "value": 0 }, { "color": "#1b4d3e", "value": 1 }] },
+        "custom": { "fillOpacity": 80, "lineWidth": 1, "spanNulls": true }
       },
       "overrides": []
     },
     "gridPos": { "h": 8, "w": 18, "x": 0, "y": 4 },
     "id": 5,
     "options": {
-      "alignValue": "center",
       "legend": { "displayMode": "hidden", "placement": "bottom", "showLegend": false },
-      "mergeValues": false,
-      "rowHeight": 0.85,
+      "mergeValues": true,
+      "rowHeight": 0.9,
       "showValue": "never",
-      "tooltip": { "mode": "multi", "sort": "none" }
+      "tooltip": { "mode": "single", "sort": "none" }
     },
     "pluginVersion": "10.4.2",
     "targets": [
       {
         "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "expr": "max_over_time(restic_backup_success{repo=\"mspshield-prod\"}[1d:1h])",
+        "expr": "restic_backup_success{repo=\"mspshield-prod\"}",
         "legendFormat": "{{host}}",
         "refId": "A",
-        "range": true,
-        "interval": "1d"
+        "range": true
       }
     ],
     "title": "Backups · 7 дней",
-    "type": "status-history"
+    "type": "state-timeline"
   },
   {
     "datasource": { "type": "prometheus", "uid": "prometheus" },

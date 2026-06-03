@@ -1,10 +1,13 @@
 # CHANGELOG
 
-## v5.4 — 2026-06-03 · "Project audit + doc truth-up"
+## v5.4 — 2026-06-03..04 · "Project audit + doc truth-up"
 
 Полный аудит проекта (60+ .md, 100 коммитов, 37 PR с мая по июнь 2026).
 Выявлено 9 расхождений между документацией и реальным кодом. Этот релиз
 синхронизирует доки с тем, что фактически закоммичено в `main`.
+
+Релиз вышел в два прохода: первый pass 3 июня (audit + 3 critical-gap fixes),
+follow-up pass 4 июня (tier master-guide synchronisation + R-09 runbook fix).
 
 ### Changed
 
@@ -15,6 +18,20 @@
 без упоминания Stalwart, который больше не используется в проде.
 - **`docs/audit/v4.1_inventory.md`** · добавлен баннер "исторический snapshot,
 не отражает текущее состояние репо" со ссылкой на этот CHANGELOG.
+- **`technical/1_Bronze/Bronze.md`** · версия v3.1 → v5.4. §2 "Доступ"
+переписан с WireGuard Bastion на **AmneziaWG Bastion** + ссылка на R-08
+для vanilla WireGuard fallback. §3 архитектурная диаграмма обновлена
+(UDP:51820/WG → UDP:443/AWG, добавлено объяснение почему 443, а не 51820).
+§4 checklist шаг 1 — путь скрипта исправлен с несуществующего
+`EXECUTOR/wireguard/setup_wireguard_bastion.sh` на реальный
+`EXECUTOR/amneziawg/setup_awg_bastion.sh`.
+- **`technical/2_Silver/Silver.md`** · header version v3.0 → v5.4 (doc sync).
+- **`technical/3_Gold/Gold.md`** · header version v3.0 → v5.4 (doc sync).
+- **`docs/runbooks/R-09.md`** · v4.1 → v4.2. §2.2 "VPN (WireGuard / OpenVPN)"
+→ "VPN (AmneziaWG / WireGuard)". §3.2 "VPN key regenerate (для WireGuard)"
+→ "(для AmneziaWG)"; команда `systemctl reload wg-quick@<iface>` →
+`systemctl reload awg-quick@<iface>`. Runbook теперь синхронен с
+фактической миграцией на AmneziaWG (v4.4).
 
 ### Deprecated
 
@@ -33,6 +50,13 @@
 - **C1** CHANGELOG stale (отсутствовали v5.3 + v5.4) → добавлены обе версии.
 - **C2** README stack table ссылалась на deprecated файл → исправлено.
 - **C3** v4.1_inventory без disclaimer → баннер добавлен.
+- **M3** Bronze/Silver/Gold master-guides застряли на v3.0/v3.1, ссылались
+на WireGuard и несуществующий путь `EXECUTOR/wireguard/` → Bronze
+переписан под AmneziaWG (§2/§3/§4), Silver/Gold синхронизированы по
+версии. Runbook R-09 §3.2 (`wg-quick` → `awg-quick`) приведён в
+соответствие с миграцией v4.4. _Изначально gap был сформулирован как
+"R-08 упоминает WireGuard", но фактическая проверка показала: R-08
+уже исправлен в v4.5, реальные stale-refs остались в Bronze.md и R-09._
 - **M4** STALWART_RELAY_MODE без deprecation-маркера → баннер добавлен.
 
 ### Open gaps (не закрываются в этом релизе)
@@ -41,8 +65,6 @@
 (брендирование, обучение wk3-4) — фиксируется политикой "PR-only с v5.5".
 - **M2** Skeleton-файлы `docs/training/week_05.md` … `week_12.md` —
 расписаны в roadmap, фактическое наполнение — Этап 4 спринт 8-12.
-- **M3** R-08 runbook упоминает WireGuard вместо AmneziaWG (миграция v4.4
-не дошла до runbook) — фикс в v5.5.
 - **L1** Пустые директории `docs/contracts_v2/` — кандидат на удаление.
 - **L2** Несколько cosmetic-опечаток в README (Kaiten/Kaizen, MongoDb,
 msps**s**heild.conf и т.п.) — отдельный proof-reading-pass в v5.5.

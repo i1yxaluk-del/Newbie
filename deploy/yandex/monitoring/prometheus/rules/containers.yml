@@ -25,8 +25,9 @@ groups:
       expr: |
         container_memory_working_set_bytes{name=~".+"}
         / on(name) group_left
-        container_spec_memory_limit_bytes{name=~".+", container_spec_memory_limit_bytes > 0}
+        container_spec_memory_limit_bytes{name=~".+"}
         > 0.9
+        and on(name) container_spec_memory_limit_bytes{name=~".+"} > 0
       for: 5m
       labels:
         severity: warning

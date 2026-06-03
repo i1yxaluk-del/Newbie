@@ -117,51 +117,43 @@ export default function Pricing() {
                   borderBottom: `1px solid ${p.featured ? "rgba(255,255,255,.15)" : "var(--rule)"}`,
                 }}
               >
-                <span
-                  style={{
-                    fontSize: 11,
-                    fontFamily: "var(--fm)",
-                    letterSpacing: ".08em",
-                    textTransform: "uppercase",
-                    color: p.featured ? "rgba(255,255,255,.6)" : "var(--stone)",
-                    display: "block",
-                    marginBottom: 4,
-                  }}
-                >
-                  от
-                </span>
-                <div
-                  className="font-display"
-                  style={{
-                    fontSize: 42,
-                    fontWeight: 500,
-                    color: p.featured ? "#fff" : "var(--ink)",
-                    letterSpacing: "-.02em",
-                    lineHeight: 1,
-                  }}
-                >
-                  {p.price}{" "}
-                  <span style={{ fontSize: 22, fontWeight: 300 }}>₽</span>
-                </div>
-                <div
-                  style={{
-                    fontSize: 14,
-                    color: p.featured ? "rgba(255,255,255,.7)" : "var(--stone)",
-                    marginTop: 6,
-                  }}
-                >
-                  в месяц
-                </div>
-                <div
-                  className="font-mono"
-                  style={{
-                    fontSize: 11,
-                    color: p.featured ? "rgba(255,255,255,.55)" : "var(--stone)",
-                    marginTop: 8,
-                  }}
-                >
-                  {p.setup}
-                </div>
+                 <span
+                   style={{
+                     fontSize: 11,
+                     fontFamily: "var(--fm)",
+                     letterSpacing: ".08em",
+                     textTransform: "uppercase",
+                     color: p.featured ? "rgba(255,255,255,.6)" : "var(--stone)",
+                     display: "block",
+                     marginBottom: 4,
+                   }}
+                 >
+                   от
+                 </span>
+                 <div
+                   className="font-display"
+                   style={{
+                     fontSize: 42,
+                     fontWeight: 500,
+                     color: p.featured ? "#fff" : "var(--ink)",
+                     letterSpacing: "-.02em",
+                     lineHeight: 1,
+                   }}
+                 >
+                   {p.price}{" "}
+                   <span style={{ fontSize: 22, fontWeight: 300 }}>₽</span>
+                   <span style={{ fontSize: 11, fontWeight: 400, verticalAlign: "super", lineHeight: 0, marginLeft: 1 }}>*</span>
+                   <span style={{ fontSize: 14, fontWeight: 400, marginLeft: 6, color: p.featured ? "rgba(255,255,255,.7)" : "var(--stone)" }}>в месяц</span>
+                 </div>
+                 <div
+                   style={{
+                     fontSize: 13,
+                     color: p.featured ? "rgba(255,255,255,.7)" : "var(--stone)",
+                     marginTop: 4,
+                   }}
+                 >
+                   {p.setup}
+                 </div>
               </div>
 
               <ul style={{ listStyle: "none", padding: 0, marginBottom: 28 }}>
@@ -190,22 +182,7 @@ export default function Pricing() {
                 ))}
               </ul>
 
-              <div
-                className="font-mono"
-                style={{
-                  fontSize: 11,
-                  letterSpacing: ".04em",
-                  color: p.featured ? "rgba(255,255,255,.7)" : "var(--stone)",
-                  marginBottom: 20,
-                  padding: "10px 14px",
-                  background: p.featured ? "rgba(255,255,255,.10)" : "var(--cream-deep)",
-                  borderRadius: 4,
-                }}
-              >
-                ⟶ Лимит: {p.limit}
-              </div>
-
-              <button
+               <button
                 data-testid={`plan-${p.id}-cta`}
                 onClick={() => onPick(p.id)}
                 className={p.featured ? "btn-core btn-light" : "btn-core btn-secondary"}
@@ -216,6 +193,12 @@ export default function Pricing() {
             </div>
           ))}
         </div>
+
+        {c.pricingFootnote && (
+          <p style={{ textAlign: "center", fontSize: 12, color: "var(--stone)", marginTop: 16, maxWidth: 700, marginLeft: "auto", marginRight: "auto", lineHeight: 1.5 }}>
+            {c.pricingFootnote}
+          </p>
+        )}
       </div>
 
       <style>{`

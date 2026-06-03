@@ -174,3 +174,21 @@ vault.{$MSP_DOMAIN} {
         reverse_proxy 127.0.0.1:8180
     }
 }
+
+# ─── Grafana (monitoring dashboards) ───────────────────────────
+# Container: grafana in msp-monitoring network (127.0.0.1:3000)
+# DNS: grafana.<domain> A → <IP>
+grafana.msp-claude.online {
+    encode gzip
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        -Server
+    }
+
+    handle {
+        reverse_proxy 127.0.0.1:3000
+    }
+}

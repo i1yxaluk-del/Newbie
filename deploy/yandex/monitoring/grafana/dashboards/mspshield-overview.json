@@ -1,0 +1,383 @@
+{
+"annotations": {
+  "list": [
+    {
+      "builtIn": 1,
+      "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+      "enable": true,
+      "hide": true,
+      "iconColor": "rgba(27, 77, 62, 1)",
+      "name": "Annotations & Alerts",
+      "type": "dashboard"
+    }
+  ]
+},
+"description": "MSPShield — общий обзор инфраструктуры. Палитра сайта msp-claude.online: forest #1b4d3e, amber #b45309, stone #78746a.",
+"editable": true,
+"fiscalYearStartMonth": 0,
+"graphTooltip": 1,
+"id": null,
+"links": [],
+"liveNow": false,
+"panels": [
+  {
+    "datasource": { "type": "prometheus", "uid": "prometheus" },
+    "description": "Сколько таргетов сейчас отвечает Prometheus",
+    "fieldConfig": {
+      "defaults": {
+        "color": { "mode": "thresholds" },
+        "mappings": [],
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            { "color": "#b91c1c", "value": null },
+            { "color": "#b45309", "value": 1 },
+            { "color": "#1b4d3e", "value": 5 }
+          ]
+        },
+        "unit": "none"
+      },
+      "overrides": []
+    },
+    "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+    "id": 1,
+    "options": {
+      "colorMode": "background",
+      "graphMode": "none",
+      "justifyMode": "center",
+      "orientation": "horizontal",
+      "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+      "textMode": "value_and_name"
+    },
+    "pluginVersion": "10.4.2",
+    "targets": [
+      {
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "sum(up == 1)",
+        "legendFormat": "Targets UP",
+        "refId": "A"
+      }
+    ],
+    "title": "Targets UP",
+    "type": "stat"
+  },
+  {
+    "datasource": { "type": "prometheus", "uid": "prometheus" },
+    "description": "Использование CPU на хосте (1 - idle)",
+    "fieldConfig": {
+      "defaults": {
+        "color": { "mode": "thresholds" },
+        "mappings": [],
+        "max": 1,
+        "min": 0,
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            { "color": "#1b4d3e", "value": null },
+            { "color": "#b45309", "value": 0.7 },
+            { "color": "#b91c1c", "value": 0.9 }
+          ]
+        },
+        "unit": "percentunit"
+      },
+      "overrides": []
+    },
+    "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+    "id": 2,
+    "options": {
+      "colorMode": "value",
+      "graphMode": "area",
+      "justifyMode": "auto",
+      "orientation": "auto",
+      "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+      "textMode": "auto"
+    },
+    "pluginVersion": "10.4.2",
+    "targets": [
+      {
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "1 - avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m]))",
+        "legendFormat": "CPU",
+        "refId": "A"
+      }
+    ],
+    "title": "CPU Usage",
+    "type": "stat"
+  },
+  {
+    "datasource": { "type": "prometheus", "uid": "prometheus" },
+    "description": "Использование RAM на хосте",
+    "fieldConfig": {
+      "defaults": {
+        "color": { "mode": "thresholds" },
+        "mappings": [],
+        "max": 1,
+        "min": 0,
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            { "color": "#1b4d3e", "value": null },
+            { "color": "#b45309", "value": 0.75 },
+            { "color": "#b91c1c", "value": 0.9 }
+          ]
+        },
+        "unit": "percentunit"
+      },
+      "overrides": []
+    },
+    "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+    "id": 3,
+    "options": {
+      "colorMode": "value",
+      "graphMode": "area",
+      "justifyMode": "auto",
+      "orientation": "auto",
+      "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+      "textMode": "auto"
+    },
+    "pluginVersion": "10.4.2",
+    "targets": [
+      {
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)",
+        "legendFormat": "RAM",
+        "refId": "A"
+      }
+    ],
+    "title": "Memory Usage",
+    "type": "stat"
+  },
+  {
+    "datasource": { "type": "prometheus", "uid": "prometheus" },
+    "description": "Использование корневого диска /",
+    "fieldConfig": {
+      "defaults": {
+        "color": { "mode": "thresholds" },
+        "mappings": [],
+        "max": 1,
+        "min": 0,
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            { "color": "#1b4d3e", "value": null },
+            { "color": "#b45309", "value": 0.75 },
+            { "color": "#b91c1c", "value": 0.9 }
+          ]
+        },
+        "unit": "percentunit"
+      },
+      "overrides": []
+    },
+    "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+    "id": 4,
+    "options": {
+      "colorMode": "value",
+      "graphMode": "area",
+      "justifyMode": "auto",
+      "orientation": "auto",
+      "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+      "textMode": "auto"
+    },
+    "pluginVersion": "10.4.2",
+    "targets": [
+      {
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "1 - (node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"})",
+        "legendFormat": "/",
+        "refId": "A"
+      }
+    ],
+    "title": "Disk / Usage",
+    "type": "stat"
+  },
+  {
+    "datasource": { "type": "prometheus", "uid": "prometheus" },
+    "description": "CPU по контейнерам Docker (через cAdvisor)",
+    "fieldConfig": {
+      "defaults": {
+        "color": { "mode": "palette-classic" },
+        "custom": {
+          "axisBorderShow": false,
+          "axisCenteredZero": false,
+          "axisColorMode": "text",
+          "axisLabel": "",
+          "axisPlacement": "auto",
+          "barAlignment": 0,
+          "drawStyle": "line",
+          "fillOpacity": 10,
+          "gradientMode": "none",
+          "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+          "insertNulls": false,
+          "lineInterpolation": "smooth",
+          "lineWidth": 2,
+          "pointSize": 5,
+          "scaleDistribution": { "type": "linear" },
+          "showPoints": "never",
+          "spanNulls": false,
+          "stacking": { "group": "A", "mode": "none" },
+          "thresholdsStyle": { "mode": "off" }
+        },
+        "mappings": [],
+        "thresholds": { "mode": "absolute", "steps": [{ "color": "#1b4d3e", "value": null }] },
+        "unit": "percentunit"
+      },
+      "overrides": []
+    },
+    "gridPos": { "h": 9, "w": 12, "x": 0, "y": 4 },
+    "id": 5,
+    "options": {
+      "legend": { "calcs": ["mean", "lastNotNull"], "displayMode": "table", "placement": "right", "showLegend": true },
+      "tooltip": { "mode": "multi", "sort": "desc" }
+    },
+    "pluginVersion": "10.4.2",
+    "targets": [
+      {
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{name!=\"\"}[5m]))",
+        "legendFormat": "{{name}}",
+        "refId": "A"
+      }
+    ],
+    "title": "Container CPU (cAdvisor)",
+    "type": "timeseries"
+  },
+  {
+    "datasource": { "type": "prometheus", "uid": "prometheus" },
+    "description": "RAM по контейнерам Docker (через cAdvisor)",
+    "fieldConfig": {
+      "defaults": {
+        "color": { "mode": "palette-classic" },
+        "custom": {
+          "axisBorderShow": false,
+          "axisCenteredZero": false,
+          "axisColorMode": "text",
+          "axisLabel": "",
+          "axisPlacement": "auto",
+          "barAlignment": 0,
+          "drawStyle": "line",
+          "fillOpacity": 10,
+          "gradientMode": "none",
+          "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+          "insertNulls": false,
+          "lineInterpolation": "smooth",
+          "lineWidth": 2,
+          "pointSize": 5,
+          "scaleDistribution": { "type": "linear" },
+          "showPoints": "never",
+          "spanNulls": false,
+          "stacking": { "group": "A", "mode": "none" },
+          "thresholdsStyle": { "mode": "off" }
+        },
+        "mappings": [],
+        "thresholds": { "mode": "absolute", "steps": [{ "color": "#1b4d3e", "value": null }] },
+        "unit": "bytes"
+      },
+      "overrides": []
+    },
+    "gridPos": { "h": 9, "w": 12, "x": 12, "y": 4 },
+    "id": 6,
+    "options": {
+      "legend": { "calcs": ["mean", "lastNotNull"], "displayMode": "table", "placement": "right", "showLegend": true },
+      "tooltip": { "mode": "multi", "sort": "desc" }
+    },
+    "pluginVersion": "10.4.2",
+    "targets": [
+      {
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "sum by (name) (container_memory_usage_bytes{name!=\"\"})",
+        "legendFormat": "{{name}}",
+        "refId": "A"
+      }
+    ],
+    "title": "Container Memory (cAdvisor)",
+    "type": "timeseries"
+  },
+  {
+    "datasource": { "type": "prometheus", "uid": "prometheus" },
+    "description": "HTTP-пробы blackbox (1 = up, 0 = down)",
+    "fieldConfig": {
+      "defaults": {
+        "color": { "mode": "thresholds" },
+        "mappings": [
+          { "options": { "0": { "color": "#b91c1c", "index": 0, "text": "DOWN" }, "1": { "color": "#1b4d3e", "index": 1, "text": "UP" } }, "type": "value" }
+        ],
+        "thresholds": { "mode": "absolute", "steps": [{ "color": "#b91c1c", "value": null }, { "color": "#1b4d3e", "value": 1 }] }
+      },
+      "overrides": []
+    },
+    "gridPos": { "h": 6, "w": 12, "x": 0, "y": 13 },
+    "id": 7,
+    "options": {
+      "colorMode": "background",
+      "graphMode": "none",
+      "justifyMode": "center",
+      "orientation": "auto",
+      "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+      "textMode": "value_and_name"
+    },
+    "pluginVersion": "10.4.2",
+    "targets": [
+      {
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "probe_success",
+        "legendFormat": "{{instance}}",
+        "refId": "A"
+      }
+    ],
+    "title": "Blackbox HTTP Probes",
+    "type": "stat"
+  },
+  {
+    "datasource": { "type": "prometheus", "uid": "prometheus" },
+    "description": "Дней до истечения SSL-сертификата (blackbox SSL probe)",
+    "fieldConfig": {
+      "defaults": {
+        "color": { "mode": "thresholds" },
+        "mappings": [],
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            { "color": "#b91c1c", "value": null },
+            { "color": "#b45309", "value": 14 },
+            { "color": "#1b4d3e", "value": 30 }
+          ]
+        },
+        "unit": "d"
+      },
+      "overrides": []
+    },
+    "gridPos": { "h": 6, "w": 12, "x": 12, "y": 13 },
+    "id": 8,
+    "options": {
+      "colorMode": "background",
+      "graphMode": "none",
+      "justifyMode": "center",
+      "orientation": "auto",
+      "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+      "textMode": "value_and_name"
+    },
+    "pluginVersion": "10.4.2",
+    "targets": [
+      {
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "(probe_ssl_earliest_cert_expiry - time()) / 86400",
+        "legendFormat": "{{instance}}",
+        "refId": "A"
+      }
+    ],
+    "title": "SSL Certificate — Days Until Expiry",
+    "type": "stat"
+  }
+],
+"refresh": "30s",
+"schemaVersion": 39,
+"tags": ["mspshield", "overview"],
+"templating": { "list": [] },
+"time": { "from": "now-1h", "to": "now" },
+"timepicker": {},
+"timezone": "Europe/Moscow",
+"title": "MSPShield — Overview",
+"uid": "mspshield-overview",
+"version": 1,
+"weekStart": "monday"
+}

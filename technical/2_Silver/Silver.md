@@ -1,5 +1,5 @@
 # Silver — Мастер-гайд тарифа
-# Версия 3.0 | Апрель 2026
+# Версия 5.4 | Июнь 2026
 # ═══════════════════════════════════════════════════════════════════
 #
 # ЭТОТ ФАЙЛ — входная точка для тарифа Silver.
@@ -14,15 +14,15 @@
 
 ```
 Silver = ВСЁ из Bronze ПЛЮС:
-  ✓ Централизованные логи (Promtail → Loki → Grafana Explore)
-  ✓ Desired State (Puppet Agent → Puppet Server)
-  ✓ Автоматизация (Ansible Control Node)
-  ✓ Управление AD/DNS/GPO
-  ✓ Расширенные отчёты и LogQL-запросы
+✓ Централизованные логи (Promtail → Loki → Grafana Explore)
+✓ Desired State (Puppet Agent → Puppet Server)
+✓ Автоматизация (Ansible Control Node)
+✓ Управление AD/DNS/GPO
+✓ Расширенные отчёты и LogQL-запросы
 
 Новое оборудование Исполнителя:
-  ✓ Automation VM (2 vCPU, 4 GB) — Puppet Server + Ansible + Git
-  ✓ Monitoring VM апгрейд → 4 vCPU, 8 GB (для Loki)
+✓ Automation VM (2 vCPU, 4 GB) — Puppet Server + Ansible + Git
+✓ Monitoring VM апгрейд → 4 vCPU, 8 GB (для Loki)
 ```
 
 ---

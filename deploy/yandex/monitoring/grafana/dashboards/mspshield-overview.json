@@ -224,21 +224,21 @@
         },
         "mappings": [],
         "thresholds": { "mode": "absolute", "steps": [{ "color": "#1b4d3e", "value": null }] },
-        "unit": "percentunit"
+        "unit": "percent"
       },
       "overrides": []
     },
     "gridPos": { "h": 9, "w": 12, "x": 0, "y": 4 },
     "id": 5,
     "options": {
-      "legend": { "calcs": ["mean", "lastNotNull"], "displayMode": "table", "placement": "right", "showLegend": true },
+      "legend": { "calcs": ["mean", "lastNotNull"], "displayMode": "table", "placement": "right", "showLegend": true, "sortBy": "lastNotNull", "sortDesc": true },
       "tooltip": { "mode": "multi", "sort": "desc" }
     },
     "pluginVersion": "10.4.2",
     "targets": [
       {
         "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{name!=\"\"}[5m]))",
+        "expr": "topk(10, sum by (name) (rate(container_cpu_usage_seconds_total{name!=\"\"}[5m])) * 100)",
         "legendFormat": "{{name}}",
         "refId": "A"
       }
@@ -283,14 +283,14 @@
     "gridPos": { "h": 9, "w": 12, "x": 12, "y": 4 },
     "id": 6,
     "options": {
-      "legend": { "calcs": ["mean", "lastNotNull"], "displayMode": "table", "placement": "right", "showLegend": true },
+      "legend": { "calcs": ["mean", "lastNotNull"], "displayMode": "table", "placement": "right", "showLegend": true, "sortBy": "lastNotNull", "sortDesc": true },
       "tooltip": { "mode": "multi", "sort": "desc" }
     },
     "pluginVersion": "10.4.2",
     "targets": [
       {
         "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "expr": "sum by (name) (container_memory_usage_bytes{name!=\"\"})",
+        "expr": "topk(10, sum by (name) (container_memory_usage_bytes{name!=\"\"}))",
         "legendFormat": "{{name}}",
         "refId": "A"
       }
@@ -326,7 +326,7 @@
     "targets": [
       {
         "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "expr": "probe_success",
+        "expr": "topk(10, probe_success)",
         "legendFormat": "{{instance}}",
         "refId": "A"
       }

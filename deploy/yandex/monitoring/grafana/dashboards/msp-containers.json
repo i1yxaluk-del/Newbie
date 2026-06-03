@@ -11,7 +11,7 @@
 "links": [
   {
     "title": "← MSP Overview",
-    "url": "/d/msp-overview",
+    "url": "/d/mspshield-overview",
     "type": "link",
     "icon": "arrow-left",
     "targetBlank": false
@@ -152,7 +152,7 @@
     "gridPos": { "x": 0, "y": 3, "w": 12, "h": 7 },
     "options": {
       "tooltip": { "mode": "multi" },
-      "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] }
+      "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"], "sortBy": "lastNotNull", "sortDesc": true }
     },
     "fieldConfig": {
       "defaults": {
@@ -162,7 +162,7 @@
     },
     "targets": [
       {
-        "expr": "container_memory_working_set_bytes{name=~\".+\"}",
+        "expr": "topk(10, container_memory_working_set_bytes{name=~\".+\"})",
         "legendFormat": "{{name}}",
         "refId": "A"
       }
@@ -175,7 +175,7 @@
     "gridPos": { "x": 12, "y": 3, "w": 12, "h": 7 },
     "options": {
       "tooltip": { "mode": "multi" },
-      "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] }
+      "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"], "sortBy": "lastNotNull", "sortDesc": true }
     },
     "fieldConfig": {
       "defaults": {
@@ -185,7 +185,7 @@
     },
     "targets": [
       {
-        "expr": "rate(container_cpu_usage_seconds_total{name=~\".+\"}[5m]) * 100",
+        "expr": "topk(10, sum by (name) (rate(container_cpu_usage_seconds_total{name=~\".+\"}[5m])) * 100)",
         "legendFormat": "{{name}}",
         "refId": "A"
       }

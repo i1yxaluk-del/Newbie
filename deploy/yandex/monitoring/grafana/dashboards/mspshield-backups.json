@@ -1,0 +1,264 @@
+{
+"annotations": {
+  "list": [
+    {
+      "builtIn": 1,
+      "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+      "enable": true,
+      "hide": true,
+      "iconColor": "rgba(27, 77, 62, 1)",
+      "name": "Annotations & Alerts",
+      "type": "dashboard"
+    }
+  ]
+},
+"description": "MSPShield — мониторинг restic-бэкапов в стиле виджета с сайта msp-claude.online. Heatmap 7 дней × N хостов, метрика successful/total, последний restore-test.",
+"editable": true,
+"fiscalYearStartMonth": 0,
+"graphTooltip": 1,
+"id": null,
+"links": [],
+"liveNow": false,
+"panels": [
+  {
+    "datasource": { "type": "prometheus", "uid": "prometheus" },
+    "description": "Сколько успешных backup-runs за последние 7 дней из общего числа запланированных. Аналог '27 / 28 ✓' на сайте.",
+    "fieldConfig": {
+      "defaults": {
+        "color": { "mode": "fixed", "fixedColor": "#1b4d3e" },
+        "mappings": [],
+        "thresholds": { "mode": "absolute", "steps": [{ "color": "#1b4d3e", "value": null }] },
+        "unit": "none",
+        "noValue": "—"
+      },
+      "overrides": []
+    },
+    "gridPos": { "h": 4, "w": 12, "x": 0, "y": 0 },
+    "id": 1,
+    "options": {
+      "colorMode": "value",
+      "graphMode": "none",
+      "justifyMode": "auto",
+      "orientation": "horizontal",
+      "reduceOptions": { "calcs": ["lastNotNull"], "fields": "/.*/", "values": false },
+      "textMode": "value_and_name",
+      "wideLayout": true
+    },
+    "pluginVersion": "10.4.2",
+    "targets": [
+      {
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "sum(count_over_time(restic_backup_success{value=\"1\"}[7d]) or count_over_time((restic_backup_success == 1)[7d:1d]))",
+        "legendFormat": "Успешно",
+        "refId": "A"
+      },
+      {
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "count(count_over_time(restic_backup_success[7d])) * 7",
+        "legendFormat": "Всего ожидалось",
+        "refId": "B"
+      },
+      {
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "sum(restic_verify_success == 0 or absent(restic_verify_success))",
+        "legendFormat": "Verify-pending",
+        "refId": "C"
+      }
+    ],
+    "title": "RESTIC · последние 7 дней",
+    "type": "stat"
+  },
+  {
+    "datasource": { "type": "prometheus", "uid": "prometheus" },
+    "description": "Шифрование (всегда AES-256 у restic) + признак облачного backend",
+    "fieldConfig": {
+      "defaults": {
+        "color": { "mode": "fixed", "fixedColor": "#1b4d3e" },
+        "mappings": [
+          { "options": { "1": { "text": "AES-256 · ОБЛАЧНОЕ ХРАНИЛИЩЕ", "color": "#1b4d3e", "index": 0 } }, "type": "value" },
+          { "options": { "match": "null", "result": { "text": "AES-256 · ОБЛАЧНОЕ ХРАНИЛИЩЕ", "color": "#1b4d3e", "index": 1 } }, "type": "special" }
+        ],
+        "thresholds": { "mode": "absolute", "steps": [{ "color": "#1b4d3e", "value": null }] }
+      },
+      "overrides": []
+    },
+    "gridPos": { "h": 4, "w": 12, "x": 12, "y": 0 },
+    "id": 2,
+    "options": {
+      "colorMode": "background",
+      "graphMode": "none",
+      "justifyMode": "center",
+      "orientation": "horizontal",
+      "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+      "textMode": "value"
+    },
+    "pluginVersion": "10.4.2",
+    "targets": [
+      {
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "vector(1)",
+        "legendFormat": "",
+        "refId": "A"
+      }
+    ],
+    "title": "Шифрование",
+    "type": "stat"
+  },
+  {
+    "datasource": { "type": "prometheus", "uid": "prometheus" },
+    "description": "Heatmap status: каждая ячейка = один день за последние 7 дней. Зелёная (#1b4d3e) — backup успешен, оранжевая (#b45309) — fail, серая — нет данных. Строки — хосты.",
+    "fieldConfig": {
+      "defaults": {
+        "color": { "mode": "thresholds" },
+        "mappings": [
+          { "options": { "0": { "color": "#b45309", "index": 0, "text": "—" }, "1": { "color": "#1b4d3e", "index": 1, "text": "✓" } }, "type": "value" }
+        ],
+        "thresholds": { "mode": "absolute", "steps": [{ "color": "transparent", "value": null }, { "color": "#b45309", "value": 0 }, { "color": "#1b4d3e", "value": 1 }] },
+        "custom": {
+          "fillOpacity": 100,
+          "lineWidth": 0,
+          "spanNulls": false
+        },
+        "noValue": "—"
+      },
+      "overrides": []
+    },
+    "gridPos": { "h": 10, "w": 18, "x": 0, "y": 4 },
+    "id": 3,
+    "options": {
+      "alignValue": "center",
+      "legend": { "displayMode": "hidden", "placement": "bottom", "showLegend": false },
+      "mergeValues": false,
+      "rowHeight": 0.85,
+      "showValue": "never",
+      "tooltip": { "mode": "multi", "sort": "none" }
+    },
+    "pluginVersion": "10.4.2",
+    "targets": [
+      {
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "max by (host) (restic_backup_success)",
+        "legendFormat": "{{host}}",
+        "refId": "A",
+        "range": true,
+        "interval": "1d"
+      }
+    ],
+    "title": "Backups · 7 дней · хост × день",
+    "type": "status-history"
+  },
+  {
+    "datasource": { "type": "prometheus", "uid": "prometheus" },
+    "description": "Размер последнего успешного backup-а по каждому хосту",
+    "fieldConfig": {
+      "defaults": {
+        "color": { "mode": "fixed", "fixedColor": "#78746a" },
+        "custom": {
+          "align": "right",
+          "cellOptions": { "type": "color-text" },
+          "filterable": false,
+          "inspect": false
+        },
+        "mappings": [],
+        "thresholds": { "mode": "absolute", "steps": [{ "color": "#78746a", "value": null }] },
+        "unit": "bytes"
+      },
+      "overrides": [
+        {
+          "matcher": { "id": "byName", "options": "host" },
+          "properties": [
+            { "id": "custom.align", "value": "left" },
+            { "id": "color", "value": { "mode": "fixed", "fixedColor": "#1a1815" } },
+            { "id": "custom.width", "value": 80 }
+          ]
+        }
+      ]
+    },
+    "gridPos": { "h": 10, "w": 6, "x": 18, "y": 4 },
+    "id": 4,
+    "options": {
+      "cellHeight": "md",
+      "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false },
+      "showHeader": false,
+      "sortBy": [{ "desc": false, "displayName": "host" }]
+    },
+    "pluginVersion": "10.4.2",
+    "targets": [
+      {
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "max by (host) (restic_backup_size_bytes)",
+        "format": "table",
+        "instant": true,
+        "legendFormat": "__auto",
+        "refId": "A"
+      }
+    ],
+    "title": "Размер",
+    "transformations": [
+      {
+        "id": "organize",
+        "options": {
+          "excludeByName": { "Time": true, "__name__": true, "job": true, "instance": true, "repo": true },
+          "indexByName": { "host": 0, "Value": 1 },
+          "renameByName": { "Value": "Размер" }
+        }
+      }
+    ],
+    "type": "table"
+  },
+  {
+    "datasource": { "type": "prometheus", "uid": "prometheus" },
+    "description": "Когда и на каком хосте последний раз гоняли restore-test (R-11 DR drill). Зелёным — < 30 дней, амбер — 30-90 дней, красный — > 90 дней.",
+    "fieldConfig": {
+      "defaults": {
+        "color": { "mode": "thresholds" },
+        "mappings": [],
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            { "color": "#1b4d3e", "value": null },
+            { "color": "#b45309", "value": 2592000 },
+            { "color": "#b91c1c", "value": 7776000 }
+          ]
+        },
+        "unit": "s",
+        "noValue": "нет данных"
+      },
+      "overrides": []
+    },
+    "gridPos": { "h": 4, "w": 24, "x": 0, "y": 14 },
+    "id": 5,
+    "options": {
+      "colorMode": "background",
+      "graphMode": "none",
+      "justifyMode": "center",
+      "orientation": "horizontal",
+      "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+      "textMode": "value_and_name",
+      "wideLayout": true
+    },
+    "pluginVersion": "10.4.2",
+    "targets": [
+      {
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "time() - max(restic_restore_test_timestamp_seconds)",
+        "legendFormat": "Последний restore-test",
+        "refId": "A"
+      }
+    ],
+    "title": "DR drill · R-11",
+    "type": "stat"
+  }
+],
+"refresh": "1m",
+"schemaVersion": 39,
+"tags": ["mspshield", "backups", "restic"],
+"templating": { "list": [] },
+"time": { "from": "now-7d", "to": "now" },
+"timepicker": {},
+"timezone": "Europe/Moscow",
+"title": "MSPShield — Backups",
+"uid": "mspshield-backups",
+"version": 1,
+"weekStart": "monday"
+}

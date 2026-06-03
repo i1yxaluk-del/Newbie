@@ -10,8 +10,9 @@
 #   ssh -L 3000:127.0.0.1:3000 -L 9090:127.0.0.1:9090 \
 #       -L 9093:127.0.0.1:9093 ubuntu@<IP>
 #
-# Дашборд: MSPShield Overview — палитра сайта (#1b4d3e лесной зелёный,
-#   #5fc9a2 мятный акцент, #0e0c0a тёмный фон, #b45309 амбер)
+# Дашборд: MSPShield Overview — light theme сайта msp-claude.online
+#   (cream #f7f4ee, forest #1b4d3e, amber #b45309, stone #78746a).
+#   Дашборд автоматически провижится из ./grafana/dashboards/*.json
 #
 # ВАЖНО (уроки из деплоя):
 #   - cAdvisor требует /var/lib/docker/ → /rootfs/var/lib/docker (не
@@ -124,7 +125,8 @@ services:
       options: { max-size: "5m", max-file: "2" }
 
   # ── Grafana — визуализация метрик ──────────────────────────────
-  # Дашборд "MSPShield Overview" в палитре сайта.
+  # Дашборд "MSPShield Overview" в light-палитре сайта msp-claude.online.
+  # Тема: cream #f7f4ee фон, forest #1b4d3e бренд, амбер #b45309 warning.
   # Доступен ТОЛЬКО через SSH-туннель (127.0.0.1:3000).
   grafana:
     image: grafana/grafana:10.4.2
@@ -134,6 +136,9 @@ services:
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/grafana.ini:/etc/grafana/grafana.ini:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./grafana/theme:/usr/share/grafana/public/build/mspshield:ro
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-changeme}
@@ -147,8 +152,13 @@ services:
       # Алёрты Grafana отключены — используем Alertmanager
       GF_UNIFIED_ALERTING_ENABLED: "false"
       GF_ALERTING_ENABLED: "false"
-      # Тёмная тема по умолчанию (как на сайте msp-claude.online)
-      GF_DEFAULT_THEME: "dark"
+      # ── Тема MSPShield ────────────────────────────────────────
+      # Light theme — соответствует cream/forest стилю лендинга.
+      # Кастомный CSS-оверрайд лежит в ./grafana/theme/mspshield.css
+      # (монтируется в /usr/share/grafana/public/build/mspshield/).
+      GF_DEFAULT_THEME: "light"
+      GF_USERS_DEFAULT_THEME: "light"
+      GF_USERS_DEFAULT_LANGUAGE: "ru-RU"
       GF_INSTALL_PLUGINS: "grafana-clock-panel,grafana-piechart-panel"
       GF_LOG_LEVEL: "warn"
       GF_SMTP_ENABLED: ${GF_SMTP_ENABLED:-false}
@@ -158,12 +168,14 @@ services:
       GF_SMTP_FROM_ADDRESS: ${GF_SMTP_FROM_ADDRESS:-}
       GF_SMTP_FROM_NAME: ${GF_SMTP_FROM_NAME:-MSPShield}
       GF_SMTP_SKIP_VERIFY: ${GF_SMTP_SKIP_VERIFY:-false}
-      # ── Палитра MSPShield (используется в дашборде) ───────────
-      # Лесной зелёный #1b4d3e — основной бренд, UP-статусы
-      # Мятный акцент #5fc9a2 — графики на тёмном фоне
-      # Тёмный фон #0e0c0a — как секции Pricing/CTA на сайте
-      # Амбер #b45309 — предупреждения, disk usage
-      # Красный #a13030 — ошибки, DOWN-статусы
+      # ── Палитра MSPShield (используется в дашборде Overview) ──
+      # Cream #f7f4ee — фон страниц и карточек
+      # Forest #1b4d3e — основной бренд, UP-статусы, success
+      # Forest-lt #2d6b58 — hover, вторичные акценты
+      # Amber #b45309 — предупреждения, disk usage 70-90%
+      # Stone #78746a — вторичный текст
+      # Red #b91c1c — ошибки, DOWN-статусы
+      # Ink #1a1815 — основной текст
     ports:
       - "127.0.0.1:3000:3000"
     networks:

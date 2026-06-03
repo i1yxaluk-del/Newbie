@@ -5,38 +5,53 @@ groups:
       expr: probe_success{job="blackbox-internal", instance="http://vaultwarden:80"} == 0
       for: 3m
       labels:
-        severity: critical
+        severity: P1
       annotations:
-        summary: "Vaultwarden недоступен — менеджер паролей не отвечает"
+        summary: "vaultwarden · менеджер паролей недоступен более 3 мин"
+        host: "node-01.msp-claude.online"
+        metric: 'probe_success = 0'
+        runbook: "docs/R-vault-down"
 
     - alert: GrafanaDown
       expr: probe_success{job="blackbox-internal", instance="http://grafana:3000/api/health"} == 0
       for: 3m
       labels:
-        severity: warning
+        severity: P2
       annotations:
-        summary: "Grafana недоступна — мониторинг не отвечает"
+        summary: "grafana · мониторинг недоступен более 3 мин"
+        host: "node-01.msp-claude.online"
+        metric: 'probe_success = 0'
+        runbook: "docs/R-grafana-down"
 
     - alert: StalwartImapDown
       expr: probe_success{job="blackbox-imap"} == 0
       for: 3m
       labels:
-        severity: critical
+        severity: P1
       annotations:
-        summary: "Stalwart IMAP {{ $labels.instance }} недоступен — почта не работает"
+        summary: "stalwart · IMAP {{ $labels.instance }} недоступен — почта не работает"
+        host: "node-01.msp-claude.online"
+        metric: 'probe_success = 0'
+        runbook: "docs/R-imap-down"
 
     - alert: StalwartSmtpDown
       expr: probe_success{job="blackbox-smtp"} == 0
       for: 3m
       labels:
-        severity: critical
+        severity: P1
       annotations:
-        summary: "Stalwart SMTP {{ $labels.instance }} недоступен — отправка почты не работает"
+        summary: "stalwart · SMTP {{ $labels.instance }} недоступен — отправка почты не работает"
+        host: "node-01.msp-claude.online"
+        metric: 'probe_success = 0'
+        runbook: "docs/R-smtp-down"
 
     - alert: ServiceSlowResponse
       expr: probe_duration_seconds{job=~"blackbox-http|blackbox-internal"} > 3
       for: 5m
       labels:
-        severity: warning
+        severity: P3
       annotations:
-        summary: "Сервис {{ $labels.instance }} отвечает медленно (>3s)"
+        summary: "{{ $labels.instance }} · ответ >3s за 5 мин"
+        host: "node-01.msp-claude.online"
+        metric: 'probe_duration = {{ $value | printf "%.1f" }}s'
+        runbook: "docs/R-slow"

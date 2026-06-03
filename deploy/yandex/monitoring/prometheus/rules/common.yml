@@ -5,30 +5,42 @@ groups:
         expr: up{job="node"} == 0
         for: 3m
         labels:
-          severity: critical
+          severity: P1
         annotations:
-          summary: "Node {{ $labels.instance }} is down"
+          summary: "node-01 · node_exporter недоступен более 3 мин"
+          host: "node-01.msp-claude.online"
+          metric: 'up{job="node"} = {{ $value }}'
+          runbook: "docs/R-node-down"
 
       - alert: HighCPU
         expr: 100 - (avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
         for: 10m
         labels:
-          severity: warning
+          severity: P2
         annotations:
-          summary: "CPU > 90% on {{ $labels.instance }}"
+          summary: "node-01 · CPU >90% за 10 мин"
+          host: "node-01.msp-claude.online"
+          metric: 'CPU = {{ $value | printf "%.1f" }}%'
+          runbook: "docs/R-high-cpu"
 
       - alert: LowDisk
         expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) < 0.1
         for: 15m
         labels:
-          severity: warning
+          severity: P2
         annotations:
-          summary: "Disk <10% free on {{ $labels.instance }} ({{ $labels.mountpoint }})"
+          summary: 'node-01 · disk <10% free ({{ $labels.mountpoint }})'
+          host: "node-01.msp-claude.online"
+          metric: 'free = {{ $value | printf "%.1f" }}%'
+          runbook: "docs/R-low-disk"
 
       - alert: HighMemory
         expr: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 0.95
         for: 10m
         labels:
-          severity: warning
+          severity: P2
         annotations:
-          summary: "Memory > 95% used on {{ $labels.instance }}"
+          summary: "node-01 · RAM >95% за 10 мин"
+          host: "node-01.msp-claude.online"
+          metric: 'RAM used = {{ $value | printf "%.1f" }}%'
+          runbook: "docs/R-high-mem"

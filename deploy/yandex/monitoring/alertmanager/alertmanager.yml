@@ -1,36 +1,48 @@
 global:
   resolve_timeout: 5m
-  smtp_smarthost: "${SMTP_HOST}:465"
-  smtp_from: "${SMTP_FROM}"
-  smtp_auth_username: "${SMTP_USER}"
-  smtp_auth_password: "${SMTP_PASSWORD}"
-  smtp_require_tls: true
+  smtp_smarthost: "stalwart:25"
+  smtp_from: "MSPShield Alert <alert@msp-claude.online>"
+  smtp_hello: "msp-claude.online"
+  smtp_auth_username: "alert@msp-claude.online"
+  smtp_auth_password: "QYIQylBaBRenxvvKuxLVx5Yq"
+  smtp_require_tls: false
+
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
 
 route:
   group_by: ['alertname', 'severity']
   group_wait: 30s
   group_interval: 5m
   repeat_interval: 4h
-  receiver: msp-backend
+  receiver: email-alert
 
   routes:
     - matchers:
-        - severity =~ "critical|page|high|error"
-      receiver: msp-backend
+        - severity = P1
+      receiver: email-alert
       group_wait: 10s
       group_interval: 2m
       repeat_interval: 1h
       continue: true
 
     - matchers:
-        - severity =~ "critical|page|high|error"
-      receiver: email-alert
+        - severity = P1
+      receiver: msp-backend
       group_wait: 10s
       group_interval: 2m
       repeat_interval: 1h
 
     - matchers:
-        - severity =~ "warning|warn"
+        - severity =~ "P2|P3"
+      receiver: email-alert
+      group_wait: 1m
+      group_interval: 10m
+      repeat_interval: 4h
+      continue: true
+
+    - matchers:
+        - severity =~ "P2|P3"
       receiver: msp-backend
       group_wait: 1m
       group_interval: 10m
@@ -45,18 +57,23 @@ receivers:
         http_config:
           authorization:
             type: Bearer
-            credentials: 'ALERTMANAGER_WEBHOOK_TOKEN_PLACEHOLDER'
+            credentials: '54f48bc96cee9efb244f270d8a50486e648519dd841f74c66b12f578a35bce41'
 
   - name: email-alert
     email_configs:
-      - to: "${SMTP_FROM}"
+      - to: "alert@msp-claude.online"
         send_resolved: true
+        html: '{{ template "mspshield.alert.html" . }}'
+        text: '{{ template "mspshield.alert.text" . }}'
         headers:
-          Subject: "[MSPShield] {{ .GroupLabels.alertname }} - {{ .CommonAnnotations.summary }}"
+          Subject: '{{ template "mspshield.subject" . }}'
+          List-ID: "MSPShield Alerts <alerts.msp-claude.online>"
+          X-Mailer: "MSPShield Alertmanager"
+          X-Priority: '{{ if eq .Status "firing" }}1{{ else }}3{{ end }}'
 
 inhibit_rules:
   - source_matchers:
-      - severity = critical
+      - severity = P1
     target_matchers:
-      - severity =~ "warning|info"
+      - severity =~ "P2|P3"
     equal: ['alertname', 'instance']

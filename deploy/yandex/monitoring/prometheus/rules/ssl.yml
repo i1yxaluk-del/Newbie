@@ -5,14 +5,20 @@ groups:
         expr: (probe_ssl_earliest_cert_expiry - time()) / 86400 < 14
         for: 1h
         labels:
-          severity: warning
+          severity: P2
         annotations:
-          summary: "SSL cert expiring in <14d for {{ $labels.instance }}"
+          summary: "{{ $labels.instance }} · SSL-сертификат истекает менее чем через 14 дней"
+          host: "node-01.msp-claude.online"
+          metric: 'days_left = {{ $value | printf "%.0f" }}'
+          runbook: "docs/R-ssl-expire"
 
       - alert: SSLExpired
         expr: (probe_ssl_earliest_cert_expiry - time()) < 0
         for: 5m
         labels:
-          severity: critical
+          severity: P1
         annotations:
-          summary: "SSL cert EXPIRED for {{ $labels.instance }}"
+          summary: "{{ $labels.instance }} · SSL-сертификат ИСТЁК"
+          host: "node-01.msp-claude.online"
+          metric: 'days_left = {{ $value | printf "%.0f" }}'
+          runbook: "docs/R-ssl-expired"

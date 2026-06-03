@@ -8,18 +8,24 @@ groups:
         time() - container_last_seen{name=~".+"} > 120
       for: 3m
       labels:
-        severity: critical
+        severity: P1
       annotations:
-        summary: "Контейнер {{ $labels.name }} не виден более 2 минут"
+        summary: "{{ $labels.name }} · контейнер не виден более 2 мин"
+        host: "node-01.msp-claude.online"
+        metric: 'last_seen = {{ $value | printf "%.0f" }}s ago'
+        runbook: "docs/R-container-down"
 
     - alert: ContainerRestartLoop
       expr: |
         increase(container_start_time_seconds{name=~".+"}[15m]) > 2
       for: 0m
       labels:
-        severity: warning
+        severity: P2
       annotations:
-        summary: "Контейнер {{ $labels.name }} перезапускался более 2 раз за 15 минут"
+        summary: "{{ $labels.name }} · рестарт-луп (>2 перезапусков за 15 мин)"
+        host: "node-01.msp-claude.online"
+        metric: 'restarts = {{ $value | printf "%.0f" }}'
+        runbook: "docs/R-restart-loop"
 
     - alert: ContainerHighMemory
       expr: |
@@ -30,6 +36,9 @@ groups:
         and on(name) container_spec_memory_limit_bytes{name=~".+"} > 0
       for: 5m
       labels:
-        severity: warning
+        severity: P2
       annotations:
-        summary: "Контейнер {{ $labels.name }} использует >90% лимита памяти"
+        summary: "{{ $labels.name }} · RAM >90% лимита"
+        host: "node-01.msp-claude.online"
+        metric: 'RAM usage = {{ $value | printf "%.0f" }}%'
+        runbook: "docs/R-container-mem"

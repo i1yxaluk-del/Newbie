@@ -2,57 +2,45 @@ groups:
   - name: site
     rules:
       - alert: SiteDown
-        expr: probe_success{job=~"blackbox.*"} == 0
+        expr: probe_success{job=~"blackbox-http|blackbox-https-strict"} == 0
         for: 2m
         labels:
-          severity: critical
+          severity: P1
         annotations:
-          summary: "Site {{ $labels.instance }} is DOWN"
-
-      - alert: SSLExpiringSoon
-        expr: (probe_ssl_earliest_cert_expiry - time()) / 86400 < 14
-        for: 1h
-        labels:
-          severity: warning
-        annotations:
-          summary: "SSL cert expiring in <14d for {{ $labels.instance }}"
-
-      - alert: SSLExpired
-        expr: (probe_ssl_earliest_cert_expiry - time()) < 0
-        for: 5m
-        labels:
-          severity: critical
-        annotations:
-          summary: "SSL cert EXPIRED for {{ $labels.instance }}"
-
-      - alert: SiteSlowResponse
-        expr: probe_duration_seconds{job=~"blackbox-http.*"} > 5
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Site {{ $labels.instance }} slow (>5s)"
-
-      - alert: SMTPPortDown
-        expr: probe_success{job="blackbox-smtp"} == 0
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "SMTP port {{ $labels.instance }} is DOWN"
+          summary: "{{ $labels.instance }} · сайт недоступен более 2 мин"
+          host: "node-01.msp-claude.online"
+          metric: 'probe_success = 0'
+          runbook: "docs/R-site-down"
 
       - alert: BackendHealthFail
         expr: up{job="mspshield-backend"} == 0
         for: 2m
         labels:
-          severity: critical
+          severity: P1
         annotations:
-          summary: "MSPShield backend /metrics unreachable"
+          summary: "backend · /metrics недоступен более 2 мин"
+          host: "node-01.msp-claude.online"
+          metric: 'up{job="mspshield-backend"} = 0'
+          runbook: "docs/R-backend-down"
+
+      - alert: SiteSlowResponse
+        expr: probe_duration_seconds{job=~"blackbox-http.*"} > 5
+        for: 5m
+        labels:
+          severity: P3
+        annotations:
+          summary: "{{ $labels.instance }} · ответ >5s за 5 мин"
+          host: "node-01.msp-claude.online"
+          metric: 'probe_duration = {{ $value | printf "%.1f" }}s'
+          runbook: "docs/R-site-slow"
 
       - alert: HighErrorRate5xx
         expr: rate(mspshield_leads_rejected_total[5m]) > 0.1
         for: 5m
         labels:
-          severity: warning
+          severity: P3
         annotations:
-          summary: "High lead rejection rate on backend"
+          summary: "backend · высокий процент отклонений лидов"
+          host: "node-01.msp-claude.online"
+          metric: 'rate = {{ $value | printf "%.2f" }}'
+          runbook: "docs/R-5xx"

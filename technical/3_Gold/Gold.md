@@ -1,5 +1,5 @@
 # Gold — Мастер-гайд тарифа
-# Версия 3.0 | Апрель 2026
+# Версия 5.4 | Июнь 2026
 # ═══════════════════════════════════════════════════════════════════
 #
 # ЭТОТ ФАЙЛ — входная точка для тарифа Gold.
@@ -14,17 +14,17 @@
 
 ```
 Gold = ВСЁ из Silver ПЛЮС:
-  ✓ SIEM: Wazuh Agent → Wazuh Manager → Alertmanager → Telegram / MAX алерты
-    (канал выбирает клиент при онбординге, ALERT_CHANNELS=max,telegram)
-  ✓ FIM (File Integrity Monitoring) — контроль изменений файлов
-  ✓ Kaspersky Endpoint Security (через GPO + KSC)
-  ✓ osTicket — тикет-система для инцидентов
-  ✓ SLA P1: реакция до 1 часа, 24/7
-  ✓ Стратегические сессии (ежеквартально)
+✓ SIEM: Wazuh Agent → Wazuh Manager → Alertmanager → Telegram / MAX алерты
+  (канал выбирает клиент при онбординге, ALERT_CHANNELS=max,telegram)
+✓ FIM (File Integrity Monitoring) — контроль изменений файлов
+✓ Kaspersky Endpoint Security (через GPO + KSC)
+✓ osTicket — тикет-система для инцидентов
+✓ SLA P1: реакция до 1 часа, 24/7
+✓ Стратегические сессии (ежеквартально)
 
 Новое оборудование Исполнителя:
-  ✓ Wazuh VM (8 vCPU, 16 GB, 100 GB SSD)
-  ✓ osTicket (на Wazuh VM или отдельный контейнер)
+✓ Wazuh VM (8 vCPU, 16 GB, 100 GB SSD)
+✓ osTicket (на Wazuh VM или отдельный контейнер)
 ```
 
 ---

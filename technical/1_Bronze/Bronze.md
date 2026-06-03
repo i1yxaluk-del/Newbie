@@ -3,7 +3,7 @@
 > **Цель документа:** за 30 минут чтения junior понимает, **что такое Bronze**, **из чего он
 > состоит**, **с какой стороны подходить** к клиенту и **где найти детали**.
 >
-> **Обновлено:** v3.1 (апрель 2026).
+> **Обновлено:** v5.4 (июнь 2026).
 
 ## 1. Суть тарифа
 
@@ -31,8 +31,9 @@ Bronze — **базовый уровень защиты от катастроф�
 - Retention: 7 daily + 4 weekly + 6 monthly
 
 ### Доступ
-- **WireGuard Bastion** — единая точка входа, без открытых RDP/SSH наружу
-- У клиента — только WG-конфиг, больше «внешнего периметра» нет
+- **AmneziaWG Bastion** — единая точка входа, без открытых RDP/SSH наружу
+- У клиента — только AmneziaWG-конфиг (`.conf` + QR), больше «внешнего периметра» нет
+- Plan B: vanilla WireGuard как fallback при несовместимости клиента — см. R-08
 
 ### Отчётность
 - **Weekly report** — uptime, инциденты, тренды (PDF + Telegram/MAX)
@@ -56,36 +57,40 @@ Bronze — **базовый уровень защиты от катастроф�
 ## 3. Архитектура
 
 ```
-                       ┌─────────────────────────────────┐
-                       │    Yandex Cloud (наш)           │
-                       │                                 │
-                       │  ┌──────────────┐               │
-Internet   ─UDP:51820─→│  │  Bastion VM  │  WG mesh     │
-                       │  │  10.9.0.1    │              │
-                       │  └───────┬──────┘              │
-                       │          │                      │
-                       │  ┌───────┴─────────────────┐    │
-                       │  │   Monitoring VM         │    │
-                       │  │   (2 vCPU / 4 GB)       │    │
-                       │  │   Prometheus :9090      │    │
-                       │  │   Grafana    :3000      │    │
-                       │  │   Alertmanager :9093    │    │
-                       │  │   restic client         │    │
-                       │  └─────────────────────────┘    │
-                       └─────────────────────────────────┘
-                                   │ VPN (pull scrape)
-              ┌────────────────────┼──────────────────┐
-              │                    │                  │
-       ┌──────┴──────┐     ┌───────┴──────┐    ┌──────┴──────┐
-       │ Client 1    │     │  Client 2    │    │ Client N    │
-       │ 10.9.0.10   │     │  10.9.0.11   │    │ 10.9.0.1X   │
-       │ + agents    │     │  + agents    │    │ + agents    │
-       │ + restic    │     │  + restic    │    │ + restic    │
-       └─────────────┘     └──────────────┘    └─────────────┘
+                    ┌─────────────────────────────────┐
+                    │    Yandex Cloud (наш)           │
+                    │                                 │
+                    │  ┌──────────────┐               │
+Internet   ─UDP:443──→ │  │  Bastion VM  │  AWG mesh    │
+                    │  │  10.9.0.1    │              │
+                    │  └───────┬──────┘              │
+                    │          │                      │
+                    │  ┌───────┴─────────────────┐    │
+                    │  │   Monitoring VM         │    │
+                    │  │   (2 vCPU / 4 GB)       │    │
+                    │  │   Prometheus :9090      │    │
+                    │  │   Grafana    :3000      │    │
+                    │  │   Alertmanager :9093    │    │
+                    │  │   restic client         │    │
+                    │  └─────────────────────────┘    │
+                    └─────────────────────────────────┘
+                                │ AWG (pull scrape)
+           ┌────────────────────┼──────────────────┐
+           │                    │                  │
+    ┌──────┴──────┐     ┌───────┴──────┐    ┌──────┴──────┐
+    │ Client 1    │     │  Client 2    │    │ Client N    │
+    │ 10.9.0.10   │     │  10.9.0.11   │    │ 10.9.0.1X   │
+    │ + agents    │     │  + agents    │    │ + agents    │
+    │ + restic    │     │  + restic    │    │ + restic    │
+    └─────────────┘     └──────────────┘    └─────────────┘
 ```
 
 **Multi-tenancy:** один Monitoring VM обслуживает до 5 клиентов на Bronze.
 При росте — см. [`../SCALING.md`](../SCALING.md).
+
+**Почему UDP/443, а не 51820:** AmneziaWG на 443 неотличим от обычного HTTPS-трафика для DPI,
+что критично для устойчивости в РФ. Vanilla WG на 51820 — fallback (Plan B), активируется
+только если клиентское устройство не поддерживает AmneziaWG (старые роутеры, embedded).
 
 ## 4. Порядок развёртывания (полный цикл)
 
@@ -96,14 +101,14 @@ Internet   ─UDP:51820─→│  │  Bastion VM  │  WG mesh     │
 → [`CLIENT/SOP_client_bronze.md`](./CLIENT/SOP_client_bronze.md)
 
 Краткая последовательность (для быстрой памяти):
-1. Bastion VM — см. `EXECUTOR/wireguard/setup_wireguard_bastion.sh`
+1. Bastion VM — см. [`EXECUTOR/amneziawg/setup_awg_bastion.sh`](./EXECUTOR/amneziawg/setup_awg_bastion.sh)
 2. Monitoring VM — docker-compose из `../0_Common/docker/`
 3. Базовые alert rules — `EXECUTOR/prometheus/rules/bronze_alerts.yml`
 4. Alertmanager маршруты — `../0_Common/monitoring/alertmanager.yml`
 5. **Для клиента:**
-   - WireGuard клиент
-   - Экспортёры (node / windows)
-   - Restic backup
+- AmneziaWG клиент (Plan B: vanilla WireGuard)
+- Экспортёры (node / windows)
+- Restic backup
 6. Добавить targets в `prometheus.yml` через `scripts/onboard_client.sh`
 7. verify_all.sh bronze — всё зелёное
 
@@ -143,7 +148,7 @@ Internet   ─UDP:51820─→│  │  Bastion VM  │  WG mesh     │
 ## 7. Приоритеты для владельца/senior
 
 - [ ] Максимизировать количество **Bronze за счёт стандартизации**: чем более типовые клиенты —
-      тем больше их обслуживает один junior.
+   тем больше их обслуживает один junior.
 - [ ] Сразу писать `client_configs/<slug>.yml` — через Ansible/Terraform повторяемость.
 - [ ] Первые 3 Bronze-клиента = репутация. Ни одного простоя > SLA.
 

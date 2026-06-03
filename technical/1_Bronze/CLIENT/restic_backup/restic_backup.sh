@@ -83,8 +83,36 @@ if ! restic stats --quiet 2>/dev/null; then
     fi
 fi
 
+# ── mongodump: консистентный логический дамп MongoDB ────────────
+# Файловый бэкап /var/lib/mongodb (WiredTiger) даёт неконсистентный
+# срез — mongodump подключается к работающему mongod и снимает
+# согласованный дамп всех баз. Дамп сохраняется на диск, затем
+# restic упаковывает его в S3 вместе с остальными файлами.
+# ВНИМАНИЕ: /var/lib/mongodb убран из CANDIDATE_PATHS ниже.
+MONGO_DUMP_DIR="/opt/msp-backups/mongodump"
+MONGO_CONTAINER="msp-mongo-1"
+
+if docker ps --format '{{.Names}}' | grep -q "$MONGO_CONTAINER" 2>/dev/null; then
+    log "Running mongodump..."
+    mkdir -p "$MONGO_DUMP_DIR"
+    rm -rf "${MONGO_DUMP_DIR:?}"/*
+
+    if docker exec "$MONGO_CONTAINER" mongodump \
+        --out /tmp/mongodump \
+        --quiet 2>&1 | tee -a "$LOG_FILE"; then
+
+        docker cp "${MONGO_CONTAINER}:/tmp/mongodump/." "$MONGO_DUMP_DIR/"
+        docker exec "$MONGO_CONTAINER" rm -rf /tmp/mongodump
+        log "mongodump SUCCESS → ${MONGO_DUMP_DIR}"
+    else
+        log "mongodump FAILED — continuing with restic (mongo dump may be stale)" WARN
+    fi
+fi
+
 # ── Определить пути для бэкапа ─────────────────────────────────────
 # Берём все существующие директории из списка
+# ВНИМАНИЕ: /var/lib/mongodb НЕ в списке — бэкапится через mongodump
+# выше. Файловый бэкап WiredTiger на лету неконсистентен.
 CANDIDATE_PATHS=(
     /etc
     /home
@@ -94,7 +122,7 @@ CANDIDATE_PATHS=(
     /var/www
     /var/lib/postgresql
     /var/lib/mysql
-    /var/lib/mongodb
+    "$MONGO_DUMP_DIR"
 )
 
 BACKUP_PATHS=()

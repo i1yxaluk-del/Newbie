@@ -159,8 +159,32 @@ write_metrics 2 "$TIMESTAMP"  # 2 = in progress
 
 log "=== START BACKUP host=${HOSTNAME} ==="
 
+# ── mongodump: консистентный дамп MongoDB ────────────────────────
+# Файловый бэкап WiredTiger на лету неконсистентен — mongodump
+# подключается к работающему mongod и снимает согласованный дамп.
+MONGO_DUMP_DIR="/opt/msp-backups/mongodump"
+MONGO_CONTAINER="msp-mongo-1"
+
+if docker ps --format '{{.Names}}' | grep -q "$MONGO_CONTAINER" 2>/dev/null; then
+    log "Running mongodump..."
+    mkdir -p "$MONGO_DUMP_DIR"
+    rm -rf "${MONGO_DUMP_DIR:?}"/*
+
+    if docker exec "$MONGO_CONTAINER" mongodump \
+        --out /tmp/mongodump \
+        --quiet 2>&1 | tee -a "$LOG"; then
+
+        docker cp "${MONGO_CONTAINER}:/tmp/mongodump/." "$MONGO_DUMP_DIR/"
+        docker exec "$MONGO_CONTAINER" rm -rf /tmp/mongodump
+        log "mongodump SUCCESS → ${MONGO_DUMP_DIR}"
+    else
+        log "mongodump FAILED — continuing with restic (mongo dump may be stale)"
+    fi
+fi
+
 # ── Пути для бэкапа ───────────────────────────────────────────────
 # Настроить под реальную инфраструктуру клиента
+# ВНИМАНИЕ: /var/lib/mongodb НЕ в списке — бэкапится через mongodump выше
 BACKUP_PATHS=(
     "/etc"
     "/home"
@@ -168,7 +192,8 @@ BACKUP_PATHS=(
     "/srv"
     "/opt"
     "/var/www"
-    "/var/lib/postgresql"  # Закомментировать, если нет PostgreSQL
+    "/var/lib/postgresql"
+    "$MONGO_DUMP_DIR"
 )
 
 # Фильтр существующих путей

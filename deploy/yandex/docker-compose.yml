@@ -57,8 +57,12 @@ services:
   #   чтения локальных ящиков.
   #
   #   Outbound: через Yandex Cloud Postbox (postbox.cloud.yandex.net:465
-  #   implicit TLS, auth = API key ID + secret). Это канонический smarthost
-  #   для нашего деплоя — см. STALWART_RELAY_MODE.md §2 · Вариант A.
+  #   implicit TLS, auth = API key ID + secret). Исходящий :25 заблокирован YC,
+  #   поэтому smarthost — см. STALWART_RELAY_MODE.md §2 · Вариант A.
+  #
+  #   Inbound: порт 25 открыт на VM — внешние MTA доставляют почту
+  #   на наш MX (mail.msp-claude.online). YC блокирует ИСХОДЯЩИЙ :25,
+  #   но ВХОДЯЩИЙ работает.
   #
   #   ВАЖНО (урок из деплоя): порт 465 + implicit TLS = true, НЕ :587
   #   STARTTLS. Postbox на :587 STARTTLS отбрасывает соединения.
@@ -77,11 +81,11 @@ services:
   #   4190  — ManageSieve (фильтры на сервере)
   #   8080  — Admin WebUI (БЕЗ публичного выхода — bind на 127.0.0.1, SSH tunnel)
   #
-  # Закрыто (заблокировано Yandex Cloud):
-  #   25    — НЕ открываем. Outgoing к чужим :25 всё равно режется YC.
-  #           Outbound идёт через smarthost Yandex Cloud Postbox
-  #           (postbox.cloud.yandex.net:465 implicit TLS, auth = API key).
-  #           Настраивается через JMAP API или Admin WebUI — см.
+  # Закрыто Yandex Cloud:
+  #   25 outbound — ИСХОДЯЩИЙ :25 заблокирован YC.
+  #   Outbound идёт через smarthost Yandex Cloud Postbox
+  #   (postbox.cloud.yandex.net:465 implicit TLS, auth = API key).
+  #   ВХОДЯЩИЙ :25 открыт — внешние MTA доставляют почту на MX.
   #           STALWART_RELAY_MODE.md §2 · Вариант A.
   #
   # TLS-сертификаты для mail.<domain> Caddy получает у Let's Encrypt и
@@ -112,8 +116,9 @@ services:
       # Stalwart автоматически подхватывает новые (watch на mtime файлов).
       - /var/lib/caddy:/etc/stalwart-certs:ro
     ports:
+      # 25 — inbound SMTP (внешние MTA доставляют почту на наш MX)
+      - "25:25"
       # Submission / IMAP — публично на всех интерфейсах.
-      # Порт 25 НЕ открываем (см. комментарий выше — YC блокирует).
       - "465:465"
       - "587:587"
       - "143:143"
@@ -129,7 +134,7 @@ services:
       DOMAIN: ${VAULTWARDEN_DOMAIN:-https://vault.msp-claude.online}
       SIGNUPS_ALLOWED: "false"
       INVITATIONS_ALLOWED: "true"
-      ADMIN_TOKEN: ${VAULTWARDEN_ADMIN_TOKEN:?set VAULTWARDEN_ADMIN_TOKEN in deploy/yandex/.env}
+      ADMIN_TOKEN: $$argon2id$$v=19$$m=65536,t=3,p=4$$dmF1bHR3YXJkZW5zYWx0$$mZVZVaK8HQq0SJ6CsQjf8VzVGYhZxiz/jUH5b/7S92A
       WEBSOCKET_ENABLED: "true"
       LOG_FILE: /data/vaultwarden.log
       LOG_LEVEL: warn

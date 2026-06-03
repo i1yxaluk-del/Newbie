@@ -99,8 +99,12 @@ mail.{$MSP_DOMAIN} {
         # Запрет MIME-sniffing — браузер не угадывает тип файла
         X-Content-Type-Options "nosniff"
 
-        # Анти-кликджекинг — сайт нельзя встроить в iframe
-        X-Frame-Options "DENY"
+        # Анти-кликджекинг — SAMEORIGIN позволяет iframe с того же домена
+        # (нужно для /admin/landing-edit preview), но блокирует сторонние
+        X-Frame-Options "SAMEORIGIN"
+
+        # CSP: frame-ancestors 'self' — аналог X-Frame-Options для современных браузеров
+        Content-Security-Policy "frame-ancestors 'self';"
 
         # Контроль реферера — отправляем только для same-origin
         Referrer-Policy "strict-origin-when-cross-origin"
@@ -177,8 +181,9 @@ vault.{$MSP_DOMAIN} {
 
 # ─── Grafana (monitoring dashboards) ───────────────────────────
 # Container: grafana in msp-monitoring network (127.0.0.1:3000)
-# DNS: mon.<domain> A → <IP>
-mon.msp-claude.online {
+# DNS: mon.<domain> A → <IP> должна существовать ДО убирания tls internal
+mon.{$MSP_DOMAIN} {
+
     encode gzip
 
     header {

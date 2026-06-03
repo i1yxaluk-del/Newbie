@@ -53,10 +53,9 @@ function Row({ label, items, gridCols }) {
                 fontWeight: 500,
                 letterSpacing: ".04em",
                 textAlign: "center",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                maxWidth: "100%",
+                lineHeight: 1.3,
+                wordBreak: "break-word",
+                hyphens: "auto",
               }}
             >
               {it.label}

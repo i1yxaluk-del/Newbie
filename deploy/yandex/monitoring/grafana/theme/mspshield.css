@@ -1,0 +1,308 @@
+/* ═══════════════════════════════════════════════════════════════════
+MSPShield — Grafana Light Theme Override
+═══════════════════════════════════════════════════════════════════
+Подгоняет Grafana 10.4 под фирстиль сайта msp-claude.online:
+  - Кремовый фон #f7f4ee (как тело сайта)
+  - Лесной зелёный #1b4d3e (бренд, кнопки, акценты)
+  - Амбер #b45309 (предупреждения)
+  - Stone #78746a (вторичный текст)
+  - Cormorant Garamond — заголовки панелей и dashboard
+  - DM Sans — body, лейблы, легенды
+  - DM Mono — числа в Stat-панелях
+
+Как подключается:
+  В docker-compose.yml монтируется в
+    /usr/share/grafana/public/build/mspshield/mspshield.css
+  Затем в Grafana 10 через [server] static_root_path + index.html
+  инжектится <link rel="stylesheet" href="public/build/mspshield/mspshield.css">
+
+Для production-grade подхода — упаковать в Grafana plugin (TypeScript),
+но этот CSS hack даёт результат через 5 минут после docker compose up.
+═══════════════════════════════════════════════════════════════════ */
+
+/* ─── 1. Импорт шрифтов с Google Fonts ─────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=DM+Sans:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap');
+
+/* ─── 2. Переопределение CSS-переменных Grafana (light theme) ──── */
+/* Grafana 10 использует --color-background-canvas, --color-text-primary
+и т.п. — список см. в public/build/grafana.app.css */
+
+:root,
+.theme-light,
+.theme-light body {
+ /* ── Фоны ─────────────────────────────────────────────────── */
+ --color-background-canvas: #f7f4ee;          /* cream — общий фон страницы */
+ --color-background-primary: #ffffff;          /* белый — карточки/панели */
+ --color-background-secondary: #ede9df;        /* cream-deep — вторичные блоки */
+ --color-background-elevated: #ffffff;
+ --color-background-hover: rgba(27, 77, 62, 0.06);
+ --color-background-strong: #ede9df;
+
+ /* ── Текст ────────────────────────────────────────────────── */
+ --color-text-primary: #1a1815;                /* ink — основной текст */
+ --color-text-secondary: #2c2a26;              /* ink-2 — заголовки */
+ --color-text-disabled: #a8a49c;               /* stone-lt — отключённый */
+ --color-text-link: #1b4d3e;                   /* forest — ссылки */
+ --color-text-link-hover: #2d6b58;             /* forest-lt — hover */
+ --color-text-maxContrast: #1a1815;
+
+ /* ── Бренд / primary ──────────────────────────────────────── */
+ --color-primary: #1b4d3e;                     /* forest */
+ --color-primary-text: #ffffff;
+ --color-primary-text-on-strong: #ffffff;
+ --color-primary-shade: #143d31;               /* darker forest */
+ --color-primary-tint: #2d6b58;                /* forest-lt */
+ --color-primary-transparent: rgba(27, 77, 62, 0.08);
+ --color-primary-border-transparent: rgba(27, 77, 62, 0.18);
+
+ /* ── Secondary (stone) ────────────────────────────────────── */
+ --color-secondary: #78746a;
+ --color-secondary-text: #ffffff;
+ --color-secondary-shade: #5e5b53;
+ --color-secondary-tint: #a8a49c;
+ --color-secondary-transparent: rgba(120, 116, 106, 0.08);
+
+ /* ── Warning / amber ──────────────────────────────────────── */
+ --color-warning: #b45309;
+ --color-warning-text: #ffffff;
+ --color-warning-shade: #92400e;
+ --color-warning-tint: #d97706;
+ --color-warning-transparent: rgba(180, 83, 9, 0.10);
+
+ /* ── Error ────────────────────────────────────────────────── */
+ --color-error: #b91c1c;
+ --color-error-text: #ffffff;
+ --color-error-shade: #991b1b;
+ --color-error-tint: #dc2626;
+ --color-error-transparent: rgba(185, 28, 28, 0.10);
+
+ /* ── Success ──────────────────────────────────────────────── */
+ --color-success: #1b4d3e;                     /* forest = success */
+ --color-success-text: #ffffff;
+ --color-success-shade: #143d31;
+ --color-success-tint: #2d6b58;
+ --color-success-transparent: rgba(27, 77, 62, 0.10);
+
+ /* ── Info ─────────────────────────────────────────────────── */
+ --color-info: #1b4d3e;
+ --color-info-text: #ffffff;
+ --color-info-transparent: rgba(27, 77, 62, 0.08);
+
+ /* ── Границы ──────────────────────────────────────────────── */
+ --color-border-weak: rgba(26, 24, 21, 0.06);  /* rule-lt */
+ --color-border-medium: rgba(26, 24, 21, 0.12); /* rule */
+ --color-border-strong: rgba(26, 24, 21, 0.18); /* forest-bdr эквивалент */
+
+ /* ── Action (hover, focus) ────────────────────────────────── */
+ --color-action-hover: rgba(27, 77, 62, 0.06);
+ --color-action-focus: rgba(27, 77, 62, 0.12);
+ --color-action-selected: rgba(27, 77, 62, 0.08);
+
+ /* ── Радиусы и тени ───────────────────────────────────────── */
+ --border-radius-default: 4px;
+ --border-radius-pill: 9999px;
+ --shadow-z1: 0 1px 2px rgba(26, 24, 21, 0.06);
+ --shadow-z2: 0 2px 4px rgba(26, 24, 21, 0.08);
+ --shadow-z3: 0 4px 12px rgba(26, 24, 21, 0.10);
+
+ /* ── Шрифты ───────────────────────────────────────────────── */
+ --font-family-sans: "DM Sans", system-ui, -apple-system, sans-serif;
+ --font-family-display: "Cormorant Garamond", Georgia, serif;
+ --font-family-mono: "DM Mono", "JetBrains Mono", "Courier New", monospace;
+}
+
+/* ─── 3. Глобальная типографика ─────────────────────────────────── */
+body,
+.theme-light,
+.theme-light body {
+ background: #f7f4ee !important;
+ color: #1a1815 !important;
+ font-family: "DM Sans", system-ui, sans-serif !important;
+ font-feature-settings: "cv11", "ss01";
+ -webkit-font-smoothing: antialiased;
+}
+
+/* Заголовки панелей и dashboard — Cormorant Garamond */
+.panel-title,
+.panel-title-text,
+.dashboard-header h1,
+.dashboard-header .navbar-page-btn,
+.scroll-canvas h1,
+.scroll-canvas h2,
+h1.page-heading,
+[data-testid="header-container"] h1 {
+ font-family: "Cormorant Garamond", Georgia, serif !important;
+ font-weight: 500 !important;
+ letter-spacing: -0.01em !important;
+ color: #1a1815 !important;
+}
+
+/* Числа в Stat-панелях — DM Mono */
+.panel-content .singlestat-panel-value,
+.panel-content [class*="big-value-text"],
+.panel-content [class*="VizValue"],
+[data-testid="stat-panel-value"] {
+ font-family: "DM Mono", "Courier New", monospace !important;
+ font-weight: 500 !important;
+ letter-spacing: -0.02em !important;
+}
+
+/* ─── 4. Сайдбар (навигация слева) ──────────────────────────────── */
+[data-testid="navbarmenu"],
+[data-testid="megamenu"],
+.sidemenu {
+ background: #ede9df !important;              /* cream-deep */
+ border-right: 1px solid rgba(26, 24, 21, 0.06) !important;
+}
+
+[data-testid="navbarmenu"] a,
+.sidemenu a {
+ color: #2c2a26 !important;
+}
+
+[data-testid="navbarmenu"] a:hover,
+.sidemenu a:hover {
+ background: rgba(27, 77, 62, 0.06) !important;
+ color: #1b4d3e !important;
+}
+
+/* ─── 5. Топбар (header) ────────────────────────────────────────── */
+.page-toolbar,
+[data-testid="data-testid TopBar"],
+.dashnav,
+.navbar {
+ background: #f7f4ee !important;
+ border-bottom: 1px solid rgba(26, 24, 21, 0.06) !important;
+ box-shadow: none !important;
+}
+
+/* ─── 6. Панели (карточки с графиками) ──────────────────────────── */
+.panel-container,
+[data-testid="panel"],
+.dashboard-row__inner {
+ background: #ffffff !important;
+ border: 1px solid rgba(26, 24, 21, 0.06) !important;
+ border-radius: 4px !important;
+ box-shadow: 0 1px 2px rgba(26, 24, 21, 0.04) !important;
+}
+
+.panel-container:hover {
+ border-color: rgba(26, 24, 21, 0.12) !important;
+ box-shadow: 0 2px 4px rgba(26, 24, 21, 0.06) !important;
+}
+
+/* ─── 7. Кнопки ─────────────────────────────────────────────────── */
+.btn-primary,
+button[data-testid="data-testid Confirm Modal Danger Button"],
+[type="submit"].btn {
+ background: #1b4d3e !important;
+ color: #ffffff !important;
+ border: 1px solid #1b4d3e !important;
+ border-radius: 4px !important;
+ font-family: "DM Sans", sans-serif !important;
+ font-weight: 500 !important;
+ box-shadow: none !important;
+}
+
+.btn-primary:hover,
+[type="submit"].btn:hover {
+ background: #2d6b58 !important;
+ border-color: #2d6b58 !important;
+}
+
+.btn-secondary {
+ background: #ffffff !important;
+ color: #1a1815 !important;
+ border: 1px solid rgba(26, 24, 21, 0.12) !important;
+}
+
+.btn-secondary:hover {
+ background: rgba(27, 77, 62, 0.06) !important;
+ border-color: #1b4d3e !important;
+ color: #1b4d3e !important;
+}
+
+/* ─── 8. Инпуты ─────────────────────────────────────────────────── */
+input,
+textarea,
+select,
+.input-wrapper {
+ background: #ffffff !important;
+ color: #1a1815 !important;
+ border: 1px solid rgba(26, 24, 21, 0.12) !important;
+ border-radius: 4px !important;
+ font-family: "DM Sans", sans-serif !important;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+ border-color: #1b4d3e !important;
+ box-shadow: 0 0 0 2px rgba(27, 77, 62, 0.18) !important;
+ outline: none !important;
+}
+
+/* ─── 9. Таблицы ────────────────────────────────────────────────── */
+.css-table,
+[data-testid="table"] {
+ background: #ffffff !important;
+ color: #1a1815 !important;
+ font-family: "DM Sans", sans-serif !important;
+}
+
+th {
+ background: #ede9df !important;
+ color: #2c2a26 !important;
+ font-weight: 500 !important;
+ border-bottom: 1px solid rgba(26, 24, 21, 0.12) !important;
+}
+
+tr:hover td {
+ background: rgba(27, 77, 62, 0.04) !important;
+}
+
+/* ─── 10. Tooltip ───────────────────────────────────────────────── */
+.graph-tooltip,
+[data-testid="data-testid TooltipContent"],
+[role="tooltip"] {
+ background: #1a1815 !important;
+ color: #f7f4ee !important;
+ border: none !important;
+ border-radius: 4px !important;
+ font-family: "DM Sans", sans-serif !important;
+ box-shadow: 0 4px 12px rgba(26, 24, 21, 0.18) !important;
+}
+
+/* ─── 11. Скрыть Grafana branding (логотип/footer) ──────────────── */
+.sidemenu__logo,
+[aria-label="Home"]:has(svg),
+.footer {
+ /* Заменяется на MSPShield лого через grafana.ini (white_labeling) */
+}
+
+/* Убираем "Open source" badge и upgrade-подсказки */
+[aria-label="Upgrade"],
+.upgrade-box {
+ display: none !important;
+}
+
+/* ─── 12. Кастомные классы для дашбордов ────────────────────────── */
+/* Серии графиков по умолчанию используют эту палитру (см. JSON):
+#1b4d3e → forest (UP / OK / primary metric)
+#2d6b58 → forest-lt (secondary metric)
+#b45309 → amber (warning / disk usage)
+#78746a → stone (informational)
+#b91c1c → red (DOWN / error)
+#1a1815 → ink (background series)
+*/
+
+/* ─── 13. Print / экспорт PDF ───────────────────────────────────── */
+@media print {
+ body {
+     background: #ffffff !important;
+ }
+ .panel-container {
+     box-shadow: none !important;
+     border: 1px solid rgba(26, 24, 21, 0.18) !important;
+ }
+}

@@ -177,8 +177,8 @@ vault.{$MSP_DOMAIN} {
 
 # ─── Grafana (monitoring dashboards) ───────────────────────────
 # Container: grafana in msp-monitoring network (127.0.0.1:3000)
-# DNS: grafana.<domain> A → <IP>
-grafana.msp-claude.online {
+# DNS: mon.<domain> A → <IP>
+mon.msp-claude.online {
     encode gzip
 
     header {

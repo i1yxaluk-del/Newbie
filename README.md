@@ -62,7 +62,7 @@
 | **VPN** | AmneziaWG, UDP/443, обфускация против РКН-DPI | [`technical/0_Common/amneziawg/`](technical/0_Common/amneziawg/) |
 | **Мониторинг** | Prometheus + Grafana + Alertmanager (+ Loki Silver+, Wazuh Gold) | [`technical/0_Common/monitoring/`](technical/0_Common/monitoring/) |
 | **Бэкап** | restic → Yandex Object Storage (AES-256) | [`technical/0_Common/ansible/playbooks/backup_install.yml`](technical/0_Common/ansible/playbooks/backup_install.yml) |
-| **Mail (исходящий)** | Stalwart → Yandex Cloud Postbox (587 STARTTLS) | [`deploy/yandex/STALWART_RELAY_MODE.md`](deploy/yandex/STALWART_RELAY_MODE.md) |
+| **Mail (исходящий)** | Yandex Cloud Postbox (MSA :465, implicit TLS) | [`deploy/yandex/README.md`](deploy/yandex/README.md) |
 | **Secrets** | Vaultwarden (self-hosted, бесплатный) | [`deploy/vaultwarden/`](deploy/vaultwarden/) |
 | **CRM** | Kaiten (REST API) | [`docs/KAITEN_SETUP.md`](docs/KAITEN_SETUP.md) |
 | **Captcha** | Yandex SmartCaptcha (опционально) | `SMARTCAPTCHA_SERVER_KEY` в [`backend/.env.example`](backend/.env.example) |
@@ -115,22 +115,22 @@ Newbie/
 │   └── 3_Gold/            Gold SOPs (SIEM/Wazuh)
 │
 └── docs/
-    ├── deployment/        развёртывание (A: local, B: prod, C: tenant)
-    ├── training/          12-недельная программа Junior
-    ├── runbooks/          R-01..R-11 на инциденты
-    ├── checklists/        weekly / monthly / quarterly
-    ├── onboarding/        приём нового клиента (день 1–7)
-    ├── sales/             воронка, BANT-Q, email-шаблоны
-    ├── landing/           SEO, A/B, blog-план
-    ├── hiring/            JD + screening + test task + interview
-    ├── roadmap/           Этап 4: 12 спринтов
-    ├── audit/             исторические отчёты (v4.1_inventory, v4.2, v4.3, v4.4)
-    ├── LANDING_ADMIN_GUIDE.md  ← про сайт (не про клиентов)
-    ├── EDITING.md         редактирование контента лендинга
-    ├── KAITEN_SETUP.md    настройка CRM
-    ├── MAX_SETUP.md       MAX-мессенджер для алертов
-    ├── COMPLIANCE.md      152-ФЗ + импортозамещение
-    └── post_mortem_template.md
+├── deployment/        развёртывание (A: local, B: prod, C: tenant)
+├── training/          12-недельная программа Junior
+├── runbooks/          R-01..R-11 на инциденты
+├── checklists/        weekly / monthly / quarterly
+├── onboarding/        приём нового клиента (день 1–7)
+├── sales/             воронка, BANT-Q, email-шаблоны
+├── landing/           SEO, A/B, blog-план
+├── hiring/            JD + screening + test task + interview
+├── roadmap/           Этап 4: 12 спринтов
+├── audit/             исторические отчёты (v4.1_inventory, v4.2, v4.3, v4.4, v5.4)
+├── LANDING_ADMIN_GUIDE.md  ← про сайт (не про клиентов)
+├── EDITING.md         редактирование контента лендинга
+├── KAITEN_SETUP.md    настройка CRM
+├── MAX_SETUP.md       MAX-мессенджер для алертов
+├── COMPLIANCE.md      152-ФЗ + импортозамещение
+└── post_mortem_template.md
 ```
 
 ---
@@ -139,9 +139,11 @@ Newbie/
 
 См. [`CHANGELOG.md`](CHANGELOG.md). Последние крупные изменения:
 
+- **v5.4** — полный аудит проекта (60+ .md, 100 коммитов): truth-up CHANGELOG/README, deprecation-баннер на `STALWART_RELAY_MODE.md`, audit trail в [`docs/audit/v5.4_audit_report.md`](docs/audit/v5.4_audit_report.md).
+- **v5.3** — мониторинг-стек (Grafana dashboards + Prometheus rules + restic textfile collector), фикс Postbox `:587 STARTTLS` → `:465 implicit TLS`, training week 3-4, брендинг.
 - **v4.5** — рестрyктура навигации READMEs (1 канонический README на задачу).
 - **v4.4** — миграция WireGuard → **AmneziaWG** (UDP/443, обфускация против РКН-DPI).
-- **v4.3** — outbound mail через **Yandex Cloud Postbox** (587 STARTTLS).
+- **v4.3** — outbound mail через **Yandex Cloud Postbox** (MSA :465, implicit TLS).
 - **v4.2** — домен **`msp-claude.online`**, 3 канонических ящика `admin@/sales@/alert@`.
 - **v4.1** — материализация 53 артефактов Марафона 3.1–3.5 (см. [`docs/audit/v4.1_inventory.md`](docs/audit/v4.1_inventory.md)).
 

@@ -32,7 +32,7 @@
     { "icon": "fileserver", "label": "Файловые шары" },
     { "icon": "database", "label": "PostgreSQL · MS SQL" },
     { "icon": "web", "label": "Сайт · API" },
-    { "icon": "shield-lock", "label": "Защищённый канал управления" },
+    { "icon": "shield-lock", "label": "Защищённый канал" },
     { "icon": "more", "label": "И другие" }
   ],
   "toolsLabel": "Чем обслуживаем",
@@ -44,7 +44,7 @@
     { "icon": "grafana", "kind": "oss", "label": "Grafana" },
     { "icon": "wazuh", "kind": "oss", "label": "Wazuh" },
     { "icon": "kaspersky", "kind": "ru", "label": "Kaspersky" },
-    { "icon": "cloud", "kind": "service", "label": "Распределённое облачное хранилище" },
+    { "icon": "cloud", "kind": "service", "label": "Облачное хранилище РФ" },
     { "icon": "ansible", "kind": "oss", "label": "Ansible" },
     { "icon": "telegram", "kind": "service", "label": "Telegram" },
     { "icon": "max", "kind": "ru", "label": "MAX" },

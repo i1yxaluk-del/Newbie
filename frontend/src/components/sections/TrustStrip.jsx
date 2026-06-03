@@ -47,7 +47,7 @@ function Row({ label, items, gridCols }) {
             </div>
             <div
               style={{
-                fontFamily: "var(--fm)",
+                fontFamily: "var(--fb)",
                 fontSize: 10.5,
                 color: "var(--stone)",
                 fontWeight: 500,

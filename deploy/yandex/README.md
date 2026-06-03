@@ -383,18 +383,20 @@ GF_SMTP_FROM_ADDRESS=alert@msp-claude.online
 </global>
 ```
 
-### 8.3. Alertmanager → Postbox (email для критических алёртов)
+### 8.3. Alertmanager → Stalwart :25 (email для всех алёртов)
 
-Alertmanager отправляет email **напрямую через Postbox** (как Grafana),
-т.к. работает в сети `msp-monitoring`. Конфиг в
-`deploy/yandex/monitoring/alertmanager/alertmanager.yml`:
+Alertmanager отправляет email **через внутренний Stalwart** (`stalwart:25`),
+т.к. AM v0.27 не поддерживает implicit TLS (Postbox :465 требует implicit TLS).
+AM подключён к обеим сетям (`msp-monitoring` + `msp_default`).
+Конфиг в `deploy/yandex/monitoring/alertmanager/alertmanager.yml`:
 ```yaml
 global:
-  smtp_smarthost: "postbox.cloud.yandex.net:465"
+  smtp_smarthost: "stalwart:25"
   smtp_from: "alert@msp-claude.online"
-  smtp_auth_username: "<postbox-api-key-id>"
-  smtp_auth_password: "<postbox-api-key-secret>"
-  smtp_require_tls: true
+  smtp_hello: "msp-claude.online"
+  smtp_auth_username: "alert@msp-claude.online"
+  smtp_auth_password: "<alert-password>"
+  smtp_require_tls: false
 ```
 
 ---
@@ -573,16 +575,17 @@ Necoray не создаёт TUN-адаптер, AWG работает через 
 **Профилактика:** не использовать TUN-клиенты на Windows-станции совместно
 с AmneziaWG на том же endpoint.
 
-### 10.0.10. Monitoring-стек в отдельной сети — SMTP через Postbox direct
+### 10.0.10. Monitoring-стек в отдельной сети — Alertmanager через Stalwart :25
 
-**Симптом:** Grafana/Alertmanager не могут отправить email через `stalwart:587`.
+**Симптом:** Grafana не может отправить email через `stalwart:587`, Alertmanager не может через `postbox:465`.
 
 **Причина:** мониторинг-стек развёрнут из отдельного compose-файла
 (`/opt/msp-monitoring/docker-compose.yml`) в сети `msp-monitoring`
 (172.20.0.0/24). Stalwart работает в сети `msp_default` — сети не связаны.
 
-**Фикс:** Grafana и Alertmanager отправляют email **напрямую через Postbox**
-(`postbox.cloud.yandex.net:465`), минуя Stalwart.
+**Фикс:**
+- Grafana отправляет email **напрямую через Postbox** (`postbox.cloud.yandex.net:465`).
+- Alertmanager подключён к **обеим сетям** (`msp-monitoring` + `msp_default`) и отправляет email через **Stalwart :25** (`stalwart:25`, `smtp_require_tls: false`), т.к. AM v0.27 не поддерживает implicit TLS.
 
 ### 10.0.11. UFW зависает при множественных вызовах из SSH
 
@@ -597,7 +600,176 @@ Necoray не создаёт TUN-адаптер, AWG работает через 
 2. Удалять правила напрямую через iptables: `sudo iptables -D ufw-user-input -p tcp --dport N -j ACCEPT`
 3. Не использовать `ufw delete` в неинтерактивных SSH-скриптах
 
+### 10.0.12. Alertmanager v0.27 не поддерживает implicit TLS на SMTP
+
+**Симптом:** Alertmanager не может отправить email через `postbox:465` с `smtp_require_tls: true`.
+
+**Причина:** Alertmanager v0.27内置 SMTP client не поддерживает implicit TLS (STARTTLS только). Порт 465 требует implicit TLS → handshake fails.
+
+**Фикс:** Подключить Alertmanager к обеим сетям (`msp-monitoring` + `msp_default`) и отправлять email через Stalwart `:25` без TLS:
+```yaml
+smtp_smarthost: "stalwart:25"
+smtp_require_tls: false
+smtp_hello: "msp-claude.online"
+```
+`smtp_hello` обязателен — Stalwart отклоняет container hostname как EHLO domain.
+
+### 10.0.13. Alertmanager email в spam — нет text/plain части
+
+**Симптом:** Alertmanager email приходит, но Gmail/Outlook кладёт в spam.
+
+**Причина:** Alertmanager по умолчанию отправляет только HTML (`html:` template). Большинство spam-фильтров penalize HTML-only email без text/plain альтернативы.
+
+**Фикс:** Добавить `text:` template в email_configs и anti-spam заголовки:
+```yaml
+email_configs:
+  - html: '{{ template "mspshield.alert.html" . }}'
+    text: '{{ template "mspshield.alert.text" . }}'
+    headers:
+      List-ID: "MSPShield Alerts <alerts.msp-claude.online>"
+      X-Mailer: "MSPShield Alertmanager"
+      X-Priority: '{{ if eq .Status "firing" }}1{{ else }}3{{ end }}'
+```
+
+### 10.0.14. Prometheus status-history панель: "Data does not have a time field"
+
+**Симптом:** Grafana `status-history` панель показывает ошибку "Data does not have a time field".
+
+**Причина:** `status-history` ожидает range data с time-полем. Gauge-метрики с подзапросами типа `max_over_time(...)[1d:1h]` возвращают instant vector без time series.
+
+**Фикс:** Использовать `state-timeline` тип панели вместо `status-history`. `state-timeline` работает с gauge-метриками напрямую: `restic_backup_success{repo="mspshield-prod"}` с `range: true` и `spanNulls: true`.
+
+### 10.0.15. node-exporter textfile collector — метрики restic не видны Prometheus
+
+**Симптом:** `restic_backup_*` метрики не появляются в Prometheus, хотя `.prom` файл существует на хосте.
+
+**Причина:** node-exporter запущен без флага `--collector.textfile.directory` и без volume mount для директории с `.prom` файлами.
+
+**Фикс:**
+1. Добавить volume: `/var/lib/node_exporter/textfile_collector:/var/lib/node_exporter/textfile_collector:ro`
+2. Добавить command flag: `--collector.textfile.directory=/var/lib/node_exporter/textfile_collector`
+3. Обновить backup-скрипт чтобы писал в эту директорию
+
+### 10.0.16. Restic stale lock блокирует следующий бэкап
+
+**Симптом:** `restic forget --prune` или следующий `restic backup` падает с "repository is already locked by PID ... lock was created at ... ago".
+
+**Причина:** Предыдущий запуск restic был прерван (OOM, timeout, manual kill) и не снял lock.
+
+**Фикс:** `sudo bash -c 'source /etc/restic/env.sh && restic unlock'`
+**Профилактика:** Добавить `restic unlock` в начало backup-скрипта или использовать `--cleanup-cache`.
+
 ---
+
+## 10.M. Мониторинг — что мониторится и как
+
+### Архитектура
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ VM node-01 (93.77.184.219 / 10.9.0.1 via AWG)                  │
+│                                                                  │
+│  ┌─── msp_default сеть ──────────────────────────────────────┐  │
+│  │  mongo:7.0  backend(FastAPI)  stalwart:0.16  vaultwarden  │  │
+│  │  caddy(host)  blackbox-exporter                            │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  ┌─── msp-monitoring сеть (172.20.0.0/24) ───────────────────┐  │
+│  │  prometheus:2.51 (172.20.0.10)                             │  │
+│  │  alertmanager:0.27 (172.20.0.11 + msp_default)            │  │
+│  │  grafana:10.4 (172.20.0.12)                               │  │
+│  │  node-exporter:1.7 (172.20.0.13)                           │  │
+│  │  cadvisor:0.51 (172.20.0.14)                               │  │
+│  │  blackbox-exporter:0.24 (172.20.0.15 + msp_default)        │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  restic-backup (systemd timer, 02:00 daily)                      │
+│  → S3: mspshield-backups-prod                                    │
+│  → metrics via node-exporter textfile                            │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Alert flow:**
+```
+Prometheus → Alertmanager → email (Stalwart :25 → Postbox → inbox)
+                          → webhook (backend /api/alerts/alertmanager → MAX/Telegram)
+```
+
+### Что мониторится
+
+| Категория | Метрики | Алёрты |
+|-----------|---------|--------|
+| **VM (host)** | CPU, RAM, disk, network via node-exporter | NodeDown P1, HighCPU P2, LowDisk P2, HighMemory P2 |
+| **Docker** | container CPU/RAM/restarts via cAdvisor | ContainerDown P1, ContainerRestartLoop P2, ContainerHighMemory P2 |
+| **Сайт** | HTTP probes (blackbox) | SiteDown P1, BackendHealthFail P1, SiteSlowResponse P3 |
+| **Почта** | IMAP :993, SMTP :465 probes | StalwartImapDown P1, StalwartSmtpDown P1 |
+| **Сервисы** | HTTP health probes (internal) | VaultwardenDown P1, GrafanaDown P2, ServiceSlowResponse P3 |
+| **SSL** | cert expiry from blackbox | SSLExpiringSoon P2, SSLExpired P1 |
+| **Бэкапы** | restic_backup_success/timestamp/size via textfile | BackupFailed P1, BackupMissed24h P1, BackupSizeDropped P2, BackupInProgress P3 |
+| **Backend** | up, leads_rejected_total | HighErrorRate5xx P3 |
+
+### Grafana дашборды
+
+| UID | Название | Содержание |
+|-----|-----------|-----------|
+| `mspshield-overview` | MSPShield Overview | Статусы, counters, dropdown к поддашбордам |
+| `msp-vm` | MSPShield VM | CPU, RAM, disk, network (node-exporter) |
+| `msp-containers` | MSPShield Containers | CPU/RAM/restarts по контейнерам (cAdvisor) |
+| `msp-services` | MSPShield Services | HTTP/SMTP probes, SSL expiry (blackbox) |
+| `mspshield-backups` | MSPShield Backups | Статус, размер, возраст, retention, 7-дневная история (restic textfile) |
+
+### Alert routing
+
+| Severity | group_wait | repeat_interval | Каналы |
+|----------|------------|-----------------|--------|
+| P1 | 10s | 1h | email + webhook |
+| P2 | 1m | 4h | email + webhook |
+| P3 | 1m | 4h | email + webhook |
+
+P1 ингибирует P2/P3 с тем же alertname+instance.
+
+### Restic бэкап
+
+**Пути:** `/etc`, `/home`, `/root`, `/opt`, `/var/www`, `/var/lib/docker/volumes`, `/var/lib/caddy`
+
+**Retention:** daily 7, weekly 4, monthly 6, yearly 1
+
+**Verify:** каждую неделю (воскресенье, в backup-скрипте)
+
+**Метрики:** `restic_backup_success{host="node-01",repo="mspshield-prod"}`, `restic_backup_timestamp_seconds`, `restic_backup_size_bytes`
+
+**Runbooks:** `deploy/yandex/monitoring/runbooks/R-*.md` — 22 файла, ссылки из алёртов ведут на GitHub
+
+### Ключевые файлы мониторинга
+
+```
+deploy/yandex/monitoring/
+├── docker-compose.yml          # Все сервисы мониторинга
+├── .env                        # GF_ADMIN_PASSWORD, GF_SMTP_*
+├── prometheus/
+│   ├── prometheus.yml          # Scrape configs
+│   └── rules/
+│       ├── common.yml          # VM: NodeDown, HighCPU, LowDisk, HighMemory
+│       ├── containers.yml      # Docker: ContainerDown, RestartLoop, HighMem
+│       ├── site.yml            # HTTP: SiteDown, BackendDown, Slow, 5xx
+│       ├── services.yml        # Internal: Vaultwarden, Grafana, IMAP, SMTP, Slow
+│       ├── ssl.yml             # SSL: ExpiringSoon, Expired
+│       └── backups.yml         # Restic: Failed, Missed24h, SizeDropped, InProgress
+├── alertmanager/
+│   ├── alertmanager.yml        # Routing P1/P2/P3, SMTP via Stalwart :25
+│   └── templates/
+│       └── mspshield.tmpl       # HTML + text email template
+├── grafana/
+│   ├── dashboards/             # 5 JSON dashboards
+│   ├── provisioning/           # Datasource + dashboard auto-load
+│   ├── grafana.ini             # Custom settings
+│   └── theme/                  # MSPShield CSS override
+├── runbooks/                   # 22 runbook markdown files
+└── restic-exporter/
+    ├── run-backup.sh           # Cron wrapper with metrics
+    ├── restic-metrics.sh       # Textfile exporter
+    └── README.md               # Backup metrics documentation
+```
 
 ## 10.1. Caddy не получает сертификат
 
@@ -847,7 +1019,7 @@ ssh -L 8080:localhost:8080 -i "$env:USERPROFILE\.ssh\id_ed25519_yc" ubuntu@10.9.
 | 5 | **Сгенерировать DKIM-ключ** | Settings → Domains → msp-claude.online → Generate DKIM | ✅ Сделано |
 | 6 | **Прописать DNS TXT-записи** (SPF + DKIM + DMARC) у регистратора | Вне VM — Namecheap/Cloudflare DNS | ✅ Сделано |
 | 7 | **Настроить Grafana SMTP** — Postbox direct, :465 implicit TLS | `deploy/yandex/monitoring/.env` → `GF_SMTP_*` | ✅ Сделано |
-| 8 | **Настроить Alertmanager SMTP** — Postbox direct, :465 implicit TLS | `deploy/yandex/monitoring/alertmanager/alertmanager.yml` | ✅ Сделано |
+| 8 | **Настроить Alertmanager SMTP** — Stalwart :25 (AM v0.27 не поддерживает implicit TLS) | `deploy/yandex/monitoring/alertmanager/alertmanager.yml` | ✅ Сделано |
 | 9 | **Настроить Vaultwarden SMTP** — Postbox direct, :465 force_tls | `deploy/yandex/.env` → `SMTP_*` | ✅ Сделано |
 
 ### DNS TXT-записи (после DKIM из шага 5)
@@ -871,9 +1043,9 @@ TXT  _dmarc.msp-claude.online              v=DMARC1; p=quarantine; rua=mailto:ad
 | Сервис | SMTP сервер | Порт | TLS | Логин |
 |--------|-------------|------|-----|-------|
 | Grafana | postbox.cloud.yandex.net | 465 | implicit | API key ID |
-| Alertmanager | postbox.cloud.yandex.net | 465 | implicit | API key ID |
+| Alertmanager | stalwart (внутр.) | 25 | нет | alert@... |
 | Vaultwarden | postbox.cloud.yandex.net | 465 | force_tls | API key ID |
-| Backend (FastAPI) | stalwart (внутр.) | 587 | STARTTLS | alert@... |
+| Backend (FastAPI) | stalwart (внутр.) | 25 | нет | alert@... |
 
 ### Тест отправки
 
@@ -905,6 +1077,32 @@ print('SENT OK')
 - **Caddy docs:** https://caddyserver.com/docs/
 - **Yandex Cloud CLI:** https://yandex.cloud/ru/docs/cli/
 - **Let's Encrypt rate limits:** https://letsencrypt.org/docs/rate-limits/
+
+---
+
+## 15. Бэкапы — что бэкапится
+
+| Путь | Что внутри | Критичность |
+|------|-----------|-------------|
+| `/etc` | Конфиги ОС, systemd units, UFW rules, restic env | Высокая |
+| `/home` | Домашние директории пользователей | Средняя |
+| `/root` | Root home | Средняя |
+| `/opt` | `/opt/msp-monitoring/`, `/opt/msp/Newbie/deploy/`, `/opt/restic-scripts/` | Высокая |
+| `/var/www` | Лендинг `landing/` (React build) | Средняя |
+| `/var/lib/docker/volumes` | Все Docker volumes: mongo-data, stalwart-etc, stalwart-data, vaultwarden-data, grafana-data, prometheus-data, alertmanager-data | Критическая |
+| `/var/lib/caddy` | SSL-сертификаты Let's Encrypt (152K) — без них Caddy не стартанёт | Критическая |
+
+**Restic конфиг:** `/etc/restic/env.sh`, скрипт: `/opt/restic-scripts/backup.sh`
+
+**Запуск:** systemd timer `restic-backup.timer`, ежедневно 02:00 + random 5min
+
+**Retention:** daily 7, weekly 4, monthly 6, yearly 1
+
+**S3 bucket:** `mspshield-backups-prod` (Yandex Object Storage)
+
+**Verify:** каждую неделю (воскресенье, встроено в backup-скрипт)
+
+**Метрики:** `restic_backup_success/timestamp_seconds/size_bytes` через node-exporter textfile collector → Prometheus → Grafana dashboard `mspshield-backups`
 
 ---
 

@@ -3,7 +3,7 @@ import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
 import BackToTop from "@/components/BackToTop";
 import Hero from "@/components/sections/Hero";
-import TrustStrip from "@/components/sections/TrustStrip";
+import Stack from "@/components/sections/Stack";
 import Capabilities from "@/components/sections/Capabilities";
 import Pain from "@/components/sections/Pain";
 import Pricing from "@/components/sections/Pricing";
@@ -12,9 +12,9 @@ import FAQ from "@/components/sections/FAQ";
 import CTAForm from "@/components/sections/CTAForm";
 import FinalCta from "@/components/sections/FinalCta";
 
-// v6.2 — горизонтальный pane:
-//   Hero → Trust
-//   → Capabilities (Видим · Реагируем · Сохраняем · Стек) — горизонтальная карусель
+// v6.3 — Stack replaces TrustStrip:
+//   Hero → Stack (Что/Чем обслуживаем — tile cards)
+//   → Capabilities → Pricing → Process → Pain+Calc → FAQ → CTAForm
 //   → Pricing → Process → Pain+Calc → FAQ → CTAForm
 //   → FinalCta
 export default function Landing() {
@@ -23,7 +23,7 @@ export default function Landing() {
     <div ref={containerRef} data-testid="landing-root">
       <Nav />
       <Hero />
-      <TrustStrip />
+      <Stack />
       <Capabilities />
       <Pricing />
       <Process />

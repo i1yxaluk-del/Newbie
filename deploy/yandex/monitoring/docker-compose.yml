@@ -270,7 +270,7 @@ services:
       - "--config.file=/etc/blackbox_exporter/config.yml"
     ports:
       - "127.0.0.1:9115:9115"
-    networks: [monitoring]
+    networks: [monitoring, msp_default]
     deploy:
       resources:
         limits:   { memory: 64M }

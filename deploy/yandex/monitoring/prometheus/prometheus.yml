@@ -80,7 +80,6 @@ scrape_configs:
       module: [tcp_connect]
     static_configs:
       - targets:
-          - msp-claude.online:587
           - msp-claude.online:465
     relabel_configs:
       - source_labels: [__address__]
@@ -115,8 +114,6 @@ scrape_configs:
       module: [tcp_connect]
     static_configs:
       - targets:
-          # Stalwart IMAP порты
-          - msp-claude.online:143
           - msp-claude.online:993
     relabel_configs:
       - source_labels: [__address__]

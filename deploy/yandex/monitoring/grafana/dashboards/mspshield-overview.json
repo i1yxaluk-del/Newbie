@@ -17,7 +17,9 @@
 "fiscalYearStartMonth": 0,
 "graphTooltip": 1,
 "id": null,
-"links": [],
+"links": [
+    { "asDropdown": true, "icon": "external link", "includeVars": false, "keepTime": true, "tags": ["mspshield"], "targetBlank": true, "title": "Поддашборды", "type": "dashboards" }
+  ],
 "liveNow": false,
 "panels": [
   {
@@ -102,7 +104,8 @@
       }
     ],
     "title": "CPU Usage",
-    "type": "stat"
+    "type": "stat",
+    "links": [{ "title": "VM Ресурсы", "url": "/d/msp-vm", "targetBlank": true }]
   },
   {
     "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -145,7 +148,8 @@
       }
     ],
     "title": "Memory Usage",
-    "type": "stat"
+    "type": "stat",
+    "links": [{ "title": "VM Ресурсы", "url": "/d/msp-vm", "targetBlank": true }]
   },
   {
     "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -188,7 +192,8 @@
       }
     ],
     "title": "Disk / Usage",
-    "type": "stat"
+    "type": "stat",
+    "links": [{ "title": "VM Ресурсы", "url": "/d/msp-vm", "targetBlank": true }]
   },
   {
     "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -239,7 +244,8 @@
       }
     ],
     "title": "Container CPU (cAdvisor)",
-    "type": "timeseries"
+    "type": "timeseries",
+    "links": [{ "title": "Контейнеры", "url": "/d/msp-containers", "targetBlank": true }]
   },
   {
     "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -290,7 +296,8 @@
       }
     ],
     "title": "Container Memory (cAdvisor)",
-    "type": "timeseries"
+    "type": "timeseries",
+    "links": [{ "title": "Контейнеры", "url": "/d/msp-containers", "targetBlank": true }]
   },
   {
     "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -325,7 +332,8 @@
       }
     ],
     "title": "Blackbox HTTP Probes",
-    "type": "stat"
+    "type": "stat",
+    "links": [{ "title": "Сервисы", "url": "/d/msp-services", "targetBlank": true }]
   },
   {
     "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -366,7 +374,8 @@
       }
     ],
     "title": "SSL Certificate — Days Until Expiry",
-    "type": "stat"
+    "type": "stat",
+    "links": [{ "title": "Сервисы", "url": "/d/msp-services", "targetBlank": true }]
   }
 ],
 "refresh": "30s",

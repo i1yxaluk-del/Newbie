@@ -7,7 +7,6 @@
 ## День 1
 
 - [ ] Подписание NDA.
-- [ ] Выдача ноутбука.
 - [ ] Установка: Vaultwarden, WireGuard, VSCode, terminal (Alacritty/iTerm).
 - [ ] Создание аккаунтов: Kaiten, GitHub org, Telegram, Vaultwarden, Grafana read-only.
 - [ ] Welcome-звонок 30 минут с owner: expectations, контакты, «как просить помощь».

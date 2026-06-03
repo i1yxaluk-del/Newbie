@@ -13,10 +13,7 @@ import CTAForm from "@/components/sections/CTAForm";
 import FinalCta from "@/components/sections/FinalCta";
 
 // v6.3 — Stack replaces TrustStrip:
-//   Hero → Stack (Что/Чем обслуживаем — tile cards)
-//   → Capabilities → Pricing → Process → Pain+Calc → FAQ → CTAForm
-//   → Pricing → Process → Pain+Calc → FAQ → CTAForm
-//   → FinalCta
+//   Hero → Stack → Capabilities → Pricing → Process → Pain+Calc → FAQ → CTAForm → FinalCta
 export default function Landing() {
   const containerRef = useReveal();
   return (

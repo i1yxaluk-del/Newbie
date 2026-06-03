@@ -10,7 +10,7 @@ groups:
           summary: "{{ $labels.instance }} · сайт недоступен более 2 мин"
           host: "node-01.msp-claude.online"
           metric: 'probe_success = 0'
-          runbook: "docs/R-site-down"
+          runbook: "https://github.com/i1yxaluk-del/Newbie/blob/main/deploy/yandex/monitoring/runbooks/R-site-down.md"
 
       - alert: BackendHealthFail
         expr: up{job="mspshield-backend"} == 0
@@ -21,7 +21,7 @@ groups:
           summary: "backend · /metrics недоступен более 2 мин"
           host: "node-01.msp-claude.online"
           metric: 'up{job="mspshield-backend"} = 0'
-          runbook: "docs/R-backend-down"
+          runbook: "https://github.com/i1yxaluk-del/Newbie/blob/main/deploy/yandex/monitoring/runbooks/R-backend-down.md"
 
       - alert: SiteSlowResponse
         expr: probe_duration_seconds{job=~"blackbox-http.*"} > 5
@@ -32,7 +32,7 @@ groups:
           summary: "{{ $labels.instance }} · ответ >5s за 5 мин"
           host: "node-01.msp-claude.online"
           metric: 'probe_duration = {{ $value | printf "%.1f" }}s'
-          runbook: "docs/R-site-slow"
+          runbook: "https://github.com/i1yxaluk-del/Newbie/blob/main/deploy/yandex/monitoring/runbooks/R-site-slow.md"
 
       - alert: HighErrorRate5xx
         expr: rate(mspshield_leads_rejected_total[5m]) > 0.1
@@ -43,4 +43,4 @@ groups:
           summary: "backend · высокий процент отклонений лидов"
           host: "node-01.msp-claude.online"
           metric: 'rate = {{ $value | printf "%.2f" }}'
-          runbook: "docs/R-5xx"
+          runbook: "https://github.com/i1yxaluk-del/Newbie/blob/main/deploy/yandex/monitoring/runbooks/R-5xx.md"

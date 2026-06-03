@@ -55,7 +55,7 @@ Site:    https://msp-claude.online
 {{ if .Annotations.host }}<tr><td style="padding:3px 0;color:#525252;width:80px;vertical-align:top;">host:</td><td style="padding:3px 0;color:#d4d4d4;">{{ .Annotations.host }}</td></tr>{{ end }}
 <tr><td style="padding:3px 0;color:#525252;vertical-align:top;">severity:</td><td style="padding:3px 0;color:#d4d4d4;">{{ .Labels.severity }}</td></tr>
 {{ if .Annotations.metric }}<tr><td style="padding:3px 0;color:#525252;vertical-align:top;">metric:</td><td style="padding:3px 0;color:#d4d4d4;font-family:monospace;font-size:11px;">{{ .Annotations.metric }}</td></tr>{{ end }}
-{{ if .Annotations.runbook }}<tr><td style="padding:3px 0;color:#525252;vertical-align:top;">runbook:</td><td style="padding:3px 0;"><a href="https://msp-claude.online/{{ .Annotations.runbook }}" style="color:#3b82f6;text-decoration:none;">{{ .Annotations.runbook }}</a></td></tr>{{ end }}
+{{ if .Annotations.runbook }}<tr><td style="padding:3px 0;color:#525252;vertical-align:top;">runbook:</td><td style="padding:3px 0;"><a href="{{ .Annotations.runbook }}" style="color:#3b82f6;text-decoration:none;">{{ .Annotations.runbook }}</a></td></tr>{{ end }}
 <tr><td style="padding:3px 0;color:#525252;vertical-align:top;">started:</td><td style="padding:3px 0;color:#d4d4d4;">{{ .StartsAt.Format "02 Jan 15:04 MST" }}</td></tr>
 </table>
 

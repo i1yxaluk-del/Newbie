@@ -10,7 +10,7 @@ groups:
           summary: "node-01 · node_exporter недоступен более 3 мин"
           host: "node-01.msp-claude.online"
           metric: 'up{job="node"} = {{ $value }}'
-          runbook: "docs/R-node-down"
+          runbook: "https://github.com/i1yxaluk-del/Newbie/blob/main/deploy/yandex/monitoring/runbooks/R-node-down.md"
 
       - alert: HighCPU
         expr: 100 - (avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
@@ -21,7 +21,7 @@ groups:
           summary: "node-01 · CPU >90% за 10 мин"
           host: "node-01.msp-claude.online"
           metric: 'CPU = {{ $value | printf "%.1f" }}%'
-          runbook: "docs/R-high-cpu"
+          runbook: "https://github.com/i1yxaluk-del/Newbie/blob/main/deploy/yandex/monitoring/runbooks/R-high-cpu.md"
 
       - alert: LowDisk
         expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) < 0.1
@@ -32,7 +32,7 @@ groups:
           summary: 'node-01 · disk <10% free ({{ $labels.mountpoint }})'
           host: "node-01.msp-claude.online"
           metric: 'free = {{ $value | printf "%.1f" }}%'
-          runbook: "docs/R-low-disk"
+          runbook: "https://github.com/i1yxaluk-del/Newbie/blob/main/deploy/yandex/monitoring/runbooks/R-low-disk.md"
 
       - alert: HighMemory
         expr: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 0.95
@@ -43,4 +43,4 @@ groups:
           summary: "node-01 · RAM >95% за 10 мин"
           host: "node-01.msp-claude.online"
           metric: 'RAM used = {{ $value | printf "%.1f" }}%'
-          runbook: "docs/R-high-mem"
+          runbook: "https://github.com/i1yxaluk-del/Newbie/blob/main/deploy/yandex/monitoring/runbooks/R-high-mem.md"

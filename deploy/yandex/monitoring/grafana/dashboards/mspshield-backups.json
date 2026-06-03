@@ -12,35 +12,39 @@
     }
   ]
 },
-"description": "MSPShield — мониторинг restic-бэкапов в стиле виджета с сайта msp-claude.online. Heatmap 7 дней × N хостов, метрика successful/total, последний restore-test.",
+"description": "MSPShield — мониторинг restic-бэкапов. Статус, размер, время последнего бэкапа,Retention policy.",
 "editable": true,
 "fiscalYearStartMonth": 0,
 "graphTooltip": 1,
 "id": null,
-"links": [],
+"links": [
+  { "title": "← Overview", "url": "/d/mspshield-overview", "type": "link" }
+],
 "liveNow": false,
 "panels": [
   {
     "datasource": { "type": "prometheus", "uid": "prometheus" },
-    "description": "Сколько успешных backup-runs за последние 7 дней из общего числа запланированных. Аналог '27 / 28 ✓' на сайте.",
+    "description": "Статус последнего бэкапа: 1 = OK, 0 = FAIL, 2 = in progress",
     "fieldConfig": {
       "defaults": {
-        "color": { "mode": "fixed", "fixedColor": "#1b4d3e" },
-        "mappings": [],
-        "thresholds": { "mode": "absolute", "steps": [{ "color": "#1b4d3e", "value": null }] },
-        "unit": "none",
-        "noValue": "—"
+        "color": { "mode": "thresholds" },
+        "mappings": [
+          { "options": { "0": { "color": "#b91c1c", "index": 0, "text": "FAIL" }, "1": { "color": "#1b4d3e", "index": 1, "text": "OK" }, "2": { "color": "#b45309", "index": 2, "text": "RUNNING" } }, "type": "value" },
+          { "options": { "match": "null", "result": { "color": "#525252", "index": 3, "text": "NO DATA" } }, "type": "special" }
+        ],
+        "thresholds": { "mode": "absolute", "steps": [{ "color": "#b91c1c", "value": null }, { "color": "#1b4d3e", "value": 1 }] },
+        "noValue": "NO DATA"
       },
       "overrides": []
     },
-    "gridPos": { "h": 4, "w": 12, "x": 0, "y": 0 },
+    "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
     "id": 1,
     "options": {
-      "colorMode": "value",
+      "colorMode": "background",
       "graphMode": "none",
-      "justifyMode": "auto",
+      "justifyMode": "center",
       "orientation": "horizontal",
-      "reduceOptions": { "calcs": ["lastNotNull"], "fields": "/.*/", "values": false },
+      "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
       "textMode": "value_and_name",
       "wideLayout": true
     },
@@ -48,42 +52,101 @@
     "targets": [
       {
         "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "expr": "sum(count_over_time(restic_backup_success{value=\"1\"}[7d]) or count_over_time((restic_backup_success == 1)[7d:1d]))",
-        "legendFormat": "Успешно",
+        "expr": "restic_backup_success{repo=\"mspshield-prod\"}",
+        "legendFormat": "{{host}}",
         "refId": "A"
-      },
-      {
-        "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "expr": "count(count_over_time(restic_backup_success[7d])) * 7",
-        "legendFormat": "Всего ожидалось",
-        "refId": "B"
-      },
-      {
-        "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "expr": "sum(restic_verify_success == 0 or absent(restic_verify_success))",
-        "legendFormat": "Verify-pending",
-        "refId": "C"
       }
     ],
-    "title": "RESTIC · последние 7 дней",
+    "title": "Статус бэкапа",
     "type": "stat"
   },
   {
     "datasource": { "type": "prometheus", "uid": "prometheus" },
-    "description": "Шифрование (всегда AES-256 у restic) + признак облачного backend",
+    "description": "Размер данных последнего бэкапа",
+    "fieldConfig": {
+      "defaults": {
+        "color": { "mode": "fixed", "fixedColor": "#1b4d3e" },
+        "mappings": [],
+        "thresholds": { "mode": "absolute", "steps": [{ "color": "#1b4d3e", "value": null }] },
+        "unit": "bytes",
+        "noValue": "—"
+      },
+      "overrides": []
+    },
+    "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+    "id": 2,
+    "options": {
+      "colorMode": "value",
+      "graphMode": "none",
+      "justifyMode": "center",
+      "orientation": "horizontal",
+      "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+      "textMode": "value_and_name",
+      "wideLayout": true
+    },
+    "pluginVersion": "10.4.2",
+    "targets": [
+      {
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "restic_backup_size_bytes{repo=\"mspshield-prod\"}",
+        "legendFormat": "{{host}}",
+        "refId": "A"
+      }
+    ],
+    "title": "Размер бэкапа",
+    "type": "stat"
+  },
+  {
+    "datasource": { "type": "prometheus", "uid": "prometheus" },
+    "description": "Время с последнего бэкапа",
+    "fieldConfig": {
+      "defaults": {
+        "color": { "mode": "thresholds" },
+        "mappings": [],
+        "thresholds": { "mode": "absolute", "steps": [{ "color": "#1b4d3e", "value": null }, { "color": "#b45309", "value": 79200 }, { "color": "#b91c1c", "value": 93600 }] },
+        "unit": "s",
+        "noValue": "нет данных"
+      },
+      "overrides": []
+    },
+    "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+    "id": 3,
+    "options": {
+      "colorMode": "background",
+      "graphMode": "none",
+      "justifyMode": "center",
+      "orientation": "horizontal",
+      "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+      "textMode": "value_and_name",
+      "wideLayout": true
+    },
+    "pluginVersion": "10.4.2",
+    "targets": [
+      {
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "time() - restic_backup_timestamp_seconds{repo=\"mspshield-prod\"}",
+        "legendFormat": "{{host}}",
+        "refId": "A"
+      }
+    ],
+    "title": "С последнего бэкапа",
+    "type": "stat"
+  },
+  {
+    "datasource": { "type": "prometheus", "uid": "prometheus" },
+    "description": "Шифрование и тип хранилища",
     "fieldConfig": {
       "defaults": {
         "color": { "mode": "fixed", "fixedColor": "#1b4d3e" },
         "mappings": [
-          { "options": { "1": { "text": "AES-256 · ОБЛАЧНОЕ ХРАНИЛИЩЕ", "color": "#1b4d3e", "index": 0 } }, "type": "value" },
-          { "options": { "match": "null", "result": { "text": "AES-256 · ОБЛАЧНОЕ ХРАНИЛИЩЕ", "color": "#1b4d3e", "index": 1 } }, "type": "special" }
+          { "options": { "1": { "text": "AES-256 · S3 YC", "color": "#1b4d3e", "index": 0 } }, "type": "value" }
         ],
         "thresholds": { "mode": "absolute", "steps": [{ "color": "#1b4d3e", "value": null }] }
       },
       "overrides": []
     },
-    "gridPos": { "h": 4, "w": 12, "x": 12, "y": 0 },
-    "id": 2,
+    "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+    "id": 4,
     "options": {
       "colorMode": "background",
       "graphMode": "none",
@@ -101,30 +164,26 @@
         "refId": "A"
       }
     ],
-    "title": "Шифрование",
+    "title": "Хранилище",
     "type": "stat"
   },
   {
     "datasource": { "type": "prometheus", "uid": "prometheus" },
-    "description": "Heatmap status: каждая ячейка = один день за последние 7 дней. Зелёная (#1b4d3e) — backup успешен, оранжевая (#b45309) — fail, серая — нет данных. Строки — хосты.",
+    "description": "История статуса бэкапа за 7 дней. Зелёный = OK, оранжевый = FAIL, серый = нет данных.",
     "fieldConfig": {
       "defaults": {
         "color": { "mode": "thresholds" },
         "mappings": [
-          { "options": { "0": { "color": "#b45309", "index": 0, "text": "—" }, "1": { "color": "#1b4d3e", "index": 1, "text": "✓" } }, "type": "value" }
+          { "options": { "0": { "color": "#b45309", "index": 0, "text": "FAIL" }, "1": { "color": "#1b4d3e", "index": 1, "text": "OK" } }, "type": "value" }
         ],
         "thresholds": { "mode": "absolute", "steps": [{ "color": "transparent", "value": null }, { "color": "#b45309", "value": 0 }, { "color": "#1b4d3e", "value": 1 }] },
-        "custom": {
-          "fillOpacity": 100,
-          "lineWidth": 0,
-          "spanNulls": false
-        },
+        "custom": { "fillOpacity": 100, "lineWidth": 0, "spanNulls": false },
         "noValue": "—"
       },
       "overrides": []
     },
-    "gridPos": { "h": 10, "w": 18, "x": 0, "y": 4 },
-    "id": 3,
+    "gridPos": { "h": 8, "w": 18, "x": 0, "y": 4 },
+    "id": 5,
     "options": {
       "alignValue": "center",
       "legend": { "displayMode": "hidden", "placement": "bottom", "showLegend": false },
@@ -137,28 +196,23 @@
     "targets": [
       {
         "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "expr": "max by (host) (restic_backup_success)",
+        "expr": "restic_backup_success{repo=\"mspshield-prod\"}",
         "legendFormat": "{{host}}",
         "refId": "A",
         "range": true,
         "interval": "1d"
       }
     ],
-    "title": "Backups · 7 дней · хост × день",
+    "title": "Backups · 7 дней",
     "type": "status-history"
   },
   {
     "datasource": { "type": "prometheus", "uid": "prometheus" },
-    "description": "Размер последнего успешного backup-а по каждому хосту",
+    "description": "Размер бэкапа по хостам",
     "fieldConfig": {
       "defaults": {
         "color": { "mode": "fixed", "fixedColor": "#78746a" },
-        "custom": {
-          "align": "right",
-          "cellOptions": { "type": "color-text" },
-          "filterable": false,
-          "inspect": false
-        },
+        "custom": { "align": "right", "cellOptions": { "type": "color-text" }, "filterable": false, "inspect": false },
         "mappings": [],
         "thresholds": { "mode": "absolute", "steps": [{ "color": "#78746a", "value": null }] },
         "unit": "bytes"
@@ -174,8 +228,8 @@
         }
       ]
     },
-    "gridPos": { "h": 10, "w": 6, "x": 18, "y": 4 },
-    "id": 4,
+    "gridPos": { "h": 8, "w": 6, "x": 18, "y": 4 },
+    "id": 6,
     "options": {
       "cellHeight": "md",
       "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false },
@@ -186,7 +240,7 @@
     "targets": [
       {
         "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "expr": "max by (host) (restic_backup_size_bytes)",
+        "expr": "restic_backup_size_bytes{repo=\"mspshield-prod\"}",
         "format": "table",
         "instant": true,
         "legendFormat": "__auto",
@@ -208,45 +262,37 @@
   },
   {
     "datasource": { "type": "prometheus", "uid": "prometheus" },
-    "description": "Когда и на каком хосте последний раз гоняли restore-test (R-11 DR drill). Зелёным — < 30 дней, амбер — 30-90 дней, красный — > 90 дней.",
+    "description": "Retention policy: daily 7, weekly 4, monthly 6, yearly 1. Verify каждую неделю (воскресенье).",
     "fieldConfig": {
       "defaults": {
-        "color": { "mode": "thresholds" },
-        "mappings": [],
-        "thresholds": {
-          "mode": "absolute",
-          "steps": [
-            { "color": "#1b4d3e", "value": null },
-            { "color": "#b45309", "value": 2592000 },
-            { "color": "#b91c1c", "value": 7776000 }
-          ]
-        },
-        "unit": "s",
-        "noValue": "нет данных"
+        "color": { "mode": "fixed", "fixedColor": "#1b4d3e" },
+        "mappings": [
+          { "options": { "1": { "text": "7 daily / 4 weekly / 6 monthly / 1 yearly · Verify: weekly", "color": "#1b4d3e", "index": 0 } }, "type": "value" }
+        ],
+        "thresholds": { "mode": "absolute", "steps": [{ "color": "#1b4d3e", "value": null }] }
       },
       "overrides": []
     },
-    "gridPos": { "h": 4, "w": 24, "x": 0, "y": 14 },
-    "id": 5,
+    "gridPos": { "h": 3, "w": 24, "x": 0, "y": 12 },
+    "id": 7,
     "options": {
       "colorMode": "background",
       "graphMode": "none",
       "justifyMode": "center",
       "orientation": "horizontal",
       "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-      "textMode": "value_and_name",
-      "wideLayout": true
+      "textMode": "value"
     },
     "pluginVersion": "10.4.2",
     "targets": [
       {
         "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "expr": "time() - max(restic_restore_test_timestamp_seconds)",
-        "legendFormat": "Последний restore-test",
+        "expr": "vector(1)",
+        "legendFormat": "",
         "refId": "A"
       }
     ],
-    "title": "DR drill · R-11",
+    "title": "Retention policy",
     "type": "stat"
   }
 ],
@@ -259,6 +305,6 @@
 "timezone": "Europe/Moscow",
 "title": "MSPShield — Backups",
 "uid": "mspshield-backups",
-"version": 1,
+"version": 2,
 "weekStart": "monday"
 }

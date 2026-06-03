@@ -205,11 +205,12 @@ services:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
       - /:/rootfs:ro
+      - /var/lib/node_exporter/textfile_collector:/var/lib/node_exporter/textfile_collector:ro
     command:
       - "--path.procfs=/host/proc"
       - "--path.sysfs=/host/sys"
       - "--path.rootfs=/rootfs"
-      # Исключаем виртуальные ФС из отчёта disk
+      - "--collector.textfile.directory=/var/lib/node_exporter/textfile_collector"
       - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
       - "--no-collector.ipvs"
     networks: [monitoring]

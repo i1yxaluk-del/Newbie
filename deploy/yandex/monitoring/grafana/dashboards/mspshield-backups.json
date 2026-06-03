@@ -196,7 +196,7 @@
     "targets": [
       {
         "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "expr": "restic_backup_success{repo=\"mspshield-prod\"}",
+        "expr": "max_over_time(restic_backup_success{repo=\"mspshield-prod\"}[1d:1h])",
         "legendFormat": "{{host}}",
         "refId": "A",
         "range": true,

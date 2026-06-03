@@ -4,7 +4,7 @@
 
 const MARKS = {
   // А — Astra Linux (square with A)
-  astra: { letter: "А", shape: "square" },
+  astra: { letter: "★", shape: "none" },
   // R — RED OS (circle with R)
   redos: { letter: "R", shape: "circle" },
   // А — ALT Linux (rotated square / diamond with A)
@@ -37,7 +37,9 @@ export default function RuIcon({ name, size = 24, color = "currentColor", style 
   const transform = m.shape === "diamond" ? `rotate(45 ${size / 2} ${size / 2})` : undefined;
 
   let shapeEl;
-  if (m.shape === "circle") {
+  if (m.shape === "none") {
+    shapeEl = null;
+  } else if (m.shape === "circle") {
     shapeEl = (
       <circle
         cx={size / 2}

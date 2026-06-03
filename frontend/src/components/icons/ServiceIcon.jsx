@@ -20,19 +20,20 @@ const SERVICES = {
       <text x="12" y="12.5" dominantBaseline="central" textAnchor="middle" fontSize="9" fontFamily="system-ui,sans-serif" fontWeight="800" fill="currentColor">1С</text>
     </>
   ) },
-  mssql: { kind: "shape", render: () => (
-    <>
-      <ellipse cx="12" cy="5.5" rx="9" ry="3.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M3 5.5v13c0 1.9 4 3.5 9 3.5s9-1.6 9-3.5v-13" fill="none" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M3 12c0 1.9 4 3.5 9 3.5s9-1.6 9-3.5" fill="none" stroke="currentColor" strokeWidth="1.2" opacity=".5" />
-    </>
-  ) },
   mail: { kind: "shape", render: () => (
     <>
       <rect x="2" y="5" width="20" height="14" rx="2.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
       <path d="M2.5 7.5l9.5 6.5 9.5-6.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
-      <circle cx="20" cy="5" r="3.5" fill="currentColor" opacity=".2" />
-      <text x="20" y="5.5" dominantBaseline="central" textAnchor="middle" fontSize="4.5" fontFamily="system-ui,sans-serif" fontWeight="700" fill="currentColor">@</text>
+    </>
+  ) },
+  dns: { kind: "shape", render: () => (
+    <>
+      <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M7 12h10M12 7v10" stroke="currentColor" strokeWidth="1.2" />
+      <circle cx="12" cy="7" r="1.2" fill="currentColor" />
+      <circle cx="12" cy="17" r="1.2" fill="currentColor" />
+      <circle cx="7" cy="12" r="1.2" fill="currentColor" />
+      <circle cx="17" cy="12" r="1.2" fill="currentColor" />
     </>
   ) },
   fileserver: { kind: "shape", render: () => (
@@ -82,17 +83,11 @@ const SERVICES = {
       <path d="M10 6h8M10 12.5h8M10 19h8" stroke="currentColor" strokeWidth=".8" opacity=".3" />
     </>
   ) },
-  virt: { kind: "shape", render: () => (
+  linux: { kind: "shape", render: () => (
     <>
-      <rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" strokeWidth="1.4" strokeDasharray="3 2" />
-      <rect x="6" y="6" width="12" height="12" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
-      <text x="12" y="12.5" dominantBaseline="central" textAnchor="middle" fontSize="7" fontFamily="system-ui,sans-serif" fontWeight="800" fill="currentColor">VM</text>
-    </>
-  ) },
-  iis: { kind: "shape", render: () => (
-    <>
-      <rect x="2" y="2" width="20" height="20" rx="3" fill="none" stroke="currentColor" strokeWidth="1.6" />
-      <text x="12" y="12.5" dominantBaseline="central" textAnchor="middle" fontSize="8" fontFamily="system-ui,sans-serif" fontWeight="800" fill="currentColor">IIS</text>
+      <rect x="5" y="3" width="14" height="18" rx="2" fill="none" stroke="currentColor" strokeWidth="1.6" />
+      <text x="12" y="11" dominantBaseline="central" textAnchor="middle" fontSize="7" fontFamily="system-ui,sans-serif" fontWeight="800" fill="currentColor">$_</text>
+      <path d="M5 15h14" stroke="currentColor" strokeWidth="1" opacity=".4" />
     </>
   ) },
   cloud: { kind: "shape", render: () => (
@@ -113,6 +108,12 @@ const SERVICES = {
     <>
       <rect x="2" y="2" width="20" height="20" rx="6" fill="none" stroke="currentColor" strokeWidth="1.6" />
       <text x="12" y="12.5" dominantBaseline="central" textAnchor="middle" fontSize="11" fontFamily="system-ui,sans-serif" fontWeight="700" fill="currentColor">M</text>
+    </>
+  ) },
+  astra: { kind: "shape", render: () => (
+    <>
+      <path d="M12 2l2.9 6.3L22 9.3l-5 4.9 1.2 7L12 17.8 5.8 21.2 7 14.2 2 9.3l7.1-1z" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+      <path d="M12 2l2.9 6.3L22 9.3l-5 4.9 1.2 7L12 17.8z" fill="currentColor" opacity=".08" />
     </>
   ) },
   more: { kind: "shape", render: () => (
@@ -147,9 +148,12 @@ export const SERVICE_LIST = [
   { name: "web", label: "Веб-сайт", desc: "95% клиентов · Nginx / IIS, TLS, мониторинг" },
   { name: "onec", label: "1С:Предприятие", desc: "70% клиентов · сервер + БД, бэкапы 30д" },
   { name: "ad", label: "Active Directory", desc: "55% клиентов · DC, GPO, репликация" },
-  { name: "mail", label: "Почта + DNS", desc: "90% клиентов · iRedMail, MX, SPF/DKIM" },
+  { name: "mail", label: "Почта", desc: "90% клиентов · iRedMail, MX, SPF/DKIM" },
+  { name: "dns", label: "DNS", desc: "MX, SPF, DKIM, DMARC" },
   { name: "fileserver", label: "Файловый сервер", desc: "80% клиентов · Samba / Windows shares" },
   { name: "database", label: "База данных", desc: "60% клиентов · PostgreSQL, MS SQL" },
   { name: "windows", label: "Windows Server", desc: "Hyper-V, IIS, AD-DC, файловые роли" },
+  { name: "linux", label: "Linux", desc: "Debian, RHEL, ALT, Astra" },
+  { name: "astra", label: "Astra Linux", desc: "Сертифицированная ОС, реестр Минцифры" },
   { name: "shield-lock", label: "Защищённый канал", desc: "Bastion, зашифрованный канал, доступ по контракту" },
 ];

@@ -1,7 +1,7 @@
 global:
   resolve_timeout: 5m
   smtp_smarthost: "stalwart:25"
-  smtp_from: "MSPShield Alert <alert@msp-claude.online>"
+  smtp_from: "MSPShield <alert@msp-claude.online>"
   smtp_hello: "msp-claude.online"
   smtp_auth_username: "alert@msp-claude.online"
   smtp_auth_password: "QYIQylBaBRenxvvKuxLVx5Yq"
@@ -67,7 +67,10 @@ receivers:
         text: '{{ template "mspshield.alert.text" . }}'
         headers:
           Subject: '{{ template "mspshield.subject" . }}'
+          Auto-Submitted: auto-generated
+          Precedence: bulk
           List-ID: "MSPShield Alerts <alerts.msp-claude.online>"
+          List-Unsubscribe: "<https://msp-claude.online>"
           X-Mailer: "MSPShield Alertmanager"
           X-Priority: '{{ if eq .Status "firing" }}1{{ else }}3{{ end }}'
 

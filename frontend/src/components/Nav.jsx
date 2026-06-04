@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, Phone } from "lucide-react";
 import { useContent } from "@/content/useContent";
 
 export default function Nav() {
@@ -86,6 +86,26 @@ export default function Nav() {
               </a>
             );
           })}
+          {c.phone && (
+            <a
+              href={`tel:${c.phone.replace(/[\s()\-–—]/g, "")}`}
+              data-testid="nav-phone"
+              className="hidden md:inline-flex"
+              style={{
+                fontSize: 13,
+                color: "var(--stone)",
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                fontFamily: "var(--fm)",
+                letterSpacing: ".02em",
+              }}
+            >
+              <Phone size={13} color="var(--forest)" />
+              {c.phone}
+            </a>
+          )}
           <a
             href={c.cta.href}
             data-testid="nav-cta-btn"

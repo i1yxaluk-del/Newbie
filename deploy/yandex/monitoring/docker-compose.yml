@@ -278,3 +278,26 @@ services:
       resources:
         limits:   { memory: 64M }
         reservations: { memory: 16M }
+
+  # ── Telegram Webhook Proxy ──────────────────────────────────────
+  # Alertmanager → webhook → this proxy → Telegram Bot API.
+  # Converts AM JSON to Telegram HTML messages with severity emojis.
+  # Chat: MSPShield Alerts group; Bot: @Alertmsp_bot
+  telegram-webhook:
+    image: python:3.12-slim
+    container_name: msp-telegram-webhook
+    restart: unless-stopped
+    volumes:
+      - ./telegram-webhook:/app:ro
+    working_dir: /app
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+    command: ["python", "-u", "telegram_webhook.py"]
+    ports:
+      - "127.0.0.1:9119:9119"
+    networks: [monitoring]
+    deploy:
+      resources:
+        limits:   { memory: 64M }
+        reservations: { memory: 16M }

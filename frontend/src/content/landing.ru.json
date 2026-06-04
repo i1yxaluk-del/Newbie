@@ -13,7 +13,8 @@
     { "href": "#process", "label": "Процесс" },
     { "href": "#faq", "label": "Вопросы" }
   ],
-  "cta": { "href": "#audit", "label": "Бесплатный аудит" }
+  "cta": { "href": "#audit", "label": "Бесплатный аудит" },
+  "phone": "+7 (999) 070-38-23"
 },
 "hero": {
   "h1Before": "Ваша инфраструктура работает.",
@@ -263,6 +264,7 @@
     { "href": "/docs/sla.html", "label": "SLA" }
   ],
   "contactsLabel": "Контакты",
+  "phone": "+7 (999) 070-38-23",
   "email": "sales@msp-claude.online",
   "telegram": { "href": "https://t.me/mspshield", "label": "@mspshield" },
   "max": { "href": "https://max.ru/msp_oblako_bot", "label": "MAX · @msp_oblako_bot" }

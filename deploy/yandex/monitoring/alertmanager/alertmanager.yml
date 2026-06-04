@@ -77,12 +77,12 @@ receivers:
 
   - name: telegram-alert
     webhook_configs:
-      - url: 'http://127.0.0.1:9119/alerts'
+      - url: 'http://msp-telegram-webhook:9119/alerts'
         send_resolved: true
 
   - name: max-alert
     webhook_configs:
-      - url: 'http://127.0.0.1:9095/alert'
+      - url: 'http://msp-max-alerter:9095/alert'
         send_resolved: true
         http_config:
           authorization:

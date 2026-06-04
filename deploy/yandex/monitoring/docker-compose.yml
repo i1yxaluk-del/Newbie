@@ -166,10 +166,10 @@ services:
       GF_INSTALL_PLUGINS: "grafana-clock-panel,grafana-piechart-panel"
       GF_LOG_LEVEL: "warn"
       GF_SMTP_ENABLED: ${GF_SMTP_ENABLED:-false}
-      GF_SMTP_HOST: ${GF_SMTP_HOST:-}
+      GF_SMTP_HOST: ${GF_SMTP_HOST:-stalwart:25}
       GF_SMTP_USER: ${GF_SMTP_USER:-}
       GF_SMTP_PASSWORD: ${GF_SMTP_PASSWORD:-}
-      GF_SMTP_FROM_ADDRESS: ${GF_SMTP_FROM_ADDRESS:-}
+      GF_SMTP_FROM_ADDRESS: ${GF_SMTP_FROM_ADDRESS:-alert@msp-claude.online}
       GF_SMTP_FROM_NAME: ${GF_SMTP_FROM_NAME:-MSPShield}
       GF_SMTP_SKIP_VERIFY: ${GF_SMTP_SKIP_VERIFY:-false}
       # ── Палитра MSPShield (используется в дашборде Overview) ──
@@ -185,6 +185,7 @@ services:
     networks:
       monitoring:
         ipv4_address: 172.20.0.12
+      msp_default:
     depends_on:
       prometheus:
         condition: service_healthy

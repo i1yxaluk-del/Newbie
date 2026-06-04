@@ -3,7 +3,7 @@
 {{ end }}
 
 {{ define "mspshield.alert.text" }}
-MSPShield · alert · prod
+MSPShield · {{ if eq .Status "resolved" }}RESOLVED{{ else }}ALERT{{ end }} · prod
 ================================
 {{ range .Alerts }}{{ .Labels.severity }} · {{ .Annotations.summary }}
   host:    {{ .Annotations.host }}
@@ -13,7 +13,7 @@ MSPShield · alert · prod
   started: {{ .StartsAt.Format "02 Jan 15:04 MST" }}
 --------------------------------
 {{ end }}
-Grafana: https://grafana.msp-claude.online
+Grafana: https://mon.msp-claude.online
 Site:    https://msp-claude.online
 {{ end }}
 
@@ -39,12 +39,14 @@ Site:    https://msp-claude.online
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #d4d0c8;border-radius:8px;">
 <tr><td style="padding:20px;">
 
-{{ if eq .Labels.severity "P1" }}
+{{ if eq $.Status "resolved" }}
+<table cellpadding="0" cellspacing="0"><tr><td style="background:#f0fdf4;color:#166534;font-size:11px;font-weight:700;padding:3px 8px;border-radius:3px;">RESOLVED</td></tr></table>
+{{ else if eq .Labels.severity "P1" }}
 <table cellpadding="0" cellspacing="0"><tr><td style="background:#fef2f2;color:#991b1b;font-size:11px;font-weight:700;padding:3px 8px;border-radius:3px;">P1 · CRITICAL</td></tr></table>
 {{ else if eq .Labels.severity "P2" }}
 <table cellpadding="0" cellspacing="0"><tr><td style="background:#fffbeb;color:#92400e;font-size:11px;font-weight:700;padding:3px 8px;border-radius:3px;">P2 · WARNING</td></tr></table>
 {{ else }}
-<table cellpadding="0" cellspacing="0"><tr><td style="background:#f0fdf4;color:#166534;font-size:11px;font-weight:700;padding:3px 8px;border-radius:3px;">P3 · INFO</td></tr></table>
+<table cellpadding="0" cellspacing="0"><tr><td style="background:#eff6ff;color:#1e40af;font-size:11px;font-weight:700;padding:3px 8px;border-radius:3px;">P3 · INFO</td></tr></table>
 {{ end }}
 
 <p style="font-size:15px;font-weight:600;color:#1a1815;margin:14px 0 6px 0;line-height:1.4;">
@@ -55,7 +57,7 @@ Site:    https://msp-claude.online
 {{ if .Annotations.host }}<tr><td style="padding:3px 0;color:#a3a090;width:80px;vertical-align:top;">host:</td><td style="padding:3px 0;color:#1a1815;">{{ .Annotations.host }}</td></tr>{{ end }}
 <tr><td style="padding:3px 0;color:#a3a090;vertical-align:top;">severity:</td><td style="padding:3px 0;color:#1a1815;">{{ .Labels.severity }}</td></tr>
 {{ if .Annotations.metric }}<tr><td style="padding:3px 0;color:#a3a090;vertical-align:top;">metric:</td><td style="padding:3px 0;color:#1a1815;font-family:monospace;font-size:11px;">{{ .Annotations.metric }}</td></tr>{{ end }}
-{{ if .Annotations.runbook }}<tr><td style="padding:3px 0;color:#a3a090;vertical-align:top;">runbook:</td><td style="padding:3px 0;"><a href="{{ .Annotations.runbook }}" style="color:#1b4d3e;text-decoration:none;">{{ .Annotations.runbook }}</a></td></tr>{{ end }}
+{{ if .Annotations.runbook }}<tr><td style="padding:3px 0;color:#a3a090;vertical-align:top;">runbook:</td><td style="padding:3px 0;color:#1a1815;font-family:monospace;font-size:11px;">{{ .Annotations.runbook }}</td></tr>{{ end }}
 <tr><td style="padding:3px 0;color:#a3a090;vertical-align:top;">started:</td><td style="padding:3px 0;color:#1a1815;">{{ .StartsAt.Format "02 Jan 15:04 MST" }}</td></tr>
 </table>
 

@@ -3,8 +3,8 @@ max_alerter/webhook.py — FastAPI server, receives alerts from Alertmanager.
 
 Alertmanager sends POST /alert with Bearer token.
 Server formats the alert:
-- Telegram: HTML + inline keyboard (ACK, silence, runbook buttons)
-- MAX: plain text + markdown links (no buttons — pymax limitation)
+- Telegram: HTML text, runbook as short path (e.g. sites/rd01)
+- MAX: plain text, runbook as short path
 """
 
 from __future__ import annotations
@@ -46,8 +46,8 @@ _STATUS = {
 }
 
 
-def _fmt_alert_tg(alert: dict[str, Any]) -> tuple[str, dict]:
-  """Format for Telegram: HTML text + inline keyboard."""
+def _fmt_alert_tg(alert: dict[str, Any]) -> str:
+  """Format for Telegram: HTML text."""
   labels = alert.get("labels", {})
   annotations = alert.get("annotations", {})
 
@@ -64,21 +64,17 @@ def _fmt_alert_tg(alert: dict[str, Any]) -> tuple[str, dict]:
   env = labels.get("env", "prod")
   runbook = annotations.get("runbook", "")
 
-  # Header line
   lines = [f"{sev_icon} <b>{sev_label} · {status_label} · {env.upper()}</b>"]
   lines.append("")
 
-  # Alert title
   title = summary or name
   lines.append(f"<b>{title}</b>")
 
-  # Description
   if description:
       lines.append(description)
 
   lines.append("")
 
-  # Details
   if host:
       lines.append(f"host: <code>{host}</code>")
   lines.append(f"severity: {sev_label}")
@@ -90,30 +86,11 @@ def _fmt_alert_tg(alert: dict[str, Any]) -> tuple[str, dict]:
   if runbook:
       lines.append(f"runbook: <code>{runbook}</code>")
 
-  text = "\n".join(lines)
-
-  # Inline keyboard
-  keyboard: dict[str, Any] = {"inline_keyboard": [[]]}
-  row = keyboard["inline_keyboard"][0]
-
-  # ACK button
-  ack_data = f"ack:{name}:{host}".replace(" ", "_")[:64]
-  row.append({"text": "ACK · взять", "callback_data": ack_data})
-
-  # Silence button
-  silence_data = f"silence:30m:{name}:{host}".replace(" ", "_")[:64]
-  row.append({"text": "silence 30m", "callback_data": silence_data})
-
-  # Runbook button (URL)
-  if runbook:
-      runbook_url = runbook if runbook.startswith("http") else f"https://docs.msp-claude.online/{runbook}"
-      row.append({"text": "runbook", "url": runbook_url})
-
-  return text, keyboard
+  return "\n".join(lines)
 
 
 def _fmt_alert_max(alert: dict[str, Any]) -> str:
-  """Format for MAX: plain text with markdown links, no buttons."""
+  """Format for MAX: plain text."""
   labels = alert.get("labels", {})
   annotations = alert.get("annotations", {})
 
@@ -150,32 +127,19 @@ def _fmt_alert_max(alert: dict[str, Any]) -> str:
       lines.append(f"metric: {metric}")
 
   if runbook:
-      runbook_url = runbook if runbook.startswith("http") else f"https://docs.msp-claude.online/{runbook}"
-      lines.append(f"runbook: {runbook_url}")
+      lines.append(f"runbook: {runbook}")
 
   return "\n".join(lines)
 
 
-def _fmt_payload_tg(payload: dict[str, Any]) -> tuple[str, list[dict]]:
+def _fmt_payload_tg(payload: dict[str, Any]) -> str:
   alerts: list[dict] = payload.get("alerts", [])
   if not alerts:
-      return "Empty payload from Alertmanager", []
+      return "Empty payload from Alertmanager"
 
-  texts = []
-  keyboards = []
-  for a in alerts:
-      t, k = _fmt_alert_tg(a)
-      texts.append(t)
-      keyboards.append(k)
-
+  texts = [_fmt_alert_tg(a) for a in alerts]
   header = f"<b>{_STATUS.get(payload.get('status', 'firing'), 'ALERT')} MSPShield</b>"
-  text = header + "\n\n" + "\n\n".join(texts)
-
-  # Merge keyboards — one keyboard per message, use first alert's keyboard
-  # For multiple alerts, Telegram allows one keyboard per message
-  keyboard = keyboards[0] if keyboards else {}
-
-  return text, keyboard
+  return header + "\n\n" + "\n\n".join(texts)
 
 
 def _fmt_payload_max(payload: dict[str, Any]) -> str:
@@ -211,11 +175,11 @@ async def receive_alert(request: Request) -> JSONResponse:
 
   status_raw = payload.get("status", "firing")
 
-  # Telegram delivery (with inline keyboard)
+  # Telegram delivery
   if TG_CHAT_ID:
-      tg_text, tg_keyboard = _fmt_payload_tg(payload)
+      tg_text = _fmt_payload_tg(payload)
       log.info("Alert received, delivering to Telegram chat_id=%s", TG_CHAT_ID)
-      await deliver_telegram(chat_id=TG_CHAT_ID, text=tg_text, keyboard=tg_keyboard)
+      await deliver_telegram(chat_id=TG_CHAT_ID, text=tg_text)
 
   # MAX delivery (plain text)
   if MAX_CHAT_ID:

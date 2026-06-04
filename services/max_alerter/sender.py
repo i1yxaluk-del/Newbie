@@ -12,7 +12,7 @@ import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 log = logging.getLogger("max_alerter.sender")
 
@@ -83,8 +83,8 @@ async def send_to_max(chat_id: int, text: str) -> bool:
         return False
 
 
-async def send_to_telegram(chat_id: str, text: str, keyboard: Optional[dict[str, Any]] = None) -> bool:
-    """Send text to Telegram chat. Optional inline keyboard. Returns True on success."""
+async def send_to_telegram(chat_id: str, text: str) -> bool:
+    """Send text to Telegram chat. Returns True on success."""
     if not TG_BOT_TOKEN:
         log.warning("Telegram not configured (TG_BOT_TOKEN empty)")
         return False
@@ -98,8 +98,6 @@ async def send_to_telegram(chat_id: str, text: str, keyboard: Optional[dict[str,
             "text": text,
             "parse_mode": "HTML",
         }
-        if keyboard:
-            payload["reply_markup"] = keyboard
 
         async with httpx.AsyncClient(timeout=10) as http:
             r = await http.post(url, json=payload)
@@ -128,11 +126,8 @@ async def deliver_max(chat_id: int, text: str) -> None:
         _write_failed_log(chat_id, text, "send_to_max failed")
 
 
-async def deliver_telegram(chat_id: str, text: str, keyboard: Optional[dict[str, Any]] = None) -> None:
-    """Deliver alert to Telegram with optional inline keyboard."""
-    ok = await send_to_telegram(chat_id, text, keyboard)
+async def deliver_telegram(chat_id: str, text: str) -> None:
+    """Deliver alert to Telegram."""
+    ok = await send_to_telegram(chat_id, text)
     if not ok:
         _write_failed_log(chat_id, text, "send_to_telegram failed")
-        # Fallback to MAX if both configured
-        if MAX_PHONE and TG_CHAT_ID:
-            log.info("Telegram failed, no MAX fallback (both channels active)")

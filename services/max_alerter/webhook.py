@@ -16,6 +16,12 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)-7s %(name)s %(message)s",
+    datefmt="%H:%M:%S",
+)
+
 from .sender import deliver_max, deliver_telegram
 
 log = logging.getLogger("max_alerter.webhook")

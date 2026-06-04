@@ -12,7 +12,7 @@ import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 log = logging.getLogger("max_alerter.sender")
 
@@ -83,30 +83,35 @@ async def send_to_max(chat_id: int, text: str) -> bool:
         return False
 
 
-async def _fallback_telegram(text: str) -> None:
-    """Fallback: send to Telegram if MAX is unavailable."""
-    if not TG_BOT_TOKEN or not TG_CHAT_ID:
-        log.warning("Telegram fallback not configured (TG_BOT_TOKEN/TG_CHAT_ID empty)")
-        return
+async def send_to_telegram(chat_id: str, text: str, keyboard: Optional[dict[str, Any]] = None) -> bool:
+    """Send text to Telegram chat. Optional inline keyboard. Returns True on success."""
+    if not TG_BOT_TOKEN:
+        log.warning("Telegram not configured (TG_BOT_TOKEN empty)")
+        return False
 
     try:
         import httpx
 
         url = f"https://api.telegram.org/bot{TG_BOT_TOKEN}/sendMessage"
-        payload = {
-            "chat_id": TG_CHAT_ID,
-            "text": f"MAX unavailable, fallback:\n\n{text}",
+        payload: dict[str, Any] = {
+            "chat_id": chat_id,
+            "text": text,
             "parse_mode": "HTML",
         }
+        if keyboard:
+            payload["reply_markup"] = keyboard
+
         async with httpx.AsyncClient(timeout=10) as http:
             r = await http.post(url, json=payload)
             r.raise_for_status()
-        log.info("Telegram fallback OK")
+        log.info("Telegram OK chat_id=%s", chat_id)
+        return True
     except Exception as exc:
-        log.error("Telegram fallback FAIL %s", exc)
+        log.error("Telegram FAIL chat_id=%s error=%s", chat_id, exc)
+        return False
 
 
-def _write_failed_log(chat_id: int, text: str, error: str) -> None:
+def _write_failed_log(chat_id: int | str, text: str, error: str) -> None:
     try:
         FAILED_LOG.parent.mkdir(parents=True, exist_ok=True)
         ts = datetime.now(timezone.utc).isoformat()
@@ -116,9 +121,18 @@ def _write_failed_log(chat_id: int, text: str, error: str) -> None:
         log.error("Cannot write failed_alerts.log: %s", exc)
 
 
-async def deliver(chat_id: int, text: str) -> None:
-    """Main entry: deliver alert. Try MAX, then Telegram fallback + log."""
+async def deliver_max(chat_id: int, text: str) -> None:
+    """Deliver alert to MAX. No fallback — webhook handles separate channels."""
     ok = await send_to_max(chat_id, text)
     if not ok:
         _write_failed_log(chat_id, text, "send_to_max failed")
-        await _fallback_telegram(text)
+
+
+async def deliver_telegram(chat_id: str, text: str, keyboard: Optional[dict[str, Any]] = None) -> None:
+    """Deliver alert to Telegram with optional inline keyboard."""
+    ok = await send_to_telegram(chat_id, text, keyboard)
+    if not ok:
+        _write_failed_log(chat_id, text, "send_to_telegram failed")
+        # Fallback to MAX if both configured
+        if MAX_PHONE and TG_CHAT_ID:
+            log.info("Telegram failed, no MAX fallback (both channels active)")

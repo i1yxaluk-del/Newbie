@@ -290,7 +290,7 @@ services:
     container_name: msp-max-alerter
     restart: unless-stopped
     volumes:
-      - /opt/msp-monitoring/max-session:/session:ro
+      - /opt/msp-monitoring/max-session:/session
       - max-alerter-data:/data
     environment:
       MAX_PHONE: "+79990703823"

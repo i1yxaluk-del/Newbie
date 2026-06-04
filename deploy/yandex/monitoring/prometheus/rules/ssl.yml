@@ -10,7 +10,7 @@ groups:
           summary: "{{ $labels.instance }} · SSL-сертификат истекает менее чем через 14 дней"
           host: "node-01.msp-claude.online"
           metric: 'days_left = {{ $value | printf "%.0f" }}'
-          runbook: "https://github.com/i1yxaluk-del/Newbie/blob/main/deploy/yandex/monitoring/runbooks/R-ssl-expire.md"
+          runbook: "ssl/expiring"
 
       - alert: SSLExpired
         expr: (probe_ssl_earliest_cert_expiry - time()) < 0
@@ -21,4 +21,4 @@ groups:
           summary: "{{ $labels.instance }} · SSL-сертификат ИСТЁК"
           host: "node-01.msp-claude.online"
           metric: 'days_left = {{ $value | printf "%.0f" }}'
-          runbook: "https://github.com/i1yxaluk-del/Newbie/blob/main/deploy/yandex/monitoring/runbooks/R-ssl-expired.md"
+          runbook: "ssl/expired"

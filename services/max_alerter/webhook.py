@@ -41,8 +41,8 @@ _SEV = {
   "p3": ("🔵", "P3"),
 }
 _STATUS = {
-  "firing": "ALERT",
-  "resolved": "RESOLVED",
+  "firing": "АЛЕРТ",
+  "resolved": "РЕШЕНО",
 }
 
 
@@ -76,12 +76,12 @@ def _fmt_alert_tg(alert: dict[str, Any]) -> str:
   lines.append("")
 
   if host:
-      lines.append(f"host: <code>{host}</code>")
-  lines.append(f"severity: {sev_label}")
+      lines.append(f"узел: <code>{host}</code>")
+  lines.append(f"важность: {sev_label}")
 
   metric = annotations.get("metric", "")
   if metric:
-      lines.append(f"metric: <code>{metric}</code>")
+      lines.append(f"метрика: <code>{metric}</code>")
 
   if runbook:
       lines.append(f"runbook: <code>{runbook}</code>")
@@ -119,12 +119,12 @@ def _fmt_alert_max(alert: dict[str, Any]) -> str:
   lines.append("")
 
   if host:
-      lines.append(f"host: {host}")
-  lines.append(f"severity: {sev_label}")
+      lines.append(f"узел: {host}")
+  lines.append(f"важность: {sev_label}")
 
   metric = annotations.get("metric", "")
   if metric:
-      lines.append(f"metric: {metric}")
+      lines.append(f"метрика: {metric}")
 
   if runbook:
       lines.append(f"runbook: {runbook}")
@@ -135,20 +135,20 @@ def _fmt_alert_max(alert: dict[str, Any]) -> str:
 def _fmt_payload_tg(payload: dict[str, Any]) -> str:
   alerts: list[dict] = payload.get("alerts", [])
   if not alerts:
-      return "Empty payload from Alertmanager"
+      return "Пустой ответ от Alertmanager"
 
   texts = [_fmt_alert_tg(a) for a in alerts]
-  header = f"<b>{_STATUS.get(payload.get('status', 'firing'), 'ALERT')} MSPShield</b>"
+  header = f"<b>{_STATUS.get(payload.get('status', 'firing'), 'АЛЕРТ')} MSPShield</b>"
   return header + "\n\n" + "\n\n".join(texts)
 
 
 def _fmt_payload_max(payload: dict[str, Any]) -> str:
   alerts: list[dict] = payload.get("alerts", [])
   if not alerts:
-      return "Empty payload from Alertmanager"
+      return "Пустой ответ от Alertmanager"
 
   parts = [_fmt_alert_max(a) for a in alerts]
-  header = f"{_STATUS.get(payload.get('status', 'firing'), 'ALERT')} MSPShield"
+  header = f"{_STATUS.get(payload.get('status', 'firing'), 'АЛЕРТ')} MSPShield"
   return header + "\n\n" + "\n\n".join(parts)
 
 

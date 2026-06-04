@@ -10,7 +10,7 @@ groups:
           summary: "restic · последний бэкап завершился с ошибкой"
           host: "node-01.msp-claude.online"
           metric: 'restic_backup_last_status = 0'
-          runbook: "https://github.com/i1yxaluk-del/Newbie/blob/main/deploy/yandex/monitoring/runbooks/R-backup-failed.md"
+          runbook: "backups/failed"
 
       - alert: BackupMissed24h
         expr: (time() - restic_backup_last_timestamp_seconds) > 93600
@@ -21,7 +21,7 @@ groups:
           summary: "restic · бэкап не запускался более 26 часов"
           host: "node-01.msp-claude.online"
           metric: 'hours_since_last = {{ $value | printf "%.0f" }}s'
-          runbook: "https://github.com/i1yxaluk-del/Newbie/blob/main/deploy/yandex/monitoring/runbooks/R-backup-missed.md"
+          runbook: "backups/missed"
 
       - alert: BackupSizeDropped
         expr: restic_backup_size_bytes < on(host) avg_over_time(restic_backup_size_bytes[7d]) * 0.5
@@ -32,7 +32,7 @@ groups:
           summary: "restic · размер бэкапа упал >50% от среднего за 7 дней"
           host: "node-01.msp-claude.online"
           metric: 'size = {{ $value | printf "%.0f" }} bytes'
-          runbook: "https://github.com/i1yxaluk-del/Newbie/blob/main/deploy/yandex/monitoring/runbooks/R-backup-size-dropped.md"
+          runbook: "backups/size-dropped"
 
       - alert: BackupInProgress
         expr: restic_backup_last_status == 2
@@ -43,4 +43,4 @@ groups:
           summary: "restic · бэкап выполняется более 30 минут"
           host: "node-01.msp-claude.online"
           metric: 'restic_backup_last_status = 2 (in progress)'
-          runbook: "https://github.com/i1yxaluk-del/Newbie/blob/main/deploy/yandex/monitoring/runbooks/R-backup-long.md"
+          runbook: "backups/long"

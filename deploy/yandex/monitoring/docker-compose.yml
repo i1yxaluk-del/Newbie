@@ -286,7 +286,7 @@ services:
   # Session file pre-created on host by auth.py, mounted as volume.
   # Fallback: Telegram Bot API if MAX is unreachable.
   max-alerter:
-    build: ../../services/max_alerter
+    build: /opt/msp/Newbie/services/max_alerter
     container_name: msp-max-alerter
     restart: unless-stopped
     volumes:

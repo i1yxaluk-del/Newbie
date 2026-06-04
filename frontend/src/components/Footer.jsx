@@ -77,17 +77,7 @@ export default function Footer() {
             {c.docs.map((d, i) => {
               const slug = (d.href.match(/([\w-]+)\.html$/) || [])[1] || `doc-${i}`;
               return (
-            {c.phone && (
-              <a
-                href={`tel:${c.phone.replace(/[\s()\-–—]/g, "")}`}
-                data-testid="footer-phone"
-                style={{ color: "var(--stone)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 5 }}
-              >
-                <Phone size={12} color="var(--forest)" />
-                {c.phone}
-              </a>
-            )}
-            <a
+                <a
                   key={d.href}
                   href={d.href}
                   data-testid={`footer-${slug}`}

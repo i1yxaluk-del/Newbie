@@ -29,26 +29,23 @@
     { "icon": "windows", "label": "Windows Server" },
     { "icon": "ad", "label": "Active Directory" },
     { "icon": "onec", "label": "1С" },
-    { "icon": "mail", "label": "Почта" },
-    { "icon": "dns", "label": "DNS" },
+    { "icon": "mail", "label": "Почта · DNS" },
     { "icon": "fileserver", "label": "Файловые шары" },
     { "icon": "database", "label": "PostgreSQL · MS SQL" },
     { "icon": "web", "label": "Сайт · API" },
-    { "icon": "linux", "kind": "service", "label": "Linux" },
-    { "icon": "astra", "kind": "service", "label": "Astra Linux" },
-    { "icon": "shield-lock", "label": "Защищённый канал" },
+    { "icon": "shield-lock", "label": "Защищённый канал управления" },
     { "icon": "more", "label": "И другие" }
   ],
   "toolsLabel": "Чем обслуживаем",
   "tools": [
-    { "icon": "astra", "kind": "ru", "label": "Astra Linux" },
+    { "icon": "astra", "kind": "ru", "label": "Astra" },
     { "icon": "linux", "kind": "oss", "label": "Linux" },
     { "icon": "postgrespro", "kind": "ru", "label": "Postgres Pro" },
     { "icon": "prometheus", "kind": "oss", "label": "Prometheus" },
     { "icon": "grafana", "kind": "oss", "label": "Grafana" },
     { "icon": "wazuh", "kind": "oss", "label": "Wazuh" },
     { "icon": "kaspersky", "kind": "ru", "label": "Kaspersky" },
-    { "icon": "cloud", "kind": "service", "label": "Облако" },
+    { "icon": "cloud", "kind": "service", "label": "Распределённое облачное хранилище" },
     { "icon": "ansible", "kind": "oss", "label": "Ansible" },
     { "icon": "telegram", "kind": "service", "label": "Telegram" },
     { "icon": "max", "kind": "ru", "label": "MAX" },
@@ -115,7 +112,7 @@
       "tagline": "1–5 серверов · малый бизнес",
       "price": "25 000",
       "setup": "Запуск от 15 000 ₽",
-      "limit": "1–2 ч ручной работы / мес",
+      "limit": "",
       "cta": "Начать с Bronze",
       "featured": false,
       "features": [
@@ -134,7 +131,7 @@
       "tagline": "Windows + Linux · AD / DNS / GPO",
       "price": "50 000",
       "setup": "Запуск от 30 000 ₽",
-      "limit": "до 3 ч ручной работы / мес",
+      "limit": "",
       "cta": "Начать с Silver",
       "featured": true,
       "features": [
@@ -143,7 +140,7 @@
         { "text": "Поддержка AD · DNS · GPO", "bold": false },
         { "text": "Централизованные логи (Loki)", "bold": false },
         { "text": "Конфигурации в Git (IaC)", "bold": false },
-        { "text": "Ежеквартальный тест-восстановления из бэкапа", "bold": false }
+        { "text": "Ежеквартальный тест-восстановления из бэкапа сервисов", "bold": false }
       ]
     },
     {
@@ -153,7 +150,7 @@
       "tagline": "Wazuh SIEM + Kaspersky · 152-ФЗ",
       "price": "85 000",
       "setup": "Запуск от 45 000 ₽",
-      "limit": "до 4–5 ч ручной работы / мес",
+      "limit": "",
       "cta": "Начать с Gold",
       "featured": false,
       "features": [
@@ -161,7 +158,7 @@
         { "text": "SIEM Wazuh + Kaspersky Security", "bold": false },
         { "text": "Контроль уязвимостей (CVE-scan)", "bold": false },
         { "text": "SLA-отчёты с метриками", "bold": false },
-        { "text": "Ежеквартальный DR-drill (полное восстановление)", "bold": true },
+        { "text": "Ежеквартальный DR-drill (тест полного восстановления)", "bold": true },
         { "text": "Пост-мортем после P1", "bold": false }
       ]
     }
@@ -256,7 +253,7 @@
 },
 "footer": {
   "tagline": "© 2026 МСП Облако · Управляемый IT-сервис для бизнеса",
-  "legal": "ИП [Фамилия И.О.] · ИНН —— · ОГРНИП ——",
+  "legal": "+7 (999) 070 38-23",
   "docsLabel": "Документы",
   "docs": [
     { "href": "/docs/privacy.html", "label": "Политика конфиденциальности" },
@@ -264,9 +261,8 @@
     { "href": "/docs/sla.html", "label": "SLA" }
   ],
   "contactsLabel": "Контакты",
-  "phone": "+7 (999) 070-38-23",
   "email": "sales@msp-claude.online",
   "telegram": { "href": "https://t.me/mspshield", "label": "@mspshield" },
-  "max": { "href": "https://max.ru/msp_oblako_bot", "label": "MAX · @msp_oblako_bot" }
+  "max": { "href": "https://max.ru/mspshield", "label": "MAX · @mspshield" }
 }
 }

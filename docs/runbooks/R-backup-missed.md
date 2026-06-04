@@ -1,4 +1,4 @@
-# R-backup-missed — Backup Missed 24h
+﻿# R-backup-missed · Бэкап не запускался более 26 часов
 
 | | |
 |---|---|

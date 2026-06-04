@@ -1,4 +1,4 @@
-# R-ssl-expire — SSL Expiring Soon
+﻿# R-ssl-expire · SSL-сертификат истекает (<14 дней)
 
 | | |
 |---|---|

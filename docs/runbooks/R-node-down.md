@@ -1,4 +1,4 @@
-# R-node-down — Node Down
+﻿# R-node-down · Node Exporter недоступен
 
 | | |
 |---|---|

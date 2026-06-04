@@ -1,4 +1,4 @@
-# R-backup-failed — Backup Failed
+﻿# R-backup-failed · Бэкап завершился с ошибкой
 
 | | |
 |---|---|

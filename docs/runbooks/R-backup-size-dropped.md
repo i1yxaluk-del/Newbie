@@ -1,4 +1,4 @@
-# R-backup-size-dropped — Backup Size Dropped >50%
+﻿# R-backup-size-dropped · Размер бэкапа упал >50%
 
 | | |
 |---|---|

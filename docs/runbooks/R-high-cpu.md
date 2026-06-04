@@ -1,4 +1,4 @@
-# R-high-cpu — High CPU
+﻿# R-high-cpu · CPU >90%
 
 | | |
 |---|---|

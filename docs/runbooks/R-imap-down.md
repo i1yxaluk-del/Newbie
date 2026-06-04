@@ -1,4 +1,4 @@
-# R-imap-down — IMAP Down
+﻿# R-imap-down · IMAP недоступен
 
 | | |
 |---|---|

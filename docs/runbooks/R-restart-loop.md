@@ -1,4 +1,4 @@
-# R-restart-loop — Container Restart Loop
+﻿# R-restart-loop · Рестарт-луп контейнера
 
 | | |
 |---|---|

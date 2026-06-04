@@ -1,4 +1,4 @@
-# R-low-disk — Low Disk Space
+﻿# R-low-disk · Мало места на диске (<10%)
 
 | | |
 |---|---|

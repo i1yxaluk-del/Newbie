@@ -1,4 +1,4 @@
-# R-smtp-down — SMTP Down
+﻿# R-smtp-down · SMTP недоступен
 
 | | |
 |---|---|

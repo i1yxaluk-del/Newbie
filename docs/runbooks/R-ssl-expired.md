@@ -1,4 +1,4 @@
-# R-ssl-expired — SSL Expired
+﻿# R-ssl-expired · SSL-сертификат истёк
 
 | | |
 |---|---|

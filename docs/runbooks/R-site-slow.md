@@ -1,4 +1,4 @@
-# R-site-slow — Site Slow Response
+﻿# R-site-slow · Сайт — медленный ответ
 
 | | |
 |---|---|

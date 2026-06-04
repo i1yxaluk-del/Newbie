@@ -1,4 +1,4 @@
-# R-container-mem — Container High Memory
+﻿# R-container-mem · Контейнер — RAM >90% лимита
 
 | | |
 |---|---|

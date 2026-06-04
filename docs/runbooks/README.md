@@ -29,7 +29,9 @@
 
 ## Каталог
 
-| № | Название | Severity | Tier | Ссылка |
+### Общие процедуры
+
+| Имя | Название | Severity | Tier | Ссылка |
 |---|---|:-:|:-:|---|
 | R-01 | Ransomware alert / подозрительная активность | P1 | all | [R-01.md](R-01.md) |
 | R-02 | Полная потеря доступа к серверу | P1 | all | [R-02.md](R-02.md) |
@@ -43,6 +45,33 @@
 | R-10 | Monthly patch window | P4 (планово) | all | [R-10.md](R-10.md) |
 | R-11 | DR drill (ежеквартально) | P4 (планово) | all | [R-11.md](R-11.md) |
 
+### Мониторинг (автоматические алерты)
+
+| Имя | Название | Severity | Ссылка |
+|---|---|:-:|---|
+| R-site-down | Сайт недоступен | P1 | [R-site-down.md](R-site-down.md) |
+| R-backend-down | Backend недоступен | P1 | [R-backend-down.md](R-backend-down.md) |
+| R-vault-down | Vaultwarden недоступен | P1 | [R-vault-down.md](R-vault-down.md) |
+| R-imap-down | IMAP недоступен | P1 | [R-imap-down.md](R-imap-down.md) |
+| R-smtp-down | SMTP недоступен | P1 | [R-smtp-down.md](R-smtp-down.md) |
+| R-node-down | Node Exporter недоступен | P1 | [R-node-down.md](R-node-down.md) |
+| R-container-down | Контейнер не работает | P1 | [R-container-down.md](R-container-down.md) |
+| R-backup-failed | Бэкап завершился с ошибкой | P1 | [R-backup-failed.md](R-backup-failed.md) |
+| R-backup-missed | Бэкап не запускался >26 ч | P1 | [R-backup-missed.md](R-backup-missed.md) |
+| R-ssl-expired | SSL-сертификат истёк | P1 | [R-ssl-expired.md](R-ssl-expired.md) |
+| R-grafana-down | Grafana недоступен | P2 | [R-grafana-down.md](R-grafana-down.md) |
+| R-restart-loop | Рестарт-луп контейнера | P2 | [R-restart-loop.md](R-restart-loop.md) |
+| R-container-mem | Контейнер — RAM >90% лимита | P2 | [R-container-mem.md](R-container-mem.md) |
+| R-high-cpu | CPU >90% | P2 | [R-high-cpu.md](R-high-cpu.md) |
+| R-high-mem | RAM >95% | P2 | [R-high-mem.md](R-high-mem.md) |
+| R-low-disk | Мало места на диске (<10%) | P2 | [R-low-disk.md](R-low-disk.md) |
+| R-backup-size-dropped | Размер бэкапа упал >50% | P2 | [R-backup-size-dropped.md](R-backup-size-dropped.md) |
+| R-ssl-expire | SSL истекает (<14 дней) | P2 | [R-ssl-expire.md](R-ssl-expire.md) |
+| R-slow | Сервис — медленный ответ | P3 | [R-slow.md](R-slow.md) |
+| R-site-slow | Сайт — медленный ответ | P3 | [R-site-slow.md](R-site-slow.md) |
+| R-5xx | Высокий процент ошибок 5xx | P3 | [R-5xx.md](R-5xx.md) |
+| R-backup-long | Бэкап выполняется >30 мин | P3 | [R-backup-long.md](R-backup-long.md) |
+
 ---
 
 ## Правила обновления
@@ -53,4 +82,4 @@
 
 ---
 
-*Обновлено: v4.1 · 2026-04*
+*Обновлено: v5.0 · 2026-06*

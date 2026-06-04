@@ -1,4 +1,4 @@
-# R-slow — Service Slow Response
+﻿# R-slow · Сервис — медленный ответ
 
 | | |
 |---|---|

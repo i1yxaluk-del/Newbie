@@ -1,0 +1,12 @@
+# MAX alerter dependencies
+# Зафиксированы минорные версии — обновлять осознанно
+
+# pymax userbot (живой форк MaxApiTeam)
+maxapi-python>=2.1.2
+
+# Webhook сервер
+fastapi>=0.111.0,<1.0
+uvicorn[standard]>=0.29.0,<1.0
+
+# HTTP клиент для Telegram fallback
+httpx>=0.27.0,<1.0

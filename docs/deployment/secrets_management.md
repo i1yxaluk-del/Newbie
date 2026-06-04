@@ -2,115 +2,160 @@
 
 Где хранятся ключи, пароли, токены — и как с ними работать, чтобы **ничего не утекло в git и не оказалось на диске в открытом виде**.
 
+## Архитектура
+
+Все сервисы работают на одной Yandex Cloud VM (внешний IP: `93.77.184.219`). Доступ — только через AmneziaWG туннель (`10.9.0.1`, UDP/443). SSH: `ssh -i ~/.ssh/id_ed25519_yc ubuntu@10.9.0.1`.
+
+Два Docker-стека:
+- **Приложение**: `/opt/msp/Newbie/deploy/yandex/` (сеть `msp_default`) — MongoDB, backend, Stalwart, Vaultwarden
+- **Мониторинг**: `/opt/msp-monitoring/` (сеть `msp-monitoring`, 172.20.0.0/24) — Prometheus, Grafana, Alertmanager, exporters, max-alerter, telegram-webhook
+
 ## TL;DR
 
-| Секрет | Где хранится | Кто имеет доступ |
-|--------|--------------|------------------|
-| SSH-ключи владельца (личные) | `~/.ssh/` на личной машине | Только владелец |
-| AmneziaWG peer-keys (клиентов) | `/etc/amnezia/amneziawg/tenants/<client>.conf` на bastion | `root` на bastion |
-| `ADMIN_TOKEN` backend | `/etc/mspshield/backend.env` (chmod 600) | `root` на landing-VM |
-| `TG_BOT_TOKEN` | `/etc/mspshield/backend.env` + `/etc/alertmanager/tg_bot_token` | `root` |
-| `MAX_BOT_TOKEN` | `/etc/mspshield/backend.env` (бот из `@MasterBot` MAX) | `root` |
-| `MAX_WEBHOOK_SECRET` | `/etc/mspshield/backend.env` (верификация `X-Max-Bot-Api-Secret`) | `root` |
-| `ALERTMANAGER_WEBHOOK_TOKEN` | `/etc/mspshield/backend.env` + `/etc/alertmanager/max_webhook_token` | `root` |
-| `SMARTCAPTCHA_SERVER_KEY` | `/etc/mspshield/backend.env` | `root` |
-| `POSTBOX_API_KEY_ID` + `POSTBOX_API_KEY_SECRET` (Yandex Cloud Postbox — outbound SMTP smarthost для Stalwart) | `/etc/mspshield/backend.env` + Stalwart route config (`/etc/stalwart/`); см. [`deploy/yandex/STALWART_RELAY_MODE.md`](../../deploy/yandex/STALWART_RELAY_MODE.md) §2 · Вариант A | `root` |
-| Restic S3-ключи (клиент → бэкап бакет) | `/etc/restic/env` на каждом клиентском хосте (chmod 600) | `root` |
-| Пароли клиентов (RDP, админки, сайтов) | **Vaultwarden** на bastion | Владелец + Junior (после приёма на работу) |
-| Terraform state | S3-бакет `mspshield-tfstate` (зашифрован на стороне Yandex Object Storage) | Владелец |
-| Yandex Cloud ключ (terraform, restic) | `~/.yc/` на личной машине + сервис-аккаунты в Terraform | Владелец |
-| `.env` для локального dev | `backend/.env` (в `.gitignore`) | Только владелец на своей машине |
+| Секрет | Где хранится | Примечание |
+|--------|--------------|------------|
+| SSH-ключ `id_ed25519_yc` | `~/.ssh/` на рабочей машине (Windows) | Доступ к VM только через AWG |
+| `ADMIN_TOKEN` backend | `/opt/msp/Newbie/backend/.env` | SHA-256 хеш, 64 hex-символа |
+| Stalwart admin password | Vaultwarden → Infrastructure | WebUI: `mail.msp-claude.online/admin` |
+| Stalwart mail passwords (admin@, sales@, alert@) | Vaultwarden → Infrastructure | SMTP AUTH + IMAP |
+| Postbox API key (ID + secret) | Vaultwarden → Infrastructure + Stalwart route | SMTP relay `postbox.cloud.yandex.net:465` |
+| `ALERTMANAGER_WEBHOOK_TOKEN` | `/opt/msp-monitoring/.env` + backend `.env` | Bearer token для webhook receivers |
+| `MAX_WEBHOOK_SECRET` | `/opt/msp-monitoring/.env` | Верификация входящих webhook |
+| Telegram Bot token | `/opt/msp-monitoring/.env` | `@Alertmsp_bot` |
+| Telegram group chat_id | `/opt/msp-monitoring/.env` | MSPShield Alerts group |
+| MAX alerter phone + session | `/opt/msp-monitoring/max-session/max.db` | pymax userbot, интерактивная SMS-авторизация |
+| MAX group chat_id | `/opt/msp-monitoring/.env` | Группа «Msptest» |
+| Grafana admin password | `/opt/msp-monitoring/.env` (`GRAFANA_ADMIN_PASSWORD`) | Доступ: SSH tunnel → 127.0.0.1:3000 |
+| Vaultwarden admin password | Vaultwarden → Infrastructure | Панель: `vault.msp-claude.online/admin` |
+| Vaultwarden ADMIN_TOKEN (Argon2id) | `deploy/yandex/docker-compose.yml` | Argon2id хеш, НЕ plain text |
+| Restic encryption password | Vaultwarden → Infrastructure | AES-256, шифрование бэкапов |
+| Restic S3 keys (Yandex Object Storage) | Vaultwarden → Infrastructure | Бакет `mspshield-backups-prod` |
+| Restic env | `/etc/restic/env.sh` на VM | S3 + пароль для cron-бэкапов |
+| Restic backup script | `/opt/restic-scripts/backup.sh` | mongodump → restic → S3 |
+| Backend `.env` | `/opt/msp/Newbie/backend/.env` | ADMIN_TOKEN + SMTP + все env vars |
+| Vaultwarden CSV (18 entries) | `secrets/vaultwarden-import.csv` (локально, НЕ в git) + VM `/opt/msp/secrets/` | Для импорта в org MSPShield |
+
+## Файлы секретов на VM
+
+```
+/opt/msp/Newbie/backend/.env          # backend: ADMIN_TOKEN, SMTP, env
+/opt/msp-monitoring/.env              # мониторинг: все токены, chat_id
+/opt/msp-monitoring/max-session/max.db # pymax session (SMS auth)
+/etc/restic/env.sh                    # restic: S3 keys, encryption pw
+/opt/msp/secrets/vaultwarden-import.csv # CSV для импорта (вне git)
+```
 
 ## Запрещено
 
-- **Коммитить в git** любой файл, содержащий строки вида `TOKEN`, `PASSWORD`, `SECRET`, `PRIVATE KEY`, `ADMIN_TOKEN=<значение>`.
-- **Отправлять секреты через Telegram / MAX** (даже в личку — сохраняется в истории клиентского устройства).
-- **Хранить пароли клиентов в Excel/Google Docs** — только Vaultwarden.
-- **Логгировать секреты** в прод-сервисах (проверять `grep -r SECRET /var/log/`).
-- **Давать Junior полный доступ к Vaultwarden** — только конкретные коллекции после подписания NDA (см. `contracts/junior_nda.md` при его создании).
+- **Коммитить в git** любой файл с реальными значениями токенов/паролей. GitHub push protection блокирует.
+- **Хранить секреты в репозитории** — даже в `secrets/`. Файл `.gitignore` исключает `secrets/`.
+- **Отправлять секреты через Telegram / MAX** (сохраняется в истории клиентского устройства).
+- **Логгировать секреты** в прод-сервисах.
+- **Пушить Argon2id хеш Vaultwarden ADMIN_TOKEN** — даже хеш считается секретом GitHub.
 
-## Vaultwarden (бесплатная open-source альтернатива Bitwarden Cloud)
+## Vaultwarden
 
-Vaultwarden — это **отдельный проект** (`github.com/dani-garcia/vaultwarden`,
-лицензия AGPL-3.0), написанный с нуля на Rust и **полностью API-совместимый**
-с серверами Bitwarden. Поэтому:
+Адрес: `vault.msp-claude.online` (через Caddy reverse proxy).
 
-- **Бесплатно и навсегда** — никаких подписок, никаких лимитов по
-  пользователям/Collections (в Bitwarden Cloud Free лимит — 2 человека
-  на Organization).
-- **Все «платные» фичи Bitwarden включены by-default**: Organizations,
-  Collections, **Bitwarden Send** (одноразовая передача секрета с TTL
-  и опциональным паролем), 2FA (TOTP/FIDO2/YubiKey), attachments,
-  Emergency Access, audit log в `/admin`.
-- **Клиенты — родные Bitwarden** (desktop, mobile, browser extensions);
-  меняется только `Server URL` в настройках → `https://vault.msp-claude.online`.
-- **SaaS-стоимость для нашей команды:** на Bitwarden Cloud Teams = $4/user/мес
-  ≈ $20/мес для 5 человек ≈ $240/год. Наш Vaultwarden на отдельной VM
-  Yandex Cloud ≈ **300-450 ₽/мес = $3-5/мес**, окупается уже на двух
-  пользователях.
+### Организация MSPShield
 
-Разворачивается как отдельный docker-compose на bastion. Конфиг:
-[`../../deploy/vaultwarden/`](../../deploy/vaultwarden/).
-
-### Первый запуск
-
-```bash
-ssh ubuntu@mspshield-bastion
-cd /opt/vaultwarden
-# Отредактировать .env (ADMIN_TOKEN для панели админа, SMTP для восстановления пароля)
-sudo docker compose up -d
-```
-
-Открыть через SSH-туннель (НЕ пускать Vaultwarden в публичный интернет):
-
-```bash
-# На своей машине:
-ssh -L 8443:localhost:8443 ubuntu@<bastion_public_ip>
-# В браузере: http://localhost:8443
-```
+- Хранилище: **MSPShield**
+- Коллекция: **Infrastructure** (создаётся при импорте CSV)
+- Доступ: владелец org (admin)
 
 ### Структура коллекций
 
-- **MSPShield / Personal** — личные пароли владельца (только он).
-- **MSPShield / Clients / <client>** — пароли конкретного клиента (владелец + Junior после доступа).
-- **MSPShield / Infra** — доступы к Yandex Cloud, DNS-регистратору, бухгалтерии (только владелец).
-- **MSPShield / Shared-Work** — то, что супруга использует в маркетинге (Yandex.Метрика, Kaiten, email).
+- **Infrastructure** — доступы к инфраструктуре (SSH, Grafana, Stalwart, бэкапы, API ключи, боты)
+- **Clients / <client>** — пароли конкретного клиента (будущее)
+- **Shared-Work** — маркетинг (Yandex.Метрика, Kaiten, email)
+
+### Импорт CSV
+
+Формат для организации (по официальной документации Bitwarden):
+
+```csv
+collections,type,name,notes,fields,reprompt,login_uri,login_username,login_password,login_totp
+Infrastructure,login,Example,description,,0,https://example.com,user,password,
+```
+
+Ключевые требования:
+- Заголовок: `collections,type,name,notes,fields,reprompt,login_uri,login_username,login_password,login_totp`
+- Колонка `collections` (не `folder`, не `collection`) — для организации
+- `reprompt` обязателен (0 = нет, 1 = требовать master password)
+- При импорте: Хранилище = **MSPShield**, формат = **Bitwarden (csv)**
+- Коллекции создаются автоматически из значений в `collections`
 
 ### Бэкапы Vaultwarden
 
-Ежедневный `restic backup /var/lib/docker/volumes/msp_vaultwarden-data/_data/` в отдельный S3-бакет `mspshield-vaultwarden-backup`. Проверка — квартальный DR-drill.
+Ежедневный `restic backup` volume `vaultwarden-data` → S3. Проверка — квартальный DR-drill.
+
+## Мониторинг — потоки алёртов
+
+```
+Prometheus rules (P1/P2/P3)
+  → Alertmanager :9093
+    → email (Stalwart :25, AUTH=none, EHLO=msp-claude.online)
+    → webhook → backend /api/alerts/alertmanager
+    → webhook → max-alerter :9095
+      → MAX group «Msptest» (pymax userbot)
+      → Telegram MSPShield Alerts group (Bot API fallback)
+```
+
+### Alertmanager SMTP
+
+- Relay: Stalwart `:25` (не Postbox `:465` — встроенный SMTP AM не поддерживает implicit TLS)
+- AUTH: нет (EHLO hostname = `msp-claude.online` → Stalwart доверяет)
+- From: `alert@msp-claude.online`, имя `MSPShield` (не «Alert» — триггерит спам-фильтры)
+
+### Grafana SMTP
+
+- Relay: Stalwart `:25` (AUTH=none, hostname=`msp-claude.online`)
+- Сеть: Grafana подключена к `msp_default` для доступа к Stalwart
 
 ## Ротация секретов
 
 | Секрет | Периодичность | Триггер ротации |
 |--------|---------------|-----------------|
-| `ADMIN_TOKEN` backend | Каждые 6 мес | Или при любом подозрении |
-| `TG_BOT_TOKEN` | По необходимости | При увольнении Junior (если у него был доступ к чату) |
-| `MAX_BOT_TOKEN` | По необходимости | При увольнении Junior, при компрометации webhook'а |
-| `ALERTMANAGER_WEBHOOK_TOKEN` | 12 мес | При увольнении Junior — `openssl rand -hex 32` в `backend/.env` + `/etc/alertmanager/max_webhook_token` |
-| `POSTBOX_API_KEY_*` (Yandex Cloud) | 6 мес | При увольнении сотрудника с доступом, при компрометации, при смене service account: создать новый API key в YC консоли → обновить `backend/.env` → пересоздать Stalwart route (`stalwart-cli mta route update postbox-outbound …`) → инвалидировать старый ключ |
-| AmneziaWG peer-keys клиента | 12 мес | Или по договорённости с клиентом |
-| Restic S3-ключи | Каждые 12 мес | — |
-| SSH-ключи Junior | При уходе / повышении | См. [`../../technical/0_Common/scripts/rotate_junior_access.sh`](../../technical/0_Common/scripts/rotate_junior_access.sh) |
-| Пароли в Vaultwarden | По ситуации | При компрометации / уходе сотрудника |
+| `ADMIN_TOKEN` backend | 6 мес | Или при подозрении на утечку |
+| `ALERTMANAGER_WEBHOOK_TOKEN` | 12 мес | `openssl rand -hex 32` → обновить в обоих `.env` |
+| Telegram Bot token | По необходимости | Через @BotFather → revoke |
+| MAX session | При истечении | `python3 auth.py --phone +79990703823 --session /opt/msp-monitoring/max-session/max.db` |
+| Postbox API key | 6 мес | Новый ключ в YC → обновить Stalwart route |
+| Restic encryption password | 12 мес | `restic key passwd` (требует старый пароль) |
+| Restic S3 keys | 12 мес | Новый ключ в YC → `/etc/restic/env.sh` |
+| Stalwart passwords | По необходимости | Через Stalwart WebUI или JMAP API |
+| Grafana admin password | По необходимости | Через Grafana API или env var |
+| SSH-ключ | 12 мес | `ssh-keygen -t ed25519` → обновить на VM `~/.ssh/authorized_keys` |
+| AmneziaWG peer keys | 12 мес | Перегенерация конфига клиента |
+| Vaultwarden admin password | По необходимости | Через `/admin` панель |
 
-## Если секрет уже утёк в git
+## DNS (Namecheap)
 
-Немедленно:
+DNS управляется через Namecheap (НЕ Yandex Cloud DNS — платно).
 
-1. **Ротировать сам секрет** (создать новый, инвалидировать старый у провайдера).
-2. `git filter-repo --invert-paths --path <файл>` → force-push (координируя с тем, кто ещё работает с репо).
-3. Если репо публичный — считать, что прошлое значение скомпрометировано **навсегда**. Нет смысла пытаться «удалить из истории».
+| Запись | Тип | Значение |
+|--------|-----|----------|
+| `msp-claude.online` | A | `93.77.184.219` |
+| `vault.msp-claude.online` | CNAME | `msp-claude.online` |
+| `mail.msp-claude.online` | CNAME | `msp-claude.online` |
+| `mon.msp-claude.online` | CNAME | `msp-claude.online` |
+| `MX` | MX | `10 mail.msp-claude.online` |
+| `_dmarc.msp-claude.online` | TXT | `v=DMARC1; p=none; rua=mailto:alert@msp-claude.online` |
+| `msp-claude.online` | TXT | SPF (через Postbox include) |
+| `stalwart._domainkey` | TXT | DKIM public key |
 
-Для защиты от случайных коммитов — `pre-commit` хук с `detect-secrets` или `gitleaks`. Поставить локально:
+**TODO**: Обновить DMARC `p=none` → `p=quarantine` (DKIM alignment стабилен).
 
-```bash
-pip install pre-commit detect-secrets
-pre-commit install
-```
+## Если секрет утёк в git
+
+1. **Ротировать секрет** немедленно (создать новый, инвалидировать старый).
+2. GitHub push protection заблокирует пуш — это защита, не ошибка.
+3. Если репо публичный — считать прошлое значение скомпрометированным навсегда.
 
 ## Связанные документы
 
-- [`../../contracts/wife_nda.md`](../../contracts/wife_nda.md) — что супруга подписывает про доступ к клиентским данным.
-- Junior NDA появится в спринте 11 Этапа 4.
-- [`../../technical/0_Common/scripts/rotate_junior_access.sh`](../../technical/0_Common/scripts/rotate_junior_access.sh) — автоматизация ротации.
+- [`landing_production.md`](landing_production.md) — деплой лендинга
+- [`troubleshooting.md`](troubleshooting.md) — решение проблем
+- [`disaster_recovery.md`](disaster_recovery.md) — восстановление после аварии
+- [`../runbooks/README.md`](../runbooks/README.md) — каталог ранбуков
+- [`../../services/max_alerter/`](../../services/max_alerter/) — MAX alerter код и auth.py

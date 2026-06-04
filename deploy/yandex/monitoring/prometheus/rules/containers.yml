@@ -13,7 +13,7 @@ groups:
         summary: "{{ $labels.name }} · контейнер не виден более 2 мин"
         host: "node-01.msp-claude.online"
         metric: 'last_seen = {{ $value | printf "%.0f" }}s ago'
-        runbook: "containers/down"
+        runbook: "runbooks/R-container-down"
 
     - alert: ContainerRestartLoop
       expr: |
@@ -25,7 +25,7 @@ groups:
         summary: "{{ $labels.name }} · рестарт-луп (>2 перезапусков за 15 мин)"
         host: "node-01.msp-claude.online"
         metric: 'restarts = {{ $value | printf "%.0f" }}'
-        runbook: "containers/restart-loop"
+        runbook: "runbooks/R-restart-loop"
 
     - alert: ContainerHighMemory
       expr: |
@@ -41,4 +41,4 @@ groups:
         summary: "{{ $labels.name }} · RAM >90% лимита"
         host: "node-01.msp-claude.online"
         metric: 'RAM usage = {{ $value | printf "%.0f" }}%'
-        runbook: "containers/high-mem"
+        runbook: "runbooks/R-container-mem"

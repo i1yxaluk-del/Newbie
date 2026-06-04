@@ -1,0 +1,13 @@
+﻿{
+    "domain":  "msp-claude.online",
+    "folderName":  "msp-cloude-20260520-220407",
+    "netName":  "msp-net-msp-cloude-20260520-220407",
+    "publicIp":  "93.77.184.219",
+    "vmId":  "fhmab2qg10esn09j0na2",
+    "folderId":  "b1gd6dph0a4cnds0heel",
+    "created":  "2026-05-20T23:18:53.1428986+03:00",
+    "vmName":  "msp-cloud-vm",
+    "zone":  "ru-central1-a",
+    "sgName":  "msp-sg-msp-cloude-20260520-220407",
+    "subnetName":  "msp-subnet-msp-cloude-20260520-220407"
+}

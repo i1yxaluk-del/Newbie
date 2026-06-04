@@ -169,14 +169,14 @@
   },
   {
     "datasource": { "type": "prometheus", "uid": "prometheus" },
-    "description": "История статуса бэкапа за 7 дней. Зелёный = OK, оранжевый = FAIL, серый = нет данных.",
+    "description": "История статуса бэкапа за 7 дней. Зелёный = OK, жёлтый = в процессе, красный = FAIL, серый = нет данных.",
     "fieldConfig": {
       "defaults": {
         "color": { "mode": "thresholds" },
         "mappings": [
-          { "options": { "0": { "color": "#b45309", "index": 0, "text": "FAIL" }, "1": { "color": "#1b4d3e", "index": 1, "text": "OK" }, "2": { "color": "#b45309", "index": 2, "text": "RUN" } }, "type": "value" }
+          { "options": { "0": { "color": "#b91c1c", "index": 0, "text": "FAIL" }, "1": { "color": "#1b4d3e", "index": 1, "text": "OK" }, "2": { "color": "#b45309", "index": 2, "text": "RUN" } }, "type": "value" }
         ],
-        "thresholds": { "mode": "absolute", "steps": [{ "color": "#525252", "value": null }, { "color": "#b45309", "value": 0 }, { "color": "#1b4d3e", "value": 1 }] },
+        "thresholds": { "mode": "absolute", "steps": [{ "color": "#525252", "value": null }, { "color": "#b91c1c", "value": 0 }, { "color": "#1b4d3e", "value": 1 }] },
         "custom": { "fillOpacity": 80, "lineWidth": 1, "spanNulls": true }
       },
       "overrides": []
@@ -188,7 +188,9 @@
       "mergeValues": true,
       "rowHeight": 0.9,
       "showValue": "never",
-      "tooltip": { "mode": "single", "sort": "none" }
+      "tooltip": { "mode": "single", "sort": "none" },
+      "xTickLabelRotation": 0,
+      "xTickLabelSpacing": 100
     },
     "pluginVersion": "10.4.2",
     "targets": [

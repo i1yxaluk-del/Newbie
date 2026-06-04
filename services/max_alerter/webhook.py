@@ -40,22 +40,34 @@ _SEV = {
   "info": ("🔵", "P3"),
   "p3": ("🔵", "P3"),
 }
+_STATUS_ICON = {
+  "firing": "🔥",
+  "resolved": "✅",
+}
 _STATUS = {
   "firing": "АЛЕРТ",
   "resolved": "РЕШЕНО",
 }
 
 
-def _fmt_alert_tg(alert: dict[str, Any]) -> str:
+def _status_sev_icon(status_raw: str, sev_raw: str) -> str:
+  if status_raw == "resolved":
+      return "✅"
+  icon, _ = _SEV.get(sev_raw, ("⚪", "P3"))
+  return icon
+
+
+def _fmt_alert_tg(alert: dict[str, Any], payload_status: str) -> str:
   """Format for Telegram: HTML text."""
   labels = alert.get("labels", {})
   annotations = alert.get("annotations", {})
 
   sev_raw = labels.get("severity", "info").lower()
-  status_raw = alert.get("status", "firing").lower()
+  status_raw = payload_status.lower()
 
-  sev_icon, sev_label = _SEV.get(sev_raw, ("⚪", "P3"))
-  status_label = _STATUS.get(status_raw, "ALERT")
+  sev_icon = _status_sev_icon(status_raw, sev_raw)
+  _, sev_label = _SEV.get(sev_raw, ("⚪", "P3"))
+  status_label = _STATUS.get(status_raw, "АЛЕРТ")
 
   name = labels.get("alertname", "Alert")
   summary = annotations.get("summary", "")
@@ -89,16 +101,17 @@ def _fmt_alert_tg(alert: dict[str, Any]) -> str:
   return "\n".join(lines)
 
 
-def _fmt_alert_max(alert: dict[str, Any]) -> str:
+def _fmt_alert_max(alert: dict[str, Any], payload_status: str) -> str:
   """Format for MAX: plain text."""
   labels = alert.get("labels", {})
   annotations = alert.get("annotations", {})
 
   sev_raw = labels.get("severity", "info").lower()
-  status_raw = alert.get("status", "firing").lower()
+  status_raw = payload_status.lower()
 
-  sev_icon, sev_label = _SEV.get(sev_raw, ("⚪", "P3"))
-  status_label = _STATUS.get(status_raw, "ALERT")
+  sev_icon = _status_sev_icon(status_raw, sev_raw)
+  _, sev_label = _SEV.get(sev_raw, ("⚪", "P3"))
+  status_label = _STATUS.get(status_raw, "АЛЕРТ")
 
   name = labels.get("alertname", "Alert")
   summary = annotations.get("summary", "")
@@ -137,8 +150,11 @@ def _fmt_payload_tg(payload: dict[str, Any]) -> str:
   if not alerts:
       return "Пустой ответ от Alertmanager"
 
-  texts = [_fmt_alert_tg(a) for a in alerts]
-  header = f"<b>{_STATUS.get(payload.get('status', 'firing'), 'АЛЕРТ')} MSPShield</b>"
+  pstatus = payload.get("status", "firing")
+  texts = [_fmt_alert_tg(a, pstatus) for a in alerts]
+  header_status = _STATUS.get(pstatus, "АЛЕРТ")
+  header_icon = _STATUS_ICON.get(pstatus, "🔥")
+  header = f"<b>{header_icon} {header_status} MSPShield</b>"
   return header + "\n\n" + "\n\n".join(texts)
 
 
@@ -147,8 +163,11 @@ def _fmt_payload_max(payload: dict[str, Any]) -> str:
   if not alerts:
       return "Пустой ответ от Alertmanager"
 
-  parts = [_fmt_alert_max(a) for a in alerts]
-  header = f"{_STATUS.get(payload.get('status', 'firing'), 'АЛЕРТ')} MSPShield"
+  pstatus = payload.get("status", "firing")
+  parts = [_fmt_alert_max(a, pstatus) for a in alerts]
+  header_status = _STATUS.get(pstatus, "АЛЕРТ")
+  header_icon = _STATUS_ICON.get(pstatus, "🔥")
+  header = f"{header_icon} {header_status} MSPShield"
   return header + "\n\n" + "\n\n".join(parts)
 
 

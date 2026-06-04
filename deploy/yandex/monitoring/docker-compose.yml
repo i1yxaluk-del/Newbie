@@ -135,6 +135,7 @@ services:
   grafana:
     image: grafana/grafana:10.4.2
     container_name: msp-grafana
+    hostname: msp-claude.online
     restart: unless-stopped
     env_file: .env
     volumes:
@@ -167,11 +168,9 @@ services:
       GF_LOG_LEVEL: "warn"
       GF_SMTP_ENABLED: ${GF_SMTP_ENABLED:-false}
       GF_SMTP_HOST: ${GF_SMTP_HOST:-stalwart:25}
-      GF_SMTP_USER: ${GF_SMTP_USER:-}
-      GF_SMTP_PASSWORD: ${GF_SMTP_PASSWORD:-}
       GF_SMTP_FROM_ADDRESS: ${GF_SMTP_FROM_ADDRESS:-alert@msp-claude.online}
       GF_SMTP_FROM_NAME: ${GF_SMTP_FROM_NAME:-MSPShield}
-      GF_SMTP_SKIP_VERIFY: ${GF_SMTP_SKIP_VERIFY:-false}
+      GF_SMTP_SKIP_VERIFY: ${GF_SMTP_SKIP_VERIFY:-true}
       # ── Палитра MSPShield (используется в дашборде Overview) ──
       # Cream #f7f4ee — фон страниц и карточек
       # Forest #1b4d3e — основной бренд, UP-статусы, success

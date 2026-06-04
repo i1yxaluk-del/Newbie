@@ -28,6 +28,14 @@ route:
 
     - matchers:
         - severity = P1
+      receiver: max-alert
+      group_wait: 10s
+      group_interval: 2m
+      repeat_interval: 1h
+      continue: true
+
+    - matchers:
+        - severity = P1
       receiver: email-alert
       group_wait: 10s
       group_interval: 2m
@@ -71,6 +79,15 @@ receivers:
     webhook_configs:
       - url: 'http://127.0.0.1:9119/alerts'
         send_resolved: true
+
+  - name: max-alert
+    webhook_configs:
+      - url: 'http://127.0.0.1:9095/alert'
+        send_resolved: true
+        http_config:
+          authorization:
+            type: Bearer
+            credentials: '54f48bc96cee9efb244f270d8a50486e648519dd841f74c66b12f578a35bce41'
 
   - name: email-alert
     email_configs:

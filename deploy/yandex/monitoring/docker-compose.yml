@@ -44,6 +44,8 @@ volumes:
     name: msp-grafana-data
   alertmanager_data:
     name: msp-alertmanager-data
+  max-alerter-data:
+    name: msp-max-alerter-data
 
 services:
 
@@ -278,6 +280,38 @@ services:
       resources:
         limits:   { memory: 64M }
         reservations: { memory: 16M }
+
+  # ── MAX Alerter — pymax userbot, sends P1 alerts to MAX group ─
+  # Receives webhooks from Alertmanager, delivers to MAX chat via pymax.
+  # Session file pre-created on host by auth.py, mounted as volume.
+  # Fallback: Telegram Bot API if MAX is unreachable.
+  max-alerter:
+    build: ../../services/max_alerter
+    container_name: msp-max-alerter
+    restart: unless-stopped
+    volumes:
+      - /opt/msp-monitoring/max-session:/session:ro
+      - max-alerter-data:/data
+    environment:
+      MAX_PHONE: "+79990703823"
+      MAX_SESSION_DIR: "/session"
+      MAX_SESSION_NAME: "max.db"
+      MAX_CHAT_ID: "-75564902295619"
+      WEBHOOK_TOKEN: "${ALERTMANAGER_WEBHOOK_TOKEN:-}"
+      TG_BOT_TOKEN: "${TELEGRAM_BOT_TOKEN:-}"
+      TG_CHAT_ID: "${TELEGRAM_CHAT_ID:-}"
+      HOST: "0.0.0.0"
+      PORT: "9095"
+    ports:
+      - "127.0.0.1:9095:9095"
+    networks: [monitoring]
+    deploy:
+      resources:
+        limits:   { memory: 128M }
+        reservations: { memory: 32M }
+    logging:
+      driver: json-file
+      options: { max-size: "5m", max-file: "2" }
 
   # ── Telegram Webhook Proxy ──────────────────────────────────────
   # Alertmanager → webhook → this proxy → Telegram Bot API.

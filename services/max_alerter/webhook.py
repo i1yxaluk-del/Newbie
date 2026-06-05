@@ -204,7 +204,9 @@ async def receive_alert(request: Request) -> JSONResponse:
   if MAX_CHAT_ID:
       max_text = _fmt_payload_max(payload)
       log.info("Alert received, delivering to MAX chat_id=%s", MAX_CHAT_ID)
-      await deliver_max(chat_id=MAX_CHAT_ID, text=max_text)
+      max_ok = await deliver_max(chat_id=MAX_CHAT_ID, text=max_text)
+      if not max_ok and TG_CHAT_ID:
+          log.warning("MAX failed, alert already sent to Telegram above")
 
   return JSONResponse({"status": "ok", "channels": {"telegram": bool(TG_CHAT_ID), "max": bool(MAX_CHAT_ID)}})
 

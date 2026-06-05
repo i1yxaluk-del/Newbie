@@ -119,11 +119,15 @@ def _write_failed_log(chat_id: int | str, text: str, error: str) -> None:
         log.error("Cannot write failed_alerts.log: %s", exc)
 
 
-async def deliver_max(chat_id: int, text: str) -> None:
-    """Deliver alert to MAX. No fallback — webhook handles separate channels."""
+async def deliver_max(chat_id: int, text: str) -> bool:
+    """Deliver alert to MAX. Returns True on success, False on failure."""
     ok = await send_to_max(chat_id, text)
     if not ok:
         _write_failed_log(chat_id, text, "send_to_max failed")
+        if TG_CHAT_ID and TG_BOT_TOKEN:
+            warn = "\u26a0\ufe0f MAX \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d \u2014 \u0430\u043b\u0435\u0440\u0442 \u043d\u0435 \u0434\u043e\u0441\u0442\u0430\u0432\u043b\u0435\u043d. \u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 max-alerter \u0438 \u0441\u0435\u0441\u0441\u0438\u044e pymax."
+            await send_to_telegram(TG_CHAT_ID, warn)
+    return ok
 
 
 async def deliver_telegram(chat_id: str, text: str) -> None:

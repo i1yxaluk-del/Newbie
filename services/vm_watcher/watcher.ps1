@@ -2,9 +2,11 @@ param(
     [string]$Target = "93.77.184.219",
     [int]$IntervalSeconds = 300,
     [int]$FailThreshold = 5,
-    [string]$VmId = "fhmab2qg10esn09j0na2",
-    [string]$LogPath = "C:\Users\Internet\vm-watcher.log"
+    [string]$VmId = "fhmab2qg10esn09j0na2"
 )
+
+$ScriptDir = $PSScriptRoot
+$LogPath = Join-Path $ScriptDir "vm-watcher.log"
 
 function Write-Log {
     param([string]$Msg)

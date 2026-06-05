@@ -1,19 +1,21 @@
 param()
 
-$taskName = "MSPVMWatcher"
-$scriptPath = "$PSScriptRoot\watcher.ps1"
+$TaskName = "MSPVMWatcher"
+$ScriptDir = $PSScriptRoot
+$WatcherScript = Join-Path $ScriptDir "watcher.ps1"
+$TrayScript = Join-Path $ScriptDir "tray.ps1"
 
-$existing = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+$existing = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
 if ($existing) {
-    Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
+    Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
 }
 
 $action = New-ScheduledTaskAction -Execute "powershell.exe" `
-    -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$scriptPath`""
+    -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$WatcherScript`""
 
 $trigger = New-ScheduledTaskTrigger -AtStartup
 
-$principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType S4U -RunLevel Highest
+$principal = New-ScheduledTaskPrincipal -UserId "NT AUTHORITY\SYSTEM" -LogonType ServiceAccount -RunLevel Highest
 
 $settings = New-ScheduledTaskSettingsSet `
     -AllowStartIfOnBatteries `
@@ -23,12 +25,44 @@ $settings = New-ScheduledTaskSettingsSet `
     -RestartInterval (New-TimeSpan -Minutes 1) `
     -ExecutionTimeLimit (New-TimeSpan -Days 0)
 
-Register-ScheduledTask -TaskName $taskName `
+Register-ScheduledTask -TaskName $TaskName `
     -Action $action `
     -Trigger $trigger `
     -Principal $principal `
     -Settings $settings `
-    -Description "MSPShield VM Watcher: monitors Yandex Cloud VM via ping, auto-starts if stopped"
+    -Description "MSPShield VM Watcher: monitors Yandex Cloud VM via ping, auto-starts if stopped" | Out-Null
 
-Start-ScheduledTask -TaskName $taskName
-Write-Host "Task '$taskName' registered and started"
+$trayTaskName = "MSPVMWatcherTray"
+$existingTray = Get-ScheduledTask -TaskName $trayTaskName -ErrorAction SilentlyContinue
+if ($existingTray) {
+    Unregister-ScheduledTask -TaskName $trayTaskName -Confirm:$false
+}
+
+$trayAction = New-ScheduledTaskAction -Execute "powershell.exe" `
+    -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$TrayScript`""
+
+$trayTrigger = @(
+    (New-ScheduledTaskTrigger -AtLogOn)
+)
+
+$trayPrincipal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Highest
+
+$traySettings = New-ScheduledTaskSettingsSet `
+    -AllowStartIfOnBatteries `
+    -DontStopIfGoingOnBatteries `
+    -StartWhenAvailable `
+    -ExecutionTimeLimit (New-TimeSpan -Days 0)
+
+Register-ScheduledTask -TaskName $trayTaskName `
+    -Action $trayAction `
+    -Trigger $trayTrigger `
+    -Principal $trayPrincipal `
+    -Settings $traySettings `
+    -Description "MSPShield VM Watcher tray icon" | Out-Null
+
+Write-Host "Installed:"
+Write-Host "  $TaskName (watcher, SYSTEM account, runs at startup)"
+Write-Host "  $trayTaskName (tray icon, runs at logon as $env:USERNAME)"
+Write-Host ""
+Write-Host "Starting tray..."
+Start-ScheduledTask -TaskName $trayTaskName

@@ -5,10 +5,12 @@ $TaskName = "MSPVMWatcher"
 $WatcherScript = Join-Path $ScriptDir "watcher.ps1"
 $LogPath = Join-Path $ScriptDir "vm-watcher.log"
 
-function Get-TaskState {
-    $t = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-    if (-not $t) { return "notfound" }
-    return $t.State.ToString().ToLower()
+function Get-WatcherRunning {
+    $procs = Get-Process -Name powershell -ErrorAction SilentlyContinue | Where-Object {
+        $cmd = (Get-CimInstance Win32_Process -Filter "ProcessId=$($_.Id)" -ErrorAction SilentlyContinue).CommandLine
+        $cmd -match "watcher\.ps1"
+    }
+    return ($procs.Count -gt 0)
 }
 
 function Start-Watcher {
@@ -47,10 +49,10 @@ function Get-Autostart {
 }
 
 function Update-Tray {
-    $state = Get-TaskState
+    $running = Get-WatcherRunning
     $isAutostart = Get-Autostart
 
-    if ($state -eq "running") {
+    if ($running) {
         $notifyIcon.Icon = [System.Drawing.SystemIcons]::Information
         $notifyIcon.Text = "MSP VM Watcher: RUNNING"
     } else {
@@ -58,7 +60,7 @@ function Update-Tray {
         $notifyIcon.Text = "MSP VM Watcher: STOPPED"
     }
 
-    $menuStartStop.Text = if ($state -eq "running") { "Stop" } else { "Start" }
+    $menuStartStop.Text = if ($running) { "Stop" } else { "Start" }
     $menuAutostart.Checked = $isAutostart
 }
 
@@ -83,8 +85,7 @@ $notifyIcon.ContextMenuStrip = $contextMenu
 Update-Tray
 
 $menuStartStop.Add_Click({
-    $state = Get-TaskState
-    if ($state -eq "running") {
+    if (Get-WatcherRunning) {
         Stop-Watcher
     } else {
         Start-Watcher
@@ -102,12 +103,16 @@ $menuExit.Add_Click({
 })
 
 $notifyIcon.Add_DoubleClick({
-    $state = Get-TaskState
-    if ($state -eq "running") {
+    if (Get-WatcherRunning) {
         Stop-Watcher
     } else {
         Start-Watcher
     }
 })
+
+$timer = New-Object System.Windows.Forms.Timer
+$timer.Interval = 10000
+$timer.Add_Tick({ Update-Tray })
+$timer.Start()
 
 [System.Windows.Forms.Application]::Run()

@@ -2,7 +2,8 @@ param(
     [string]$Target = "93.77.184.219",
     [int]$IntervalSeconds = 300,
     [int]$FailThreshold = 5,
-    [string]$VmId = "fhmab2qg10esn09j0na2"
+    [string]$VmId = "fhmab2qg10esn09j0na2",
+    [string]$YcConfigDir = "C:\ProgramData\yandex-cloud"
 )
 
 $ScriptDir = $PSScriptRoot
@@ -24,6 +25,7 @@ function Test-VmPing {
 function Get-VmStatus {
     param([string]$Id)
     $env:YC_CLI_INITIALIZATION_SILENCE = "true"
+    $env:YC_CONFIG_DIR = $YcConfigDir
     $raw = & yc compute instance get $Id --format json 2>&1 | Where-Object {
         $_ -notmatch "WARNING:"
     } | Out-String
@@ -39,6 +41,7 @@ function Get-VmStatus {
 function Start-VmInstance {
     param([string]$Id)
     $env:YC_CLI_INITIALIZATION_SILENCE = "true"
+    $env:YC_CONFIG_DIR = $YcConfigDir
     try {
         & yc compute instance start $Id --async 2>&1 | Out-Null
         Write-Log "VM START command sent for $Id"
@@ -67,6 +70,7 @@ Write-Log "Target=$Target Interval=${IntervalSeconds}s Threshold=$FailThreshold 
 
 $consecutiveFails = 0
 $alerted = $false
+$retryInterval = 30
 
 while ($true) {
     $ok = Test-VmPing -T $Target
@@ -74,13 +78,13 @@ while ($true) {
     if ($ok) {
         if ($consecutiveFails -gt 0) {
             Write-Log "PING OK (recovered after $consecutiveFails fails)"
-            $recText = [char]0x2705 + " VM restored - ping $Target OK (was $consecutiveFails fails)"
-            Send-TgAlert -Text $recText
+            Send-TgAlert -Text "VM restored - ping $Target OK (was $consecutiveFails fails)"
         } else {
             Write-Log "PING OK"
         }
         $consecutiveFails = 0
         $alerted = $false
+        Start-Sleep -Seconds $IntervalSeconds
     } else {
         $consecutiveFails++
         Write-Log "PING FAIL ($consecutiveFails/$FailThreshold)"
@@ -94,21 +98,19 @@ while ($true) {
                 Write-Log "VM STOPPED - sending start command"
                 $started = Start-VmInstance -Id $VmId
                 if ($started) {
-                    $sText = [char]0x1F534 + " VM msp-cloud-vm was STOPPED - start command sent (yc compute instance start)"
-                    Send-TgAlert -Text $sText
+                    Send-TgAlert -Text "VM msp-cloud-vm was STOPPED - start command sent (yc compute instance start)"
                 }
             } elseif ($status -eq "running") {
                 Write-Log "VM RUNNING but unreachable - network issue"
-                $rText = [char]0x1F7E1 + " VM msp-cloud-vm RUNNING but ping $Target fails ($consecutiveFails fails) - possible network/VPN issue"
-                Send-TgAlert -Text $rText
+                Send-TgAlert -Text "VM msp-cloud-vm RUNNING but ping $Target fails ($consecutiveFails fails) - possible network/VPN issue"
             } else {
                 Write-Log "VM status unknown: $status"
-                $uText = [char]0x26AA + " VM status: $status - ping $Target fails ($consecutiveFails fails)"
-                Send-TgAlert -Text $uText
+                Send-TgAlert -Text "VM status: $status - ping $Target fails ($consecutiveFails fails)"
             }
             $alerted = $true
+            Start-Sleep -Seconds $IntervalSeconds
+        } else {
+            Start-Sleep -Seconds $retryInterval
         }
     }
-
-    Start-Sleep -Seconds $IntervalSeconds
 }

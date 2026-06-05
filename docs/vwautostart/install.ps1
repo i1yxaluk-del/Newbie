@@ -15,7 +15,7 @@ $action = New-ScheduledTaskAction -Execute "powershell.exe" `
 
 $trigger = New-ScheduledTaskTrigger -AtStartup
 
-$principal = New-ScheduledTaskPrincipal -UserId "NT AUTHORITY\SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+$principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType S4U -RunLevel Highest
 
 $settings = New-ScheduledTaskSettingsSet `
     -AllowStartIfOnBatteries `
@@ -61,8 +61,9 @@ Register-ScheduledTask -TaskName $trayTaskName `
     -Description "MSPShield VM Watcher tray icon" | Out-Null
 
 Write-Host "Installed:"
-Write-Host "  $TaskName (watcher, SYSTEM account, runs at startup)"
-Write-Host "  $trayTaskName (tray icon, runs at logon as $env:USERNAME)"
+Write-Host "  $TaskName (watcher, runs as $env:USERNAME at startup)"
+Write-Host "  $trayTaskName (tray icon, runs at logon)"
 Write-Host ""
-Write-Host "Starting tray..."
+Write-Host "Starting watcher and tray..."
+Start-ScheduledTask -TaskName $TaskName
 Start-ScheduledTask -TaskName $trayTaskName

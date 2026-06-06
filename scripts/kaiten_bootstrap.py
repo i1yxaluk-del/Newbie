@@ -58,11 +58,42 @@ def _fail(msg: str) -> None:
     sys.exit(1)
 
 
+def _check_auth(http: httpx.Client, base: str, headers: Dict[str, str]) -> None:
+    """Проверяем связку domain+token ДО создания чего-либо.
+
+    Так мы даём понятную ошибку вместо невнятного падения на /spaces.
+    Дёргаем GET /users/current:
+      - 200 → всё ок, печатаем, кто авторизован;
+      - 401 → токен невалиден (перевыпусти в /profile/api-token);
+      - 404 → неверный KAITEN_DOMAIN (такого workspace нет);
+      - 403 → токен без доступа к workspace (выпусти из аккаунта-owner).
+    """
+    try:
+        r = http.get(f"{base}/users/current", headers=headers)
+    except Exception as exc:  # noqa: BLE001
+        _fail(f"Не удалось подключиться к Kaiten ({base}): {exc}")
+        return
+    if 200 <= r.status_code < 300:
+        data = r.json() if r.content else {}
+        who = data.get("email") or data.get("username") or data.get("full_name") or data.get("id")
+        print(f"✓ авторизация ок: {who}")
+        return
+    hints = {
+        401: "невалидный токен — перевыпусти в https://<домен>.kaiten.ru/profile/api-token",
+        403: "токен без доступа к workspace — выпусти токен из аккаунта-владельца (owner)",
+        404: "неверный KAITEN_DOMAIN — такого workspace не существует, проверь поддомен",
+    }
+    _fail(f"GET /users/current: {r.status_code} — {hints.get(r.status_code, r.text[:200])}")
+
+
 def _get_or_create_space(http: httpx.Client, base: str, headers: Dict[str, str]) -> Dict[str, Any]:
     r = http.get(f"{base}/spaces", headers=headers)
     if r.status_code != 200:
         _fail(f"GET /spaces: {r.status_code} {r.text[:200]}")
     spaces = r.json() or []
+    if not isinstance(spaces, list):
+        # Некоторые ответы Kaiten оборачивают данные; подстрахуемся.
+        spaces = spaces.get("spaces", []) if isinstance(spaces, dict) else []
     for sp in spaces:
         if sp.get("title") == SPACE_TITLE:
             print(f"✓ space already exists: id={sp['id']} title={sp['title']!r}")
@@ -159,6 +190,7 @@ def main() -> int:
 
     print(f"→ Kaiten base: {base}")
     with httpx.Client(timeout=15.0) as http:
+        _check_auth(http, base, headers)
         space = _get_or_create_space(http, base, headers)
         board = _get_or_create_board(http, base, headers, space["id"])
         columns = _ensure_columns(http, base, headers, board["id"])

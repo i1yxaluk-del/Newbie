@@ -1,5 +1,37 @@
 # CHANGELOG
 
+## v5.5 — 2026-06 · "Kaiten: реальная идемпотентность + self-check"
+
+Доработка интеграции Kaiten CRM (`backend/integrations/kaiten.py`).
+
+### Fixed
+
+- **Идемпотентность теперь реальная.** Раньше документация обещала, что
+повторная доставка лида не создаёт дубль, но `create_card()` этого не
+проверял и всегда слал `POST /cards`. Добавлен `find_card_by_external_id()`
+(`GET /cards?external_id=<lead_id>`); `create_card()` сначала ищет карточку и
+при наличии возвращает её, не создавая вторую. Fail-open: при сетевой ошибке
+поиска карточка всё равно создаётся (лучше дубль, чем потеря лида).
+
+### Added
+
+- **`kaiten.verify()`** — диагностика связки `KAITEN_DOMAIN`+`KAITEN_API_TOKEN`
+через `GET /users/current` без создания карточки. Маппинг 401/403/404 на
+понятные подсказки, без утечки токена в лог.
+- **`scripts/kaiten_bootstrap.py`** — проверка авторизации (`_check_auth`) ДО
+создания пространства/доски: понятная русская ошибка вместо невнятного падения
+на `/spaces`. Обработка неожиданного формата ответа `/spaces`.
+- **`backend/tests/test_kaiten_integration.py`** — 8 юнит-тестов (без сервера и
+сети): `is_enabled`, `build_card_payload`, `_format_description`, идемпотентность
+`create_card`.
+
+### Changed
+
+- Детальные русские комментарии в `kaiten.py` с цепочкой зависимостей
+(`.env → is_enabled → deliver_to_crm → create_card → Kaiten API`) — для junior'ов.
+- `docs/KAITEN_SETUP.md` §5.3 — описание идемпотентности приведено в соответствие
+с фактическим поведением кода.
+
 ## v5.4 — 2026-06-03..04 · "Project audit + doc truth-up"
 
 Полный аудит проекта (60+ .md, 100 коммитов, 37 PR с мая по июнь 2026).

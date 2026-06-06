@@ -91,6 +91,15 @@ credentials.json
 *.key
 .credentials
 
+# Secrets — never push to repo
+secrets/
+
+# Runtime logs
+*.log
+
+# npm lockfile (repo uses yarn; package-lock.json is local Node 24 artifact)
+package-lock.json
+
 # Агентские артефакты (prev Emergent-платформа, тест-прогоны) — не храним в git
 .emergent/
 test_result.md

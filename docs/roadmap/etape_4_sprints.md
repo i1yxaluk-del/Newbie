@@ -68,18 +68,18 @@
 - [ ] Ansible: `ansible-playbook playbooks/site.yml` на landing-хосте.
 - [ ] Certbot → SSL от Let's Encrypt.
 - [ ] DNS cutover: msp-claude.online → landing IP.
-- [ ] Smoke-test: форма отправляет лид → telegram-уведомление.
+- [ ] Smoke-test: форма отправляет лид → telegram-уведомление + email (sales@, admin@) + Kaiten-карточка.
 - [ ] CSP и security headers (см. `deploy/nginx/mspshield.conf`) проверить.
 
 **Супруга (7 ч).**
-- [ ] Яндекс.Метрика: создать счётчик, вставить код в index.html.
-- [ ] Настроить 6 целей из [`yandex_metrika_goals.md`](../landing/yandex_metrika_goals.md).
+- [ ] Яндекс.Метрика: счётчик 109692310 установлен, reachGoal-события в коде.
+- [ ] Настроить 6 целей из [`yandex_metrika_goals.md`](../landing/yandex_metrika_goals.md) в интерфейсе Метрики (JavaScript-событие).
 - [ ] A/B-эксперимент #1: две версии H1 заголовка (из [ab_testing.md](../landing/ab_testing.md)). 50/50.
 - [ ] Первое тестовое письмо "test lead" — проверить, что воронка Kaiten сработала.
 
 **DoD.**
 - Landing публичен: `https://msp-claude.online` открывается.
-- Форма отправляет лид → backend → Telegram.
+- Форма отправляет лид → backend → Telegram (MSPleads) + email (sales@, admin@) + Kaiten.
 - Метрика фиксирует визиты и цели.
 - A/B-эксперимент #1 запущен.
 

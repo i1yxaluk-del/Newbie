@@ -1,5 +1,44 @@
 # CHANGELOG
 
+## v5.6 — 2026-06-06 · "Lead delivery: Telegram + email + Kaiten"
+
+Новые каналы доставки лидов + Яндекс.Метрика на проде.
+
+### Added
+
+- **`backend/integrations/email.py`** — SMTP-уведомление о новом лиде
+  на `sales@` + `admin@`. Отправка через Postbox (Yandex Cloud :465,
+  implicit TLS, DKIM-подпись Яндекса). Антиспам: From `MSPShield
+  <sales@>`, Message-ID, Date, Reply-To, Auto-Submitted (RFC 3834),
+  plain-text + HTML multipart.
+- **Yandex Metrika** — счётчик 109692310 в `index.html`; `utils/metrika.js`
+  (`reachGoal`); 6 событий в коде: `scroll_50`, `scroll_pricing`,
+  `cta_click` (Hero/Pricing/FinalCta), `form_start`, `form_submit`,
+  `form_field_error`, `lead_form_429`.
+- **`TG_CHAT_ID`** — переопределён на MSPleads (`-1003926803941`).
+  `TG_ALERT_CHAT_ID` остался на MSPalert (`-1004230593984`).
+
+### Changed
+
+- **`deliver_to_crm()`** — после telegram идёт email, потом webhook,
+  потом MAX, потом Kaiten. Каждый канал логируется в Prometheus.
+- **SMTP для лидов** — Postbox relay вместо Stalwart :25 (Stalwart не
+  слушает 587 в Docker-сети; Postbox даёт DKIM — письмо не в спаме).
+- **`.env.example`** — добавлены `REACT_APP_YM_COUNTER_ID`,
+  `LEAD_EMAIL_TO`, `SMTP_FROM_NAME`.
+- **`.gitignore`** — `secrets/`, `*.log`, `package-lock.json`.
+- **`docs/roadmap/etape_4_sprints.md`** — спринт 2 DoD обновлён:
+  лид → TG + email + Kaiten; Метрика цели через JS-события.
+
+### Fixed
+
+- **Backend не подхватывал .env** после обновления — контейнер нужно
+  пересоздавать (`docker compose up -d backend`), не только рестарт.
+- **SSH: `ubuntu@10.9.0.1`** вместо `root@` — VM использует OS Login,
+  `ssh_authorization: INSTANCE_METADATA`.
+- **Caddy отдаёт из `/var/www/landing/`** — после `npm run build` нужно
+  копировать в `/var/www/landing/`, не только в `frontend/build/`.
+
 ## v5.5 — 2026-06 · "Kaiten: реальная идемпотентность + self-check"
 
 Доработка интеграции Kaiten CRM (`backend/integrations/kaiten.py`).

@@ -68,6 +68,7 @@ from auth import (  # noqa: E402
 )
 from integrations import (  # noqa: E402
     alertmanager,
+    email as email_integration,
     kaiten,
     max as max_integration,
     telegram,
@@ -289,6 +290,13 @@ async def deliver_to_crm(lead_doc: Dict[str, Any]) -> None:
             inc_crm("telegram", "ok")
         except Exception:  # noqa: BLE001
             inc_crm("telegram", "error")
+
+    if email_integration.is_enabled():
+        try:
+            await email_integration.send(lead_doc)
+            inc_crm("email", "ok")
+        except Exception:  # noqa: BLE001
+            inc_crm("email", "error")
 
     if webhook.is_enabled():
         code = await webhook.send(lead_doc)

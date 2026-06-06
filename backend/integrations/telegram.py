@@ -1,8 +1,9 @@
 """Telegram-уведомления о новых лидах + Alertmanager-алерты.
 
 Включается через TG_BOT_TOKEN + TG_CHAT_ID.
-Опционально TG_ALERT_CHAT_ID — отдельный канал для Alertmanager (если не задан,
-используется TG_CHAT_ID).
+- TG_CHAT_ID — чат для уведомлений о лидах (MSPleads).
+- TG_ALERT_CHAT_ID — отдельный канал для Alertmanager (MSPalert).
+  Если не задан, используется TG_CHAT_ID.
 """
 from __future__ import annotations
 

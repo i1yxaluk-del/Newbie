@@ -3,6 +3,7 @@ import axios from "axios";
 import { toast } from "sonner";
 import { CheckCircle2, ArrowRight } from "lucide-react";
 import { KpiTiles } from "@/components/dashboards";
+import { reachGoal } from "@/utils/metrika";
 
 // Fallback to same-origin `/api` when REACT_APP_BACKEND_URL is not set at build time.
 // Prod (nginx reverse-proxy): same-origin. CRA dev: value from frontend/.env.
@@ -41,12 +42,18 @@ export default function CTAForm() {
   const [captchaToken, setCaptchaToken] = useState("");
   const captchaContainerRef = useRef(null);
   const captchaWidgetId = useRef(null);
+  const formStarted = useRef(false);
 
-  const onChange = (k) => (e) =>
+  const onChange = (k) => (e) => {
     setForm((p) => ({
       ...p,
       [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value,
     }));
+    if (!formStarted.current) {
+      formStarted.current = true;
+      reachGoal("form_start");
+    }
+  };
 
   // Sync tariff selection from Pricing section clicks
   useEffect(() => {
@@ -128,15 +135,19 @@ export default function CTAForm() {
       await axios.post(`${API}/leads`, payload);
       toast.success("Заявка отправлена — свяжемся в течение 2 часов");
       setDone(true);
+      reachGoal("form_submit");
     } catch (err) {
       const status = err?.response?.status;
       const msg = err?.response?.data?.detail || "Не удалось отправить. Попробуйте ещё раз.";
       if (status === 429) {
         toast.error("Слишком много попыток. Подождите минуту и попробуйте снова.");
+        reachGoal("lead_form_429");
       } else if (status === 400 || status === 422) {
         toast.error(typeof msg === "string" ? msg : "Проверьте введённые данные");
+        reachGoal("form_field_error", { status });
       } else {
         toast.error(typeof msg === "string" ? msg : "Ошибка сервера");
+        reachGoal("form_field_error", { status });
       }
       resetCaptcha();
     } finally {

@@ -1,12 +1,13 @@
 import { Check } from "lucide-react";
 import { useContent } from "@/content/useContent";
+import { reachGoal } from "@/utils/metrika";
 
 export default function Pricing() {
   const c = useContent().pricing;
   const PLANS = c.plans;
 
   const onPick = (id) => {
-    // Sync tariff to CTA form via custom event (survives React re-renders)
+    reachGoal("cta_click", { tariff: id });
     window.dispatchEvent(new CustomEvent("msp:set-tariff", { detail: id }));
     const form = document.getElementById("audit");
     if (form) form.scrollIntoView({ behavior: "smooth", block: "center" });

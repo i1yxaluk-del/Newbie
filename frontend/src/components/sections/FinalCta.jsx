@@ -1,6 +1,7 @@
 // Dark final CTA, before footer.
 // Antimetal-style: massive heading, single primary action, minimal text.
 import { useContent } from "@/content/useContent";
+import { reachGoal } from "@/utils/metrika";
 
 export default function FinalCta() {
   const c = useContent().finalCta;
@@ -81,6 +82,7 @@ export default function FinalCta() {
           <a
             href={c.ctaPrimary.href}
             className="btn-core"
+            onClick={() => reachGoal("cta_click", { source: "final_cta" })}
             style={{
               background: "#f5f1e8",
               color: "#0e0c0a",

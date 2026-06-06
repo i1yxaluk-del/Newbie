@@ -1,5 +1,6 @@
 import { DashboardWide } from "@/components/dashboards";
 import { useContent } from "@/content/useContent";
+import { reachGoal } from "@/utils/metrika";
 
 export default function Hero() {
   const c = useContent().hero;
@@ -52,6 +53,7 @@ export default function Hero() {
               href={c.ctaPrimary.href}
               className="btn-core btn-primary"
               data-testid="hero-cta-primary"
+              onClick={() => reachGoal("cta_click", { source: "hero" })}
             >
               {c.ctaPrimary.label}
             </a>

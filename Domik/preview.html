@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#f6c177" />
+<meta name="description" content="Гостевой дом «Алина» у Азовского моря. Тёплое море, домашний уют, тишина у самого берега." />
+<title>Гостевой дом «Алина» — Азовское море</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%25' stop-color='%23f6c177'/><stop offset='100%25' stop-color='%23e87b6f'/></linearGradient><linearGradient id='s' x1='0' y1='0' x2='0' y2='1'><stop offset='0%25' stop-color='%239fd1dc'/><stop offset='100%25' stop-color='%233b7d8c'/></linearGradient></defs><rect width='64' height='64' rx='14' fill='url(%23g)'/><circle cx='46' cy='20' r='8' fill='%23fff8ec' opacity='0.9'/><path d='M8 44 Q16 36 24 44 T40 44 T56 44 L56 64 L8 64 Z' fill='url(%23s)'/><path d='M20 40 L32 28 L44 40 L44 50 L20 50 Z' fill='%23fff8ec'/><path d='M18 41 L32 26 L46 41' stroke='%23e87b6f' stroke-width='3' fill='none' stroke-linejoin='round'/><rect x='29' y='42' width='6' height='8' fill='%23e87b6f'/></svg>" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Marck+Script&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --sand-50:  #fdf8f1;
+  --sand-100: #faeede;
+  --sand-200: #f3dcc0;
+  --sun:      #f6c177;
+  --sun-dark: #e29a3e;
+  --sea:      #6fb1c1;
+  --sea-dark: #3b7d8c;
+  --coral:    #e87b6f;
+  --ink:      #2a2622;
+  --ink-soft: #5a5048;
+  --line:     #ecdfce;
+  --white:    #ffffff;
+  --shadow:   0 10px 30px rgba(180, 130, 70, 0.12);
+  --radius:   18px;
+  --container: 1140px;
+  --font:     'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  --script:   'Marck Script', cursive;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: var(--font);
+  color: var(--ink);
+  background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(246,193,119,0.18), transparent 60%),
+    radial-gradient(900px 500px at -10% 30%, rgba(111,177,193,0.18), transparent 60%),
+    var(--sand-50);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--sea-dark); text-decoration: none; }
+a:hover { text-decoration: underline; }
+h1, h2, h3 { color: var(--ink); margin: 0 0 16px; line-height: 1.15; letter-spacing: -0.01em; }
+h1 { font-size: clamp(34px, 5vw, 56px); font-weight: 700; }
+h2 { font-size: clamp(26px, 3.2vw, 38px); font-weight: 700; }
+h3 { font-size: 20px; font-weight: 600; }
+p  { color: var(--ink-soft); margin: 0 0 14px; }
+
+.container { max-width: var(--container); margin: 0 auto; padding: 0 22px; }
+.section   { padding: 84px 0; }
+.section--tight { padding: 56px 0; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 8px; padding: 14px 22px; border-radius: 999px;
+  font-weight: 600; font-size: 15px; cursor: pointer;
+  border: 1px solid transparent; transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+  text-decoration: none;
+}
+.btn--primary { background: var(--sun); color: var(--ink); box-shadow: var(--shadow); }
+.btn--primary:hover { background: var(--sun-dark); color: #fff; transform: translateY(-1px); text-decoration: none; }
+.btn--ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+.btn--ghost:hover { background: var(--white); text-decoration: none; }
+
+.header {
+  position: sticky; top: 0; z-index: 30;
+  backdrop-filter: blur(10px);
+  background: rgba(253, 248, 241, 0.78);
+  border-bottom: 1px solid var(--line);
+}
+.header__inner { display: flex; align-items: center; justify-content: space-between; height: 72px; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand__mark {
+  width: 38px; height: 38px; border-radius: 12px;
+  background: linear-gradient(135deg, var(--sun), var(--coral));
+  display: grid; place-items: center; color: #fff; font-weight: 700;
+  box-shadow: var(--shadow);
+}
+.brand__name { font-weight: 700; font-size: 18px; }
+.brand__sub  { font-family: var(--script); color: var(--sea-dark); font-size: 18px; margin-left: 6px; }
+.nav { display: flex; gap: 22px; align-items: center; }
+.nav a { color: var(--ink-soft); font-weight: 500; font-size: 15px; }
+.nav a:hover { color: var(--ink); text-decoration: none; }
+@media (max-width: 720px) { .nav a:not(.btn) { display: none; } }
+
+.hero { position: relative; padding: 80px 0 60px; overflow: hidden; }
+.hero__grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: 48px; align-items: center; }
+@media (max-width: 900px) { .hero__grid { grid-template-columns: 1fr; } }
+.hero__eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 12px; border-radius: 999px;
+  background: var(--sand-100); color: var(--sea-dark);
+  font-size: 13px; font-weight: 600; letter-spacing: 0.02em;
+  border: 1px solid var(--line); margin-bottom: 18px;
+}
+.hero__title  { margin-bottom: 18px; }
+.hero__lead   { font-size: 18px; color: var(--ink-soft); max-width: 540px; }
+.hero__cta    { display: flex; gap: 12px; margin-top: 26px; flex-wrap: wrap; }
+.hero__art    {
+  position: relative; aspect-ratio: 5/4; border-radius: 28px;
+  background:
+    radial-gradient(120% 80% at 50% 100%, #ffd9a8 0%, transparent 60%),
+    linear-gradient(180deg, #cfeaf0 0%, #9fd1dc 55%, #6fb1c1 100%);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.hero__sun {
+  position: absolute; top: 36px; right: 40px; width: 90px; height: 90px;
+  border-radius: 50%; background: radial-gradient(circle at 35% 35%, #ffe3a1, #f6c177 70%, #e29a3e);
+  box-shadow: 0 0 60px rgba(246,193,119,.7);
+}
+.hero__wave {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 55%;
+  background:
+    radial-gradient(60% 80% at 20% 0%, rgba(255,255,255,.35), transparent 60%),
+    linear-gradient(180deg, rgba(255,255,255,.2), rgba(255,255,255,0) 60%),
+    linear-gradient(180deg, #7ec0cf, #4f95a6);
+  clip-path: polygon(0 25%, 12% 16%, 25% 24%, 40% 14%, 55% 22%, 70% 12%, 85% 22%, 100% 14%, 100% 100%, 0 100%);
+}
+.hero__house {
+  position: absolute; left: 12%; bottom: 22%; width: 120px; height: 110px;
+}
+.hero__house::before {
+  content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 60%;
+  background: #fff8ec; border-radius: 6px 6px 4px 4px;
+  box-shadow: 0 6px 14px rgba(0,0,0,.08);
+}
+.hero__house::after {
+  content: ''; position: absolute; top: 0; left: -10px; right: -10px; height: 50%;
+  background: var(--coral);
+  clip-path: polygon(0 100%, 50% 0, 100% 100%);
+}
+
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+@media (max-width: 900px) { .grid-3 { grid-template-columns: 1fr 1fr; } .grid-2 { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .grid-3 { grid-template-columns: 1fr; } }
+
+.card {
+  background: #fff; border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 22px;
+  box-shadow: 0 4px 18px rgba(180,130,70,.06);
+}
+.card h3 { margin-bottom: 8px; }
+.card p  { margin: 0 0 6px; }
+
+.amenities { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+.amenity {
+  background: var(--sand-100); border: 1px solid var(--line);
+  padding: 8px 14px; border-radius: 999px; font-size: 14px;
+  color: var(--ink);
+}
+
+.gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+@media (max-width: 900px) { .gallery { grid-template-columns: repeat(2, 1fr); } }
+.gallery__cell {
+  aspect-ratio: 1/1; border-radius: 14px; overflow: hidden;
+  background: linear-gradient(135deg, var(--sand-200), var(--sun));
+  position: relative;
+}
+.gallery__cell:nth-child(2n)   { background: linear-gradient(135deg, #cfeaf0, var(--sea)); }
+.gallery__cell:nth-child(3n)   { background: linear-gradient(135deg, #ffd9a8, var(--coral)); }
+.gallery__cell::after {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.4), transparent 50%);
+}
+
+.form { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 28px; box-shadow: var(--shadow); }
+.form__row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 600px) { .form__row { grid-template-columns: 1fr; } }
+.form label { display: block; font-size: 13px; color: var(--ink-soft); margin: 12px 0 6px; font-weight: 500; }
+.form input, .form textarea {
+  width: 100%; padding: 12px 14px; font-size: 15px; font-family: inherit;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--sand-50);
+  color: var(--ink); outline: none; transition: border-color .15s, background .15s;
+}
+.form input:focus, .form textarea:focus { border-color: var(--sun-dark); background: #fff; }
+.form textarea { min-height: 110px; resize: vertical; }
+.form__hint { font-size: 13px; color: var(--ink-soft); }
+.form__success {
+  background: #eaf6e6; border: 1px solid #bfe0b3; color: #2c5f1d;
+  padding: 14px 16px; border-radius: 12px; margin-bottom: 14px;
+}
+.form__error {
+  background: #fbe7e4; border: 1px solid #f1b9b1; color: #8a2e22;
+  padding: 14px 16px; border-radius: 12px; margin-bottom: 14px;
+}
+
+.footer { padding: 40px 0; border-top: 1px solid var(--line); margin-top: 60px; color: var(--ink-soft); font-size: 14px; }
+.footer__row { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+
+.owner { display: grid; grid-template-columns: 110px 1fr; gap: 18px; align-items: center; }
+.owner__avatar {
+  width: 110px; height: 110px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--sun), var(--coral));
+  display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 28px;
+  box-shadow: var(--shadow);
+}
+.owner__name { font-weight: 700; font-size: 18px; }
+.owner__role { color: var(--ink-soft); font-size: 14px; margin-bottom: 6px; }
+.owner__phone { font-weight: 700; font-size: 18px; color: var(--ink); }
+
+.preview-banner {
+  background: linear-gradient(90deg, var(--sun), var(--coral));
+  color: #fff; text-align: center; padding: 8px 16px; font-size: 13px; font-weight: 600;
+}
+.preview-banner a { color: #fff; text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<div class="preview-banner">
+  PREVIEW · Это статичная версия для теста визуала и наполнения. Динамика (форма, админка, landing-edit) работает только в полной сборке.
+</div>
+
+<header class="header">
+  <div class="container header__inner">
+    <a href="#top" class="brand">
+      <div class="brand__mark">A</div>
+      <div>
+        <div class="brand__name">Алина <span class="brand__sub">у моря</span></div>
+      </div>
+    </a>
+    <nav class="nav">
+      <a href="#about">О доме</a>
+      <a href="#rooms">Номера</a>
+      <a href="#gallery">Галерея</a>
+      <a href="#contacts">Контакты</a>
+      <a class="btn btn--primary" href="#book">Забронировать</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero container">
+    <div class="hero__grid">
+      <div>
+        <div class="hero__eyebrow">Азовское море · лето круглый год в сердце</div>
+        <h1 class="hero__title">Гостевой дом «Алина» на Азовском море</h1>
+        <p class="hero__lead">Тёплое море, домашний уют и тишина у самого берега</p>
+        <div class="hero__cta">
+          <a class="btn btn--primary" href="#book">Забронировать</a>
+          <a class="btn btn--ghost" href="tel:+79182129601">Позвонить</a>
+        </div>
+      </div>
+      <div class="hero__art">
+        <div class="hero__sun"></div>
+        <div class="hero__wave"></div>
+        <div class="hero__house"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="about" class="section">
+    <div class="container grid-2">
+      <div>
+        <h2>О нас</h2>
+        <p>«Алина» — уютный гостевой дом в нескольких минутах ходьбы от Азовского моря. Мы создаём для вас атмосферу настоящего летнего отдыха: чистые тёплые номера, уютный двор, домашняя кухня и гостеприимный хозяин.</p>
+      </div>
+      <div class="card">
+        <h3>Почему у нас тепло</h3>
+        <p>• Семейная атмосфера, встречаем как родных</p>
+        <p>• Минуты пешком до тёплого моря</p>
+        <p>• Чистые номера, бельё и полотенца включены</p>
+        <p>• Двор с зоной отдыха и мангалом</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="rooms" class="section section--tight">
+    <div class="container">
+      <h2>Номера</h2>
+      <p style="max-width:720px">Стандартные и семейные номера с удобствами, кондиционером и Wi-Fi.</p>
+      <div class="grid-3" style="margin-top:24px">
+        <div class="card"><h3>Стандарт 2-местный</h3><p>Кондиционер, душ, Wi-Fi.</p></div>
+        <div class="card"><h3>Семейный 3–4 места</h3><p>Просторный номер, удобства, балкон.</p></div>
+        <div class="card"><h3>Большая семья</h3><p>Сдвоенный номер для компании или большой семьи.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section--tight">
+    <div class="container">
+      <h2>Удобства</h2>
+      <div class="amenities">
+        <span class="amenity">Wi-Fi</span>
+        <span class="amenity">Парковка</span>
+        <span class="amenity">Кондиционер</span>
+        <span class="amenity">Двор и зона отдыха</span>
+        <span class="amenity">Мангал</span>
+        <span class="amenity">Кухня</span>
+        <span class="amenity">Бельё и полотенца</span>
+        <span class="amenity">Доступ к морю</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="gallery" class="section section--tight">
+    <div class="container">
+      <h2>Галерея</h2>
+      <div class="gallery">
+        <div class="gallery__cell"></div>
+        <div class="gallery__cell"></div>
+        <div class="gallery__cell"></div>
+        <div class="gallery__cell"></div>
+        <div class="gallery__cell"></div>
+        <div class="gallery__cell"></div>
+        <div class="gallery__cell"></div>
+        <div class="gallery__cell"></div>
+      </div>
+      <p class="form__hint" style="margin-top:14px">
+        Фото из <a href="https://vk.ru/gostevoy_domalina" target="_blank" rel="noreferrer">группы ВКонтакте</a> будут добавлены через панель администратора.
+      </p>
+    </div>
+  </section>
+
+  <section id="contacts" class="section">
+    <div class="container grid-2">
+      <div class="card">
+        <h2>Контакты</h2>
+        <div class="owner" style="margin-top:12px">
+          <div class="owner__avatar">АЛ</div>
+          <div>
+            <div class="owner__name">Лукьянченко Александр Викторович</div>
+            <div class="owner__role">Хозяин гостевого дома</div>
+            <a class="owner__phone" href="tel:+79182129601">+7 918 212-96-01</a>
+          </div>
+        </div>
+        <p style="margin-top:16px">
+          ВКонтакте: <a href="https://vk.ru/gostevoy_domalina" target="_blank" rel="noreferrer">группа гостевого дома</a><br>
+          Личная страница: <a href="https://vk.ru/id135593764" target="_blank" rel="noreferrer">vk.ru/id135593764</a>
+        </p>
+      </div>
+
+      <div class="card">
+        <h3>Где мы находимся</h3>
+        <p>Краснодарский край, побережье Азовского моря</p>
+        <p class="form__hint">Точный адрес и схему проезда вышлем после подтверждения брони.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="book" class="section">
+    <div class="container" style="max-width:720px">
+      <h2>Оставить заявку</h2>
+      <p>Свяжемся в ближайшее время, расскажем про свободные даты и условия.</p>
+      <form class="form" onsubmit="event.preventDefault(); document.getElementById('demo-ok').style.display='block'; this.reset();">
+        <div id="demo-ok" class="form__success" style="display:none">Спасибо! (Это превью — заявка не отправлена. В рабочей версии уйдёт на почту и в Telegram.)</div>
+        <div class="form__row">
+          <div>
+            <label>Ваше имя *</label>
+            <input required />
+          </div>
+          <div>
+            <label>Телефон *</label>
+            <input required placeholder="+7..." />
+          </div>
+        </div>
+        <div class="form__row">
+          <div>
+            <label>Email</label>
+            <input type="email" />
+          </div>
+          <div>
+            <label>Гостей</label>
+            <input type="number" min="1" max="20" />
+          </div>
+        </div>
+        <div class="form__row">
+          <div>
+            <label>Заезд</label>
+            <input type="date" />
+          </div>
+          <div>
+            <label>Выезд</label>
+            <input type="date" />
+          </div>
+        </div>
+        <label>Комментарий</label>
+        <textarea placeholder="Пожелания, вопросы..."></textarea>
+        <div style="margin-top:16px; display:flex; gap:12px; align-items:center; flex-wrap:wrap">
+          <button class="btn btn--primary" type="submit">Отправить заявку</button>
+          <span class="form__hint">Нажимая «Отправить», вы соглашаетесь с обработкой персональных данных.</span>
+        </div>
+      </form>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="container footer__row">
+    <div>© Гостевой дом «Алина». Азовское море. Сделано с теплом.</div>
+    <div>
+      <a href="tel:+79182129601">+7 918 212-96-01</a> · <a href="https://vk.ru/gostevoy_domalina" target="_blank" rel="noreferrer">VK</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

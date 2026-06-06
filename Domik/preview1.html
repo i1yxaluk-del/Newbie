@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Гостевой дом «Алина» — Азовское море</title>
+  <meta name="description" content="Гостевой дом «Алина» у Азовского моря. Уютные номера, летний двор, семейная атмосфера и отдых у теплого моря." />
+  <link rel="preconnect" href="https://images.unsplash.com" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f8f2e9;
+      --paper: #fffaf2;
+      --paper-2: #fff4e2;
+      --ink: #27211c;
+      --muted: #766b60;
+      --line: rgba(39, 33, 28, .12);
+      --sea: #276c78;
+      --sea-2: #7fb9bd;
+      --sand: #e8c894;
+      --sun: #f4a84d;
+      --coral: #d86d55;
+      --white: #fff;
+      --shadow: 0 24px 80px rgba(50, 34, 18, .13);
+      --radius: 28px;
+      --max: 1180px;
+      --font: Manrope, system-ui, sans-serif;
+      --serif: 'Playfair Display', Georgia, serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: var(--font);
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 0%, rgba(244,168,77,.20), transparent 32%),
+        radial-gradient(circle at 92% 18%, rgba(39,108,120,.14), transparent 28%),
+        var(--bg);
+      line-height: 1.55;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    img { max-width: 100%; display: block; }
+    .wrap { width: min(var(--max), calc(100% - 40px)); margin: 0 auto; }
+
+    .topbar {
+      position: fixed;
+      top: 18px;
+      left: 0;
+      right: 0;
+      z-index: 20;
+      pointer-events: none;
+    }
+    .nav {
+      pointer-events: auto;
+      width: min(var(--max), calc(100% - 40px));
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 12px 14px 12px 18px;
+      border: 1px solid rgba(255,255,255,.46);
+      border-radius: 999px;
+      background: rgba(255, 250, 242, .76);
+      backdrop-filter: blur(18px);
+      box-shadow: 0 16px 50px rgba(39,33,28,.12);
+    }
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .brand-mark {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: var(--white);
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--sea), var(--coral));
+      box-shadow: 0 10px 30px rgba(39,108,120,.26);
+    }
+    .brand strong { display: block; font-size: 15px; line-height: 1.1; }
+    .brand span { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; white-space: nowrap; }
+    .nav-links { display: flex; align-items: center; gap: 22px; color: #4d453d; font-weight: 700; font-size: 14px; }
+    .nav-links a { opacity: .86; }
+    .nav-links a:hover { opacity: 1; color: var(--sea); }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 48px;
+      padding: 0 22px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+      white-space: nowrap;
+    }
+    .btn-primary { background: var(--ink); color: var(--white); box-shadow: 0 14px 34px rgba(39,33,28,.22); }
+    .btn-primary:hover { transform: translateY(-2px); background: var(--sea); }
+    .btn-light { background: rgba(255,255,255,.88); border-color: rgba(255,255,255,.6); color: var(--ink); }
+    .btn-sand { background: var(--sun); color: #2d2216; box-shadow: 0 16px 34px rgba(244,168,77,.26); }
+    .btn-sand:hover { transform: translateY(-2px); }
+
+    .hero {
+      min-height: 100vh;
+      padding: 126px 0 46px;
+      display: grid;
+      align-items: end;
+      position: relative;
+      overflow: hidden;
+      color: var(--white);
+      background:
+        linear-gradient(180deg, rgba(0,0,0,.20), rgba(0,0,0,.55)),
+        url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=2200&q=85') center/cover;
+    }
+    .hero::after {
+      content: '';
+      position: absolute;
+      inset: auto 0 0;
+      height: 220px;
+      background: linear-gradient(180deg, transparent, var(--bg));
+      pointer-events: none;
+    }
+    .hero-grid {
+      position: relative;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) 420px;
+      gap: 38px;
+      align-items: end;
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.16);
+      border: 1px solid rgba(255,255,255,.28);
+      backdrop-filter: blur(14px);
+      font-weight: 800;
+      letter-spacing: .03em;
+      font-size: 13px;
+      text-transform: uppercase;
+    }
+    .hero h1 {
+      margin: 24px 0 22px;
+      max-width: 880px;
+      font-family: var(--serif);
+      font-size: clamp(46px, 8vw, 104px);
+      line-height: .92;
+      letter-spacing: -.055em;
+    }
+    .hero-lead {
+      max-width: 690px;
+      margin: 0;
+      color: rgba(255,255,255,.88);
+      font-size: clamp(18px, 2vw, 24px);
+      line-height: 1.45;
+      font-weight: 500;
+    }
+    .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 30px; }
+    .booking-card {
+      padding: 22px;
+      border-radius: 26px;
+      background: rgba(255,250,242,.94);
+      color: var(--ink);
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(255,255,255,.58);
+    }
+    .booking-card h3 { margin: 0 0 6px; font-size: 20px; }
+    .booking-card p { margin: 0 0 18px; color: var(--muted); }
+    .booking-card .mini-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .field { display: grid; gap: 6px; }
+    .field label { font-size: 12px; color: var(--muted); font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+    .field input, .field textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px 13px;
+      background: var(--white);
+      color: var(--ink);
+      font: inherit;
+      outline: none;
+    }
+    .field textarea { min-height: 84px; resize: vertical; }
+
+    section { padding: 92px 0; }
+    .section-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 430px); gap: 40px; align-items: end; margin-bottom: 34px; }
+    .kicker { color: var(--coral); font-weight: 900; text-transform: uppercase; letter-spacing: .12em; font-size: 12px; margin-bottom: 12px; }
+    h2 { margin: 0; font-family: var(--serif); font-size: clamp(34px, 5vw, 62px); line-height: .98; letter-spacing: -.035em; }
+    .section-head p, .lead { margin: 0; color: var(--muted); font-size: 17px; }
+
+    .intro-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .photo-card {
+      overflow: hidden;
+      min-height: 430px;
+      border-radius: var(--radius);
+      background: #ddd;
+      box-shadow: var(--shadow);
+      position: relative;
+    }
+    .photo-card img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
+    .quote-card {
+      min-height: 430px;
+      border-radius: var(--radius);
+      padding: 34px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      box-shadow: 0 16px 60px rgba(50,34,18,.07);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .quote-card .big { font-size: clamp(25px, 3vw, 38px); line-height: 1.12; font-weight: 800; letter-spacing: -.03em; }
+    .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 24px; }
+    .fact { padding: 18px; border-radius: 20px; background: var(--white); border: 1px solid var(--line); }
+    .fact strong { display: block; font-size: 28px; letter-spacing: -.04em; }
+    .fact span { color: var(--muted); font-size: 13px; font-weight: 700; }
+
+    .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .room {
+      overflow: hidden;
+      border-radius: var(--radius);
+      background: var(--paper);
+      border: 1px solid var(--line);
+      box-shadow: 0 18px 70px rgba(50,34,18,.08);
+    }
+    .room-img { height: 260px; overflow: hidden; }
+    .room-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .55s ease; }
+    .room:hover .room-img img { transform: scale(1.06); }
+    .room-body { padding: 24px; }
+    .room-body h3 { margin: 0 0 8px; font-size: 22px; letter-spacing: -.02em; }
+    .room-body p { margin: 0; color: var(--muted); }
+    .chips { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 18px; }
+    .chip { padding: 8px 11px; border-radius: 999px; background: #f3e4cf; color: #5d4833; font-size: 12px; font-weight: 800; }
+
+    .amenity-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+    .amenity {
+      min-height: 150px;
+      padding: 22px;
+      border-radius: 24px;
+      background: rgba(255,250,242,.82);
+      border: 1px solid var(--line);
+    }
+    .amenity b { display: block; font-size: 18px; margin-bottom: 8px; }
+    .amenity span { color: var(--muted); font-size: 14px; }
+
+    .gallery {
+      display: grid;
+      grid-template-columns: 1.2fr .8fr .8fr;
+      grid-auto-rows: 240px;
+      gap: 14px;
+    }
+    .gallery figure { margin: 0; border-radius: 26px; overflow: hidden; position: relative; box-shadow: 0 18px 60px rgba(50,34,18,.10); }
+    .gallery figure:first-child { grid-row: span 2; }
+    .gallery img { width: 100%; height: 100%; object-fit: cover; }
+    .gallery figcaption {
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      bottom: 16px;
+      padding: 10px 13px;
+      border-radius: 16px;
+      color: #fff;
+      background: rgba(0,0,0,.34);
+      backdrop-filter: blur(10px);
+      font-weight: 800;
+      font-size: 13px;
+    }
+
+    .contact-section { padding-bottom: 50px; }
+    .contact-card {
+      display: grid;
+      grid-template-columns: 1fr 420px;
+      gap: 24px;
+      padding: 22px;
+      border-radius: 34px;
+      background: #1f312f;
+      color: var(--white);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .contact-main { padding: 28px; }
+    .contact-main h2 { color: var(--white); }
+    .contact-main p { color: rgba(255,255,255,.72); max-width: 640px; }
+    .owner-card {
+      margin-top: 26px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      padding: 16px;
+      width: fit-content;
+      border-radius: 24px;
+      background: rgba(255,255,255,.10);
+      border: 1px solid rgba(255,255,255,.16);
+    }
+    .owner-photo {
+      width: 76px;
+      height: 76px;
+      border-radius: 22px;
+      object-fit: cover;
+      background: linear-gradient(135deg, var(--sun), var(--coral));
+    }
+    .owner-initials {
+      width: 76px;
+      height: 76px;
+      border-radius: 22px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, var(--sun), var(--coral));
+      color: #fff;
+      font-weight: 900;
+      font-size: 22px;
+    }
+    .owner-name { font-weight: 900; font-size: 17px; }
+    .owner-role { color: rgba(255,255,255,.68); font-size: 13px; }
+    .phone-big { display: block; margin-top: 18px; font-size: clamp(30px, 4vw, 54px); font-weight: 900; letter-spacing: -.05em; color: #fff; }
+    .map-card {
+      min-height: 420px;
+      border-radius: 26px;
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, rgba(31,49,47,.04), rgba(31,49,47,.46)),
+        url('https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=85') center/cover;
+      position: relative;
+    }
+    .map-badge {
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      bottom: 18px;
+      padding: 18px;
+      border-radius: 22px;
+      background: rgba(255,250,242,.92);
+      color: var(--ink);
+      box-shadow: 0 14px 38px rgba(0,0,0,.16);
+    }
+    .map-badge b { display: block; font-size: 18px; margin-bottom: 4px; }
+    .map-badge span { color: var(--muted); font-size: 14px; }
+
+    .footer { padding: 28px 0 46px; color: var(--muted); font-size: 14px; }
+    .footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 24px; }
+
+    .preview-note {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      z-index: 30;
+      max-width: 360px;
+      padding: 13px 15px;
+      border-radius: 18px;
+      background: rgba(39,33,28,.86);
+      color: #fff;
+      font-size: 12px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.25);
+    }
+
+    @media (max-width: 980px) {
+      .hero-grid, .section-head, .intro-grid, .contact-card { grid-template-columns: 1fr; }
+      .booking-card { max-width: 520px; }
+      .cards { grid-template-columns: 1fr; }
+      .amenity-grid { grid-template-columns: repeat(2, 1fr); }
+      .gallery { grid-template-columns: 1fr 1fr; }
+      .gallery figure:first-child { grid-column: span 2; grid-row: span 1; }
+      .nav-links a:not(.btn) { display: none; }
+    }
+    @media (max-width: 620px) {
+      .wrap, .nav { width: min(100% - 24px, var(--max)); }
+      .topbar { top: 10px; }
+      .hero { padding-top: 104px; }
+      .hero h1 { font-size: 48px; }
+      .booking-card .mini-grid, .facts, .amenity-grid, .gallery { grid-template-columns: 1fr; }
+      .gallery figure:first-child { grid-column: auto; }
+      .nav { border-radius: 24px; }
+      .brand span { display: none; }
+      section { padding: 64px 0; }
+      .photo-card, .quote-card { min-height: 320px; }
+      .preview-note { left: 12px; right: 12px; max-width: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <nav class="nav">
+      <a class="brand" href="#top">
+        <div class="brand-mark">А</div>
+        <div>
+          <strong>Гостевой дом «Алина»</strong>
+          <span>Азовское море · семейный отдых</span>
+        </div>
+      </a>
+      <div class="nav-links">
+        <a href="#about">О доме</a>
+        <a href="#rooms">Номера</a>
+        <a href="#gallery">Галерея</a>
+        <a href="#contacts">Контакты</a>
+        <a class="btn btn-primary" href="#book">Забронировать</a>
+      </div>
+    </nav>
+  </div>
+
+  <header id="top" class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <div class="eyebrow">Лето у Азовского моря</div>
+        <h1>Домашний отдых у тёплого моря</h1>
+        <p class="hero-lead">Гостевой дом «Алина» — уютные номера, спокойный двор, семейная атмосфера и всё, что нужно для размеренного отпуска у Азовского моря.</p>
+        <div class="hero-actions">
+          <a class="btn btn-sand" href="#book">Оставить заявку</a>
+          <a class="btn btn-light" href="tel:+79182129601">+7 918 212-96-01</a>
+        </div>
+      </div>
+      <form id="book" class="booking-card" onsubmit="event.preventDefault(); document.getElementById('done').hidden=false; this.reset();">
+        <h3>Быстрая заявка</h3>
+        <p>Уточним свободные даты и условия проживания.</p>
+        <div id="done" hidden style="margin-bottom:14px;padding:12px;border-radius:14px;background:#e5f4e8;color:#24572c;font-weight:800">В превью заявка не отправляется. В рабочей версии уйдёт на email и в Telegram.</div>
+        <div class="mini-grid">
+          <div class="field"><label>Заезд</label><input type="date" /></div>
+          <div class="field"><label>Выезд</label><input type="date" /></div>
+        </div>
+        <div class="mini-grid" style="margin-top:10px">
+          <div class="field"><label>Имя</label><input required placeholder="Ваше имя" /></div>
+          <div class="field"><label>Телефон</label><input required placeholder="+7..." /></div>
+        </div>
+        <div class="field" style="margin-top:10px"><label>Комментарий</label><textarea placeholder="Сколько гостей, пожелания по номеру"></textarea></div>
+        <button class="btn btn-primary" style="width:100%;margin-top:14px" type="submit">Отправить</button>
+      </form>
+    </div>
+  </header>
+
+  <main>
+    <section id="about">
+      <div class="wrap">
+        <div class="section-head">
+          <div>
+            <div class="kicker">О гостевом доме</div>
+            <h2>Тёплая атмосфера, где встречают как своих</h2>
+          </div>
+          <p>«Алина» — гостевой дом для спокойного семейного отдыха. Здесь важны простые вещи: чистота, тишина, удобная кровать, прохладный номер после пляжа и место, где приятно провести вечер.</p>
+        </div>
+        <div class="intro-grid">
+          <div class="photo-card">
+            <img src="https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1300&q=85" alt="Уютный номер гостевого дома" />
+          </div>
+          <div class="quote-card">
+            <div>
+              <div class="big">Без лишнего шума и пафоса. Просто хороший летний отдых у моря.</div>
+              <p class="lead" style="margin-top:18px">Уютный двор, номера для пары и семьи, возможность приготовить еду, мангал, парковка и быстрый контакт с хозяином.</p>
+            </div>
+            <div class="facts">
+              <div class="fact"><strong>5–10</strong><span>минут до моря</span></div>
+              <div class="fact"><strong>Wi‑Fi</strong><span>на территории</span></div>
+              <div class="fact"><strong>24/7</strong><span>связь по телефону</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="rooms">
+      <div class="wrap">
+        <div class="section-head">
+          <div>
+            <div class="kicker">Номера</div>
+            <h2>Для пары, семьи или компании</h2>
+          </div>
+          <p>В превью показаны типовые категории. Точные фото и описание номеров заменим на реальные из VK-группы после доступа к фото или ручной загрузки.</p>
+        </div>
+        <div class="cards">
+          <article class="room">
+            <div class="room-img"><img src="https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=1000&q=85" alt="Двухместный номер" /></div>
+            <div class="room-body"><h3>Двухместный номер</h3><p>Компактный номер для пары: кровать, кондиционер, душ, Wi‑Fi.</p><div class="chips"><span class="chip">2 гостя</span><span class="chip">кондиционер</span><span class="chip">душ</span></div></div>
+          </article>
+          <article class="room">
+            <div class="room-img"><img src="https://images.unsplash.com/photo-1618220179428-22790b461013?auto=format&fit=crop&w=1000&q=85" alt="Семейный номер" /></div>
+            <div class="room-body"><h3>Семейный номер</h3><p>Больше пространства для отдыха с детьми и комфортного проживания.</p><div class="chips"><span class="chip">3–4 гостя</span><span class="chip">семья</span><span class="chip">Wi‑Fi</span></div></div>
+          </article>
+          <article class="room">
+            <div class="room-img"><img src="https://images.unsplash.com/photo-1598928506311-c55ded91a20c?auto=format&fit=crop&w=1000&q=85" alt="Номер для компании" /></div>
+            <div class="room-body"><h3>Для компании</h3><p>Удобное размещение для большой семьи или друзей на летний отпуск.</p><div class="chips"><span class="chip">до 5 гостей</span><span class="chip">двор</span><span class="chip">мангал</span></div></div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="section-head">
+          <div>
+            <div class="kicker">Удобства</div>
+            <h2>Всё нужное для отпуска без суеты</h2>
+          </div>
+          <p>Сайт должен продавать не «койко-место», а ощущение: приехал, выдохнул, оставил машину, пошёл к морю.</p>
+        </div>
+        <div class="amenity-grid">
+          <div class="amenity"><b>Кондиционер</b><span>Прохладный номер после пляжа и дневной жары.</span></div>
+          <div class="amenity"><b>Wi‑Fi</b><span>Для связи, работы и вечерних фильмов.</span></div>
+          <div class="amenity"><b>Парковка</b><span>Место для автомобиля рядом с проживанием.</span></div>
+          <div class="amenity"><b>Мангал и двор</b><span>Вечера на свежем воздухе, домашняя атмосфера.</span></div>
+          <div class="amenity"><b>Кухня</b><span>Можно готовить самим, удобно для семей с детьми.</span></div>
+          <div class="amenity"><b>Тёплое море</b><span>Азовское море подходит для спокойного семейного отдыха.</span></div>
+          <div class="amenity"><b>Чистое бельё</b><span>Бельё и полотенца для комфортного проживания.</span></div>
+          <div class="amenity"><b>Быстрая связь</b><span>Бронирование и уточнение деталей напрямую с хозяином.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="gallery">
+      <div class="wrap">
+        <div class="section-head">
+          <div>
+            <div class="kicker">Галерея</div>
+            <h2>Настроение летнего дома у моря</h2>
+          </div>
+          <p>Сейчас это визуальные заглушки. После получения фотографий из VK заменю на реальные кадры дома, двора, номеров и пляжа.</p>
+        </div>
+        <div class="gallery">
+          <figure><img src="https://images.unsplash.com/photo-1473116763249-2faaef81ccda?auto=format&fit=crop&w=1200&q=85" alt="Побережье" /><figcaption>Тёплый берег</figcaption></figure>
+          <figure><img src="https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?auto=format&fit=crop&w=900&q=85" alt="Дом" /><figcaption>Гостевой дом</figcaption></figure>
+          <figure><img src="https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?auto=format&fit=crop&w=900&q=85" alt="Номер" /><figcaption>Номера</figcaption></figure>
+          <figure><img src="https://images.unsplash.com/photo-1605276374104-dee2a0ed3cd6?auto=format&fit=crop&w=900&q=85" alt="Двор" /><figcaption>Двор и отдых</figcaption></figure>
+          <figure><img src="https://images.unsplash.com/photo-1518005020951-eccb494ad742?auto=format&fit=crop&w=900&q=85" alt="Летняя атмосфера" /><figcaption>Летняя атмосфера</figcaption></figure>
+        </div>
+      </div>
+    </section>
+
+    <section id="contacts" class="contact-section">
+      <div class="wrap contact-card">
+        <div class="contact-main">
+          <div class="kicker" style="color:#f4c177">Контакты</div>
+          <h2>Свяжитесь напрямую с хозяином</h2>
+          <p>Расскажите даты поездки, количество гостей и пожелания по номеру. Вам подскажут свободные варианты и условия проживания.</p>
+          <div class="owner-card">
+            <div class="owner-initials">АЛ</div>
+            <div>
+              <div class="owner-name">Лукьянченко Александр Викторович</div>
+              <div class="owner-role">руководитель / хозяин гостевого дома</div>
+            </div>
+          </div>
+          <a class="phone-big" href="tel:+79182129601">+7 918 212-96-01</a>
+          <div class="hero-actions">
+            <a class="btn btn-sand" href="tel:+79182129601">Позвонить</a>
+            <a class="btn btn-light" href="https://vk.ru/gostevoy_domalina" target="_blank" rel="noreferrer">Группа VK</a>
+            <a class="btn btn-light" href="https://vk.ru/id135593764" target="_blank" rel="noreferrer">Профиль VK</a>
+          </div>
+        </div>
+        <div class="map-card">
+          <div class="map-badge">
+            <b>Азовское море, Краснодарский край</b>
+            <span>Точный адрес и схему проезда лучше показать после подтверждения бронирования.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap">
+      <div>© Гостевой дом «Алина». Азовское море.</div>
+      <div>Preview HTML · визуал и наполнение для согласования</div>
+    </div>
+  </footer>
+
+  <div class="preview-note">Важно: фото сейчас временные стоковые. VK без токена не отдаёт реальные альбомы. Как только будут фото/токен, заменю галерею и портрет руководителя на реальные.</div>
+</body>
+</html>

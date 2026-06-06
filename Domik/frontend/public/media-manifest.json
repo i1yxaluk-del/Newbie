@@ -1,0 +1,208 @@
+﻿{
+    "albums":  [
+                   {
+                       "id":  "guest-house",
+                       "title":  "Гостевой дом",
+                       "category":  "house",
+                       "description":  "Фасад и территория гостевого дома «Алина».",
+                       "cover":  "/media/guest-house/01.jpg",
+                       "photos":  [
+                                      "/media/guest-house/01.jpg",
+                                      "/media/guest-house/02.jpg",
+                                      "/media/guest-house/03.jpg",
+                                      "/media/guest-house/04.jpg",
+                                      "/media/guest-house/05.jpg",
+                                      "/media/guest-house/06.jpg",
+                                      "/media/guest-house/07.jpg",
+                                      "/media/guest-house/08.jpg",
+                                      "/media/guest-house/09.jpg",
+                                      "/media/guest-house/10.jpg",
+                                      "/media/guest-house/11.jpg",
+                                      "/media/guest-house/12.jpg",
+                                      "/media/guest-house/13.jpg",
+                                      "/media/guest-house/14.jpg"
+                                  ]
+                   },
+                   {
+                       "id":  "yard",
+                       "title":  "Двор и отдых",
+                       "category":  "common",
+                       "description":  "Двор, бассейн, беседка, детская зона и места отдыха.",
+                       "cover":  "/media/yard/01.jpg",
+                       "photos":  [
+                                      "/media/yard/01.jpg",
+                                      "/media/yard/02.jpg",
+                                      "/media/yard/03.jpg",
+                                      "/media/yard/04.jpg",
+                                      "/media/yard/05.jpg"
+                                  ]
+                   },
+                   {
+                       "id":  "kitchen",
+                       "title":  "Кухня",
+                       "category":  "common",
+                       "description":  "Общая кухня для гостей.",
+                       "cover":  "/media/kitchen/01.jpg",
+                       "photos":  [
+                                      "/media/kitchen/01.jpg",
+                                      "/media/kitchen/02.jpg"
+                                  ]
+                   },
+                   {
+                       "id":  "summer",
+                       "title":  "Летняя атмосфера",
+                       "category":  "common",
+                       "description":  "Летние детали, зелень и настроение отдыха.",
+                       "cover":  "/media/summer/01.jpg",
+                       "photos":  [
+                                      "/media/summer/01.jpg",
+                                      "/media/summer/02.jpg",
+                                      "/media/summer/03.jpg",
+                                      "/media/summer/04.jpg",
+                                      "/media/summer/05.jpg",
+                                      "/media/summer/06.jpg",
+                                      "/media/summer/07.jpg",
+                                      "/media/summer/08.jpg",
+                                      "/media/summer/09.jpg",
+                                      "/media/summer/10.jpg",
+                                      "/media/summer/11.jpg",
+                                      "/media/summer/12.jpg"
+                                  ]
+                   },
+                   {
+                       "id":  "room-2",
+                       "title":  "2х местный номер",
+                       "category":  "rooms",
+                       "description":  "Номер с удобствами: душ/туалет, телевизор, кондиционер/сплит-система.",
+                       "cover":  "/media/room-2/01.jpg",
+                       "photos":  [
+                                      "/media/room-2/01.jpg",
+                                      "/media/room-2/02.jpg",
+                                      "/media/room-2/03.jpg",
+                                      "/media/room-2/04.jpg",
+                                      "/media/room-2/05.jpg",
+                                      "/media/room-2/06.jpg",
+                                      "/media/room-2/07.jpg",
+                                      "/media/room-2/08.jpg",
+                                      "/media/room-2/09.jpg",
+                                      "/media/room-2/10.jpg",
+                                      "/media/room-2/11.jpg"
+                                  ]
+                   },
+                   {
+                       "id":  "room-3-4-1",
+                       "title":  "3х-4х местный номер 1",
+                       "category":  "rooms",
+                       "description":  "Номер с удобствами: душ/туалет, телевизор, кондиционер/сплит-система.",
+                       "cover":  "/media/room-3-4-1/01.jpg",
+                       "photos":  [
+                                      "/media/room-3-4-1/01.jpg",
+                                      "/media/room-3-4-1/02.jpg",
+                                      "/media/room-3-4-1/03.jpg",
+                                      "/media/room-3-4-1/04.jpg",
+                                      "/media/room-3-4-1/05.jpg",
+                                      "/media/room-3-4-1/06.jpg",
+                                      "/media/room-3-4-1/07.jpg",
+                                      "/media/room-3-4-1/08.jpg",
+                                      "/media/room-3-4-1/09.jpg",
+                                      "/media/room-3-4-1/10.jpg",
+                                      "/media/room-3-4-1/11.jpg"
+                                  ]
+                   },
+                   {
+                       "id":  "room-3-4-2",
+                       "title":  "3х-4х местный номер 2",
+                       "category":  "rooms",
+                       "description":  "Номер с удобствами: душ/туалет, телевизор, кондиционер/сплит-система.",
+                       "cover":  "/media/room-3-4-2/01.jpg",
+                       "photos":  [
+                                      "/media/room-3-4-2/01.jpg",
+                                      "/media/room-3-4-2/02.jpg",
+                                      "/media/room-3-4-2/03.jpg",
+                                      "/media/room-3-4-2/04.jpg",
+                                      "/media/room-3-4-2/05.jpg",
+                                      "/media/room-3-4-2/06.jpg",
+                                      "/media/room-3-4-2/07.jpg",
+                                      "/media/room-3-4-2/08.jpg",
+                                      "/media/room-3-4-2/09.jpg",
+                                      "/media/room-3-4-2/10.jpg",
+                                      "/media/room-3-4-2/11.jpg",
+                                      "/media/room-3-4-2/12.jpg",
+                                      "/media/room-3-4-2/13.jpg",
+                                      "/media/room-3-4-2/14.jpg"
+                                  ]
+                   },
+                   {
+                       "id":  "room-two-room-4",
+                       "title":  "Двухкомнатный 4х местный номер",
+                       "category":  "rooms",
+                       "description":  "Номер с удобствами: душ/туалет, телевизор, кондиционер/сплит-система.",
+                       "cover":  "/media/room-two-room-4/01.jpg",
+                       "photos":  [
+                                      "/media/room-two-room-4/01.jpg",
+                                      "/media/room-two-room-4/02.jpg",
+                                      "/media/room-two-room-4/03.jpg",
+                                      "/media/room-two-room-4/04.jpg",
+                                      "/media/room-two-room-4/05.jpg",
+                                      "/media/room-two-room-4/06.jpg",
+                                      "/media/room-two-room-4/07.jpg",
+                                      "/media/room-two-room-4/08.jpg",
+                                      "/media/room-two-room-4/09.jpg",
+                                      "/media/room-two-room-4/10.jpg",
+                                      "/media/room-two-room-4/11.jpg",
+                                      "/media/room-two-room-4/12.jpg",
+                                      "/media/room-two-room-4/13.jpg",
+                                      "/media/room-two-room-4/14.jpg"
+                                  ]
+                   },
+                   {
+                       "id":  "room-one-room-4",
+                       "title":  "Однокомнатный 4х местный номер",
+                       "category":  "rooms",
+                       "description":  "Номер с удобствами: душ/туалет, телевизор, кондиционер/сплит-система.",
+                       "cover":  "/media/room-one-room-4/01.jpg",
+                       "photos":  [
+                                      "/media/room-one-room-4/01.jpg",
+                                      "/media/room-one-room-4/02.jpg",
+                                      "/media/room-one-room-4/03.jpg",
+                                      "/media/room-one-room-4/04.jpg",
+                                      "/media/room-one-room-4/05.jpg",
+                                      "/media/room-one-room-4/06.jpg",
+                                      "/media/room-one-room-4/07.jpg",
+                                      "/media/room-one-room-4/08.jpg",
+                                      "/media/room-one-room-4/09.jpg",
+                                      "/media/room-one-room-4/10.jpg",
+                                      "/media/room-one-room-4/11.jpg",
+                                      "/media/room-one-room-4/12.jpg",
+                                      "/media/room-one-room-4/13.jpg"
+                                  ]
+                   },
+                   {
+                       "id":  "owner",
+                       "title":  "Руководитель",
+                       "category":  "owner",
+                       "description":  "Лукьянченко Александр Викторович, руководитель гостевого дома.",
+                       "cover":  "/media/owner/01.png",
+                       "photos":  [
+                                      "/media/owner/01.png"
+                                  ]
+                   },
+                   {
+                       "id":  "beach",
+                       "title":  "Тёплый берег",
+                       "category":  "beach",
+                       "description":  "Песчаный берег и Азовское море рядом с посёлком Кучугуры.",
+                       "cover":  "/media/beach/01.jpg",
+                       "photos":  [
+                                      "/media/beach/01.jpg",
+                                      "/media/beach/02.jpg",
+                                      "/media/beach/03.jpg",
+                                      "/media/beach/04.jpg",
+                                      "/media/beach/05.jpg",
+                                      "/media/beach/06.jpg",
+                                      "/media/beach/07.jpg"
+                                  ]
+                   }
+               ],
+    "generatedAt":  "2026-06-06T19:09:13"
+}

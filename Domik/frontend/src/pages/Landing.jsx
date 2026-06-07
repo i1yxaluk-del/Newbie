@@ -13,7 +13,7 @@ const FALLBACK = {
   'amenities.items': '400 м до пляжа;Песчаный берег;Автостоянка;Бассейн;Интернет в номерах;Телевизоры;Детская площадка;Беседка с мангалом;Можно с детьми любого возраста;Общая кухня;Трансфер',
   'gallery.title': 'Фото гостевого дома',
   'location.title': 'Кучугуры, Азовское море',
-  'location.address': 'пос. Кучугуры, Краснодарский край, 400 м от пляжа',
+  'location.address': 'ул. Рабочая, 38, Кучугуры, Краснодарский край',
   'location.note': 'Песчаный берег, ласковое тёплое море, рядом грязевой лечебный вулкан и минеральные источники.',
   'contacts.title': 'Связаться и забронировать',
   'contacts.owner_name': 'Лукьянченко Александр Викторович',
@@ -35,14 +35,20 @@ const FEATURED_ALBUMS = [
   { label: 'Кухня', title: 'Кухня', ids: ['kitchen'] },
 ]
 
+function safeParse(raw) {
+  if (!raw) return {}
+  const trimmed = String(raw).trim()
+  if (!trimmed || trimmed === 'undefined' || trimmed === 'null') return {}
+  try { const parsed = JSON.parse(trimmed); return (parsed && typeof parsed === 'object') ? parsed : {} } catch { return {} }
+}
+
 function mergeMediaSettings(manifest, rawSettings) {
-  const albums = manifest?.albums || []
-  let settings = {}
-  try { settings = rawSettings ? JSON.parse(rawSettings) : {} } catch { settings = {} }
-  const customAlbums = settings.customAlbums || []
+  const albums = Array.isArray(manifest?.albums) ? manifest.albums : []
+  const settings = safeParse(rawSettings)
+  const customAlbums = Array.isArray(settings.customAlbums) ? settings.customAlbums : []
   const allAlbums = [...albums, ...customAlbums]
-  const albumOrder = settings.albumOrder || []
-  const albumSettings = settings.albums || {}
+  const albumOrder = Array.isArray(settings.albumOrder) ? settings.albumOrder : []
+  const albumSettings = (settings.albums && typeof settings.albums === 'object') ? settings.albums : {}
   return [...allAlbums]
     .map(album => {
       const cfg = albumSettings[album.id] || {}
@@ -51,9 +57,9 @@ function mergeMediaSettings(manifest, rawSettings) {
       const photos = cfg.photoOrder?.length
         ? cfg.photoOrder.filter(p => basePhotos.includes(p)).concat(basePhotos.filter(p => !cfg.photoOrder.includes(p)))
         : basePhotos
-      return { ...album, photos, cover: cfg.cover || album.cover || photos[0], hidden: !!cfg.hidden }
+      return { ...album, photos, cover: cfg.cover || album.cover || photos[0], hidden: !!cfg.hidden, chips: cfg.chips && cfg.chips.length ? cfg.chips : album.chips, title: cfg.title || album.title, description: cfg.description || album.description }
     })
-    .filter(a => !a.hidden)
+    .filter(a => !a.hidden && (a.photos.length || a.cover))
     .sort((a, b) => {
       const ai = albumOrder.indexOf(a.id)
       const bi = albumOrder.indexOf(b.id)
@@ -65,6 +71,7 @@ export default function Landing() {
   const [c, setC] = useState(FALLBACK)
   const [manifest, setManifest] = useState({ albums: [] })
   const [activeAlbum, setActiveAlbum] = useState(null)
+  const [calendar, setCalendar] = useState({ bookings_open: true, unavailable_dates: [], blocked_dates: [], occupied_dates: [] })
   const [form, setForm] = useState({ name: '', phone: '', email: '', guests: '', date_from: '', date_to: '', message: '' })
   const [sending, setSending] = useState(false)
   const [ok, setOk] = useState(false)
@@ -73,11 +80,30 @@ export default function Landing() {
   useEffect(() => {
     api.getContent().then(d => setC({ ...FALLBACK, ...d })).catch(() => {})
     fetch('/media-manifest.json').then(r => r.json()).then(setManifest).catch(() => {})
+    api.getCalendarPublic().then(setCalendar).catch(() => {})
   }, [])
 
   const albums = useMemo(() => mergeMediaSettings(manifest, c['media.settings']), [manifest, c])
-  const mediaSettings = useMemo(() => { try { return JSON.parse(c['media.settings'] || '{}') } catch { return {} } }, [c])
+  const mediaSettings = useMemo(() => safeParse(c['media.settings']), [c])
   const singles = mediaSettings.singleImages || {}
+  const unavailable = useMemo(() => new Set(calendar.unavailable_dates || []), [calendar])
+  const bookingsOpen = calendar.bookings_open !== false
+  const closedMessage = c['bookings.closed_message'] || 'В настоящее время мы не принимаем гостей. Пожалуйста, попробуйте позже или свяжитесь по телефону.'
+
+  function isRangeBlocked(from, to) {
+    if (!from || !to) return false
+    const a = new Date(from); const b = new Date(to)
+    if (isNaN(a) || isNaN(b)) return false
+    if (b < a) return false
+    const cur = new Date(a)
+    while (cur <= b) {
+      const iso = cur.toISOString().slice(0, 10)
+      if (unavailable.has(iso)) return true
+      cur.setDate(cur.getDate() + 1)
+    }
+    return false
+  }
+  const rangeBlocked = isRangeBlocked(form.date_from, form.date_to)
   const roomAlbums = albums.filter(a => a.category === 'rooms')
   const guestHouse = albums.find(a => a.id === 'guest-house')
   const yard = albums.find(a => a.id === 'yard')
@@ -85,6 +111,8 @@ export default function Landing() {
   const owner = albums.find(a => a.id === 'owner')
   const heroPhoto = singles.hero || guestHouse?.cover || albums[0]?.cover || '/media/guest-house/01.jpg'
   const ownerPhoto = singles.owner || c['contacts.owner_photo'] || owner?.cover
+  const aboutPhoto1 = singles.about1 || guestHouse?.photos?.[1] || '/media/guest-house/02.jpg'
+  const aboutPhoto2 = singles.about2 || yard?.cover || '/media/yard/01.jpg'
   const galleryPhotos = albums.flatMap(a => a.photos.slice(0, 3)).slice(0, 12)
   const featuredAlbums = FEATURED_ALBUMS.map(group => {
     const groupAlbums = group.ids.map(id => albums.find(a => a.id === id)).filter(Boolean)
@@ -105,6 +133,14 @@ export default function Landing() {
 
   async function submit(e) {
     e.preventDefault()
+    if (!bookingsOpen) {
+      setErr(closedMessage)
+      return
+    }
+    if (rangeBlocked) {
+      setErr('Выбранные даты недоступны. Пожалуйста, выберите другие.')
+      return
+    }
     setSending(true); setErr(''); setOk(false)
     try {
       await api.createLead({
@@ -114,8 +150,9 @@ export default function Landing() {
       })
       setOk(true)
       setForm({ name: '', phone: '', email: '', guests: '', date_from: '', date_to: '', message: '' })
-    } catch {
-      setErr('Не удалось отправить заявку. Попробуйте позвонить: ' + c['contacts.phone'])
+      api.getCalendarPublic().then(setCalendar).catch(() => {})
+    } catch (e) {
+      setErr((e && e.message) || ('Не удалось отправить заявку. Попробуйте позвонить: ' + c['contacts.phone']))
     } finally {
       setSending(false)
     }
@@ -145,7 +182,7 @@ export default function Landing() {
       </header>
 
       <main id="top">
-        <section className="photo-hero" style={{ backgroundImage: `linear-gradient(180deg, rgba(22,24,22,.22), rgba(22,24,22,.62)), url(${heroPhoto})` }}>
+        <section className="photo-hero" style={{ backgroundImage: `linear-gradient(180deg, rgba(22,24,22,.22), rgba(22,24,22,.62)), url("${heroPhoto}")` }}>
           <div className="container photo-hero__grid">
             <div>
               <div className="hero__eyebrow hero__eyebrow--light">400 м до пляжа · 10 минут пешком</div>
@@ -155,21 +192,29 @@ export default function Landing() {
                 <a className="btn btn--primary" href="#book">{c['hero.cta']}</a>
                 <a className="btn btn--light" href={phoneHref}>{c['contacts.phone']}</a>
               </div>
+              {!bookingsOpen && <div className="hero__closed">{closedMessage} <a href={phoneHref}>{c['contacts.phone']}</a></div>}
             </div>
             <form className="booking-panel" onSubmit={submit}>
               <h3>Быстрая заявка</h3>
-              <p>Уточним свободные даты, стоимость и подходящий номер.</p>
+              {bookingsOpen ? (
+                <p>Уточним свободные даты, стоимость и подходящий номер.</p>
+              ) : (
+                <div className="form__error">{closedMessage}<br /><a href={phoneHref}>{c['contacts.phone']}</a></div>
+              )}
               {ok && <div className="form__success">Спасибо! Заявка отправлена. Мы скоро свяжемся.</div>}
-              {err && <div className="form__error">{err}</div>}
-              <div className="form__row">
-                <div><label>Заезд</label><input type="date" value={form.date_from} onChange={e => setForm({ ...form, date_from: e.target.value })} /></div>
-                <div><label>Выезд</label><input type="date" value={form.date_to} onChange={e => setForm({ ...form, date_to: e.target.value })} /></div>
-              </div>
-              <label>Ваше имя *</label>
-              <input required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
-              <label>Телефон *</label>
-              <input required value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="+7..." />
-              <button className="btn btn--primary" disabled={sending} type="submit">{sending ? 'Отправляем...' : 'Отправить'}</button>
+              {err && bookingsOpen && <div className="form__error">{err}</div>}
+              {rangeBlocked && bookingsOpen && <div className="form__error">Дата уже забронирована, пожалуйста, выберите другую дату.</div>}
+              <fieldset disabled={!bookingsOpen} style={{ border: 0, padding: 0, margin: 0 }}>
+                <div className="form__row">
+                  <div><label>Заезд</label><input type="date" value={form.date_from} onChange={e => { setForm({ ...form, date_from: e.target.value }); setErr('') }} min={calendar.today} /></div>
+                  <div><label>Выезд</label><input type="date" value={form.date_to} onChange={e => { setForm({ ...form, date_to: e.target.value }); setErr('') }} min={form.date_from || calendar.today} /></div>
+                </div>
+                <label>Ваше имя *</label>
+                <input required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+                <label>Телефон *</label>
+                <input required value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="+7..." />
+                <button className="btn btn--primary" disabled={sending || !bookingsOpen || rangeBlocked} type="submit">{sending ? 'Отправляем...' : 'Отправить'}</button>
+              </fieldset>
             </form>
           </div>
         </section>
@@ -187,8 +232,8 @@ export default function Landing() {
               </div>
             </div>
             <div className="split-photos">
-              {guestHouse?.photos?.[1] && <img src={guestHouse.photos[1]} alt="Гостевой дом Алина" />}
-              {yard?.cover && <img src={yard.cover} alt="Двор гостевого дома" />}
+              <img src={aboutPhoto1} alt="Гостевой дом Алина" />
+              <img src={aboutPhoto2} alt="Двор гостевого дома" />
             </div>
           </div>
         </section>
@@ -210,7 +255,7 @@ export default function Landing() {
                   <div className="room-card__body">
                     <h3>{album.title}</h3>
                     <p>{album.description}</p>
-                    <div className="chips"><span>душ/туалет</span><span>ТВ</span><span>кондиционер</span></div>
+                    <div className="chips">{(album.chips || ['душ/туалет', 'ТВ', 'кондиционер']).map(c => <span key={c}>{c}</span>)}</div>
                   </div>
                 </article>
               ))}
@@ -272,7 +317,7 @@ export default function Landing() {
                 <a className="btn btn--ghost" href={c['contacts.vk']} target="_blank" rel="noreferrer">Группа VK</a>
               </div>
             </div>
-            <div className="location-card" style={{ backgroundImage: `linear-gradient(180deg, rgba(22,24,22,.04), rgba(22,24,22,.38)), url(${singles.location || beach?.cover || heroPhoto})` }}>
+            <div className="location-card" style={{ backgroundImage: `linear-gradient(180deg, rgba(22,24,22,.04), rgba(22,24,22,.38)), url("${singles.location || beach?.cover || heroPhoto}")` }}>
               <div><b>{c['location.title']}</b><span>{c['location.address']}</span></div>
             </div>
           </div>
@@ -283,29 +328,39 @@ export default function Landing() {
             <div className="section-headline">
               <span className="section-kicker">Бронирование</span>
               <h2>Оставить заявку</h2>
-              <p>Свяжемся в ближайшее время, расскажем про свободные даты и условия.</p>
+              {bookingsOpen ? (
+                <p>Свяжемся в ближайшее время, расскажем про свободные даты и условия.</p>
+              ) : (
+                <div className="form__error">
+                  {closedMessage}<br />
+                  <a href={phoneHref}>{c['contacts.phone']}</a>
+                </div>
+              )}
             </div>
             <form className="form" onSubmit={submit}>
               {ok && <div className="form__success">Спасибо! Заявка отправлена. Мы скоро свяжемся.</div>}
-              {err && <div className="form__error">{err}</div>}
-              <div className="form__row">
-                <div><label>Ваше имя *</label><input required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
-                <div><label>Телефон *</label><input required value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="+7..." /></div>
-              </div>
-              <div className="form__row">
-                <div><label>Email</label><input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
-                <div><label>Гостей</label><input type="number" min="1" max="20" value={form.guests} onChange={e => setForm({ ...form, guests: e.target.value })} /></div>
-              </div>
-              <div className="form__row">
-                <div><label>Заезд</label><input type="date" value={form.date_from} onChange={e => setForm({ ...form, date_from: e.target.value })} /></div>
-                <div><label>Выезд</label><input type="date" value={form.date_to} onChange={e => setForm({ ...form, date_to: e.target.value })} /></div>
-              </div>
-              <label>Комментарий</label>
-              <textarea value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} placeholder="Пожелания, вопросы..." />
-              <div style={{ marginTop: 16, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                <button className="btn btn--primary" disabled={sending} type="submit">{sending ? 'Отправляем...' : 'Отправить заявку'}</button>
-                <span className="form__hint">Заявка уйдёт на email и в Telegram после настройки SMTP и бота.</span>
-              </div>
+              {err && bookingsOpen && <div className="form__error">{err}</div>}
+              {rangeBlocked && bookingsOpen && <div className="form__error">Дата уже забронирована, пожалуйста, выберите другую дату.</div>}
+              <fieldset disabled={!bookingsOpen} style={{ border: 0, padding: 0, margin: 0 }}>
+                <div className="form__row">
+                  <div><label>Ваше имя *</label><input required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
+                  <div><label>Телефон *</label><input required value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="+7..." /></div>
+                </div>
+                <div className="form__row">
+                  <div><label>Email</label><input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
+                  <div><label>Гостей</label><input type="number" min="1" max="20" value={form.guests} onChange={e => setForm({ ...form, guests: e.target.value })} /></div>
+                </div>
+                <div className="form__row">
+                  <div><label>Заезд</label><input type="date" value={form.date_from} onChange={e => { setForm({ ...form, date_from: e.target.value }); setErr('') }} min={calendar.today} /></div>
+                  <div><label>Выезд</label><input type="date" value={form.date_to} onChange={e => { setForm({ ...form, date_to: e.target.value }); setErr('') }} min={form.date_from || calendar.today} /></div>
+                </div>
+                <label>Комментарий</label>
+                <textarea value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} placeholder="Пожелания, вопросы..." />
+                <div style={{ marginTop: 16, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button className="btn btn--primary" disabled={sending || !bookingsOpen || rangeBlocked} type="submit">{sending ? 'Отправляем...' : 'Отправить заявку'}</button>
+                  <span className="form__hint">Заявка уйдёт на email и в Telegram после настройки SMTP и бота.</span>
+                </div>
+              </fieldset>
             </form>
           </div>
         </section>
@@ -314,7 +369,7 @@ export default function Landing() {
       <footer className="footer">
         <div className="container footer__row">
           <div>{c['footer.note']}</div>
-          <div><a href={phoneHref}>{c['contacts.phone']}</a> · <a href={c['contacts.vk']} target="_blank" rel="noreferrer">VK</a> · <a href="/admin/login">Админ</a></div>
+          <div><a href={phoneHref}>{c['contacts.phone']}</a> · <a href={c['contacts.vk']} target="_blank" rel="noreferrer">VK</a></div>
         </div>
       </footer>
 

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Integer, String, Text, Boolean
+from sqlalchemy import Column, Date, DateTime, Integer, String, Text, Boolean
 
 from .db import Base
 
@@ -35,3 +35,11 @@ class LandingContent(Base):
     key = Column(String(64), unique=True, nullable=False, index=True)
     value = Column(Text, nullable=False, default="")
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class BlockedDate(Base):
+    __tablename__ = "blocked_dates"
+    id = Column(Integer, primary_key=True)
+    day = Column(Date, unique=True, nullable=False, index=True)
+    note = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)

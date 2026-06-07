@@ -37,7 +37,7 @@ class LeadStatusUpdate(BaseModel):
 
 
 class LoginIn(BaseModel):
-    email: EmailStr
+    login: str = Field(min_length=3, max_length=120)
     password: str
 
 
@@ -53,3 +53,27 @@ class ContentItem(BaseModel):
 
 class ContentBulk(BaseModel):
     items: list[ContentItem]
+
+
+class BlockedDayIn(BaseModel):
+    day: str
+    note: Optional[str] = None
+
+
+class BlockedDayOut(BaseModel):
+    day: str
+    note: Optional[str] = None
+
+
+class BlockedRangeIn(BaseModel):
+    date_from: str
+    date_to: str
+    note: Optional[str] = None
+
+
+class BlockedDaysList(BaseModel):
+    days: list[str]
+
+
+class BookingsModeIn(BaseModel):
+    open: bool

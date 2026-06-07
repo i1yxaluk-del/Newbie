@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .db import Base, SessionLocal, engine
-from .routers import auth, content, leads, uploads
+from .routers import auth, calendar, content, leads, uploads
 from .services.seed import run_seed
 
 logging.basicConfig(level=logging.INFO)
@@ -43,3 +43,4 @@ app.include_router(auth.router)
 app.include_router(leads.router)
 app.include_router(content.router)
 app.include_router(uploads.router)
+app.include_router(calendar.router)

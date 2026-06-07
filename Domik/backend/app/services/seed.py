@@ -35,6 +35,8 @@ DEFAULT_CONTENT = {
     "contacts.vk_personal": "https://vk.ru/id135593764",
     "contacts.owner_photo": "/media/owner/01.png",
     "media.settings": "{}",
+    "bookings.open": "true",
+    "bookings.closed_message": "В настоящее время мы не принимаем гостей. Пожалуйста, попробуйте позже или свяжитесь по телефону.",
     "footer.note": "© Гостевой дом «Алина». Кучугуры, Азовское море.",
 }
 

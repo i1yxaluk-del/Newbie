@@ -27,6 +27,7 @@ export default function AdminShell({ children }) {
           </div>
           <div className="admin__nav">
             <Link className={is('/admin/leads')} to="/admin/leads">Заявки</Link>
+            <Link className={is('/admin/calendar')} to="/admin/calendar">Календарь</Link>
             <Link className={is('/admin/landing-edit')} to="/admin/landing-edit">Landing-edit</Link>
             <a href="/" target="_blank" rel="noreferrer">Открыть сайт</a>
             <button className="btn btn--ghost" onClick={logout}>Выйти</button>

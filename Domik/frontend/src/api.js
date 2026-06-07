@@ -47,7 +47,7 @@ export const api = {
   listLeads: () => jsonFetch('/api/leads'),
   updateLeadStatus: (id, status) => jsonFetch(`/api/leads/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
   deleteLead: (id) => jsonFetch(`/api/leads/${id}`, { method: 'DELETE' }),
-  login: (email, password) => jsonFetch('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+  login: (login, password) => jsonFetch('/api/auth/login', { method: 'POST', body: JSON.stringify({ login, password }) }),
   uploadFile: (file, scope = 'general') => {
     const fd = new FormData()
     fd.append('file', file)
@@ -57,6 +57,12 @@ export const api = {
     const path = uploadDeletePath(url)
     return path ? jsonFetch(path, { method: 'DELETE' }) : Promise.resolve({ ok: true })
   },
+  getCalendarPublic: () => jsonFetch('/api/calendar/public'),
+  getCalendarAdmin: () => jsonFetch('/api/calendar/admin'),
+  blockDay: (day, note = null) => jsonFetch('/api/calendar/block', { method: 'POST', body: JSON.stringify({ day, note }) }),
+  blockRange: (date_from, date_to, note = null) => jsonFetch('/api/calendar/block-range', { method: 'POST', body: JSON.stringify({ date_from, date_to, note }) }),
+  unblockDays: (days) => jsonFetch('/api/calendar/unblock', { method: 'POST', body: JSON.stringify({ days }) }),
+  setBookingsMode: (open) => jsonFetch('/api/calendar/bookings-mode', { method: 'POST', body: JSON.stringify({ open }) }),
 }
 
 export function setToken(t) { localStorage.setItem('domik_token', t) }

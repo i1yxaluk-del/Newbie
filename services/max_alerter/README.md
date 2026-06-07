@@ -36,84 +36,47 @@ Python-сервис, который принимает вебхуки от Alert
 
 ---
 
-## Быстрый старт
+## Авторизация (сессия слетает при пересоздании контейнера)
 
-### 1. Авторизация (один раз, на хосте)
-
-```bash
-pip install maxapi-python
-python auth.py --phone +79991234567 --session ./session/max.db
-```
-
-Введите SMS-код. Сессия сохранится в SQLite-файл.
-
-### 2. Запуск в Docker
+**Запускать только с `-it`** — pymax отправляет SMS и ждёт ввод кода в терминале:
 
 ```bash
-docker build -t max-alerter .
-docker run -d \
--p 9095:9095 \
--v $(pwd)/session:/session \
--v $(pwd)/data:/data \
--e MAX_PHONE=+79991234567 \
--e MAX_CHAT_ID=1234567890 \
--e WEBHOOK_TOKEN=changeme \
--e TG_BOT_TOKEN=... \
--e TG_CHAT_ID=... \
-max-alerter
+# На VM через SSH:
+docker exec -it msp-max-alerter python -m max_alerter.auth
+
+# → MAX отправляет SMS на +79990703823
+# → Вводишь 6-значный код → сессия сохранена
 ```
 
-### 3. Настройка Alertmanager
-
-```yaml
-receivers:
-- name: max_alerts
-  webhook_configs:
-    - url: "http://max-alerter:9095/alert"
-      send_resolved: true
-      http_config:
-        bearer_token: changeme
-```
-
----
-
-## Переменные окружения
-
-| Переменная       | Описание                              | Обязательная |
-|------------------|---------------------------------------|--------------|
-| `MAX_PHONE`      | Номер телефона аккаунта MAX           | да           |
-| `MAX_CHAT_ID`    | chat_id клиента в MAX (куда слать)    | да           |
-| `WEBHOOK_TOKEN`  | Bearer-токен для входящих вебхуков    | нет          |
-| `TG_BOT_TOKEN`   | Telegram-бот для fallback             | нет          |
-| `TG_CHAT_ID`     | Telegram chat_id для fallback         | нет          |
-| `MAX_SESSION_DIR`| Директория с SQLite-сессией           | `/session`   |
-| `MAX_SESSION_NAME`| Имя файла сессии                      | `max.db`     |
-| `FAILED_LOG`     | Лог недоставленных алертов            | `/data/failed_alerts.log` |
-
----
-
-## Структура
-
-```
-services/max_alerter/
-├── auth.py           # Интерактивная авторизация (CLI)
-├── sender.py         # Отправка в MAX + Telegram fallback
-├── webhook.py        # FastAPI сервер (Alertmanager webhook)
-├── Dockerfile        # Контейнер
-├── requirements.txt  # Зависимости
-└── README.md         # Этот файл
-```
+Сессия: `/session/max.db` (volume: `/opt/msp-monitoring/max-session/`).
 
 ---
 
 ## Диагностика
 
 ```bash
-# Проверка здоровья
+# Логи контейнера (имя: msp-max-alerter, НЕ max-alerter!)
+docker logs msp-max-alerter --tail 50
+
+# Здоровье webhook
 curl http://localhost:9095/health
 
-# Просмотр лога недоставленных
-cat data/failed_alerts.log
+# Проверить, жива ли MAX-сессия
+docker exec msp-max-alerter python -c "
+import asyncio
+from pymax import Client
+async def check():
+    c = Client(phone='+79990703823', work_dir='/session', session_name='max.db')
+    try:
+        await asyncio.wait_for(c.start(), timeout=10)
+        print('MAX session OK')
+    except Exception as e:
+        print('MAX session FAILED:', e)
+asyncio.run(check())
+"
+
+# Лог недоставленных алертов
+cat /opt/msp-monitoring/max-alerter-data/failed_alerts.log
 ```
 
 ---

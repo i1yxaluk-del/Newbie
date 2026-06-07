@@ -151,9 +151,12 @@ Config → Pydantic-модели → Prometheus-метрики → rate-limit �
 - **Бэкапы** — restic → Yandex Object Storage (AES-256), textfile-collector в Prometheus.
 
 **Замечания:**
-- ⚠️ `deploy/yandex/STALWART_RELAY_MODE.md` помечен deprecated (перешли на Postbox :465),
-  но конфиг Alertmanager всё ещё ссылается на `smtp_smarthost: "stalwart:25"` —
-  рассинхрон документации и конфига (см. также §7).
+- ℹ️ Alertmanager ходит на `smtp_smarthost: "stalwart:25"` **намеренно**, а не по ошибке:
+  его встроенный SMTP-клиент (v0.27) не умеет implicit TLS, а Postbox `:465` требует
+  именно implicit TLS. Поэтому Alertmanager отдаёт письмо локальному Stalwart по `:25`
+  (внутренняя docker-сеть, без TLS), а Stalwart уже релеит наружу через Yandex Cloud
+  Postbox `:465` implicit TLS. Так это работает давно — исходящая почта де-факто уходит
+  на `:465` (см. `deploy/yandex/README.md` §10.0.10 и §10.0.12). Рассинхрона нет.
 - ⚠️ Много инфраструктуры существует только как код/доки; из песочницы её
   работоспособность на VM проверить нельзя (нет `yc`/SSH). Это не дефект репо,
   а ограничение проверки — но go-live зависит от ручной настройки `.env` на VM.
@@ -196,10 +199,12 @@ smtp_auth_password: "QYIQylBaBRenxvvKuxLVx5Yq"
 остальных секретов; (3) при необходимости — переписать историю (git filter-repo).
 Это прямо нарушает собственное правило репо «Что НЕ коммитим» из README.
 
-### 🟠 P1 — Нет CI/CD
-В репо нет `.github/workflows`. 43 unit-теста и линтеры (flake8/black/isort/mypy в
-requirements) есть, но не запускаются автоматически на push/PR. Один GitHub Actions
-workflow (lint + pytest + secret-scan) закрыл бы и регрессии, и проблему P0 на будущее.
+### ⚪ CI/CD — отложено по решению владельца
+Изначально предлагался GitHub Actions (lint + pytest + secret-scan) на push/PR.
+Владелец решил **пока не вводить CI/CD**: на текущей стадии (1 разработчик, MVP уже
+в проде) это лишний overhead — он «перегружает проект» и усложняет его без явной
+пользы. Тесты и линтеры по-прежнему запускаются локально. К вопросу вернёмся, когда
+появится команда (junior'ы) и параллельные ветки, где автопроверки реально окупаются.
 
 ### 🟡 P2 — Тесты смешивают unit и live-e2e
 `tests/test_mspshield_api.py` бьётся в живой сервер по HTTP (`requests` к `BASE_URL`)
@@ -207,9 +212,13 @@ workflow (lint + pytest + secret-scan) закрыл бы и регрессии, 
 тестов (`ModuleNotFoundError: requests` + нет сервера). Стоит пометить его маркером
 `@pytest.mark.e2e` и исключить из дефолтного прогона, чтобы 43 unit-теста гонялись чисто.
 
-### 🟡 P2 — Рассинхрон Stalwart/Postbox
-Документация перешла на Postbox `:465`, но Alertmanager всё ещё настроен на
-`stalwart:25`. Привести конфиг в соответствие с актуальным способом доставки почты.
+### ✅ Stalwart/Postbox — не проблема (снято)
+Ранее это значилось как рассинхрон, но это ошибка анализа. `stalwart:25` в конфиге
+Alertmanager — осознанное решение, и исходящая почта **давно уходит на Postbox `:465`**.
+Цепочка: Alertmanager → локальный Stalwart `:25` (внутренняя сеть, без TLS) → Yandex
+Cloud Postbox `:465` implicit TLS. Причина — Alertmanager v0.27 не поддерживает implicit
+TLS, которого требует Postbox `:465`, поэтому письмо отдаётся Stalwart, а он релеит
+наружу. Менять ничего не нужно (см. `deploy/yandex/README.md` §10.0.10 и §10.0.12).
 
 ### 🔵 P3 — Прочее (не блокеры)
 - Rate-limit in-memory (не глобальный при нескольких воркерах) — §3.
@@ -223,11 +232,12 @@ workflow (lint + pytest + secret-scan) закрыл бы и регрессии, 
 ## 8. Рекомендации (что сделать в первую очередь)
 
 1. **Сейчас:** отозвать и заменить SMTP-пароль из §7-P0, убрать его из конфига в env/Vaultwarden.
-2. **На неделе:** добавить GitHub Actions (flake8 + pytest unit + gitleaks/secret-scan на каждый PR).
-3. **На неделе:** разнести unit- и e2e-тесты (`pytest.ini` + маркер `e2e`), чтобы `pytest` был зелёным «из коробки».
-4. **При доводке go-live:** синхронизировать почтовый транспорт (Postbox vs Stalwart) в Alertmanager.
-5. **По мере роста трафика:** перенести rate-limit в Redis; пересмотреть SmartCaptcha fail-open.
-6. **Гигиена репо:** вынести `Domik.rar` из git (Git LFS или внешнее хранилище), чтобы не раздувать клон.
+2. **На неделе:** разнести unit- и e2e-тесты (`pytest.ini` + маркер `e2e`), чтобы `pytest` был зелёным «из коробки».
+3. **По мере роста трафика:** перенести rate-limit в Redis; пересмотреть SmartCaptcha fail-open.
+4. **Гигиена репо:** вынести `Domik.rar` из git (Git LFS или внешнее хранилище), чтобы не раздувать клон.
+
+> CI/CD и «синхронизацию почтового транспорта» из рекомендаций убрали — см. §7:
+> CI/CD отложено по решению владельца, а Alertmanager/Postbox `:465` уже работает корректно.
 
 ---
 

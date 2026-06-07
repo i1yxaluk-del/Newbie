@@ -54,8 +54,8 @@ function Start-VmInstance {
 
 function Send-TgAlert {
     param([string]$Text)
-    $token = "8950653616:AAGn3UrlAxD3sWP5hmnKpB6EvT2kiCxof_I"
-    $chatId = "-1004230593984"
+    $token = $env:TELEGRAM_BOT_TOKEN
+    $chatId = $env:TELEGRAM_CHAT_ID
     try {
         $body = @{ chat_id = $chatId; text = $Text; parse_mode = "HTML" } | ConvertTo-Json -Compress
         Invoke-RestMethod -Uri "https://api.telegram.org/bot$token/sendMessage" -Method Post -Body $body -ContentType "application/json" | Out-Null

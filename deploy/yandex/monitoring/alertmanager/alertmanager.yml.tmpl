@@ -4,7 +4,7 @@ global:
   smtp_from: "MSPShield <alert@msp-claude.online>"
   smtp_hello: "msp-claude.online"
   smtp_auth_username: "alert@msp-claude.online"
-  smtp_auth_password: "QYIQylBaBRenxvvKuxLVx5Yq"
+  smtp_auth_password: "${SMTP_AUTH_PASSWORD}"
   smtp_require_tls: false
 
 templates:
@@ -65,7 +65,7 @@ receivers:
         http_config:
           authorization:
             type: Bearer
-            credentials: '54f48bc96cee9efb244f270d8a50486e648519dd841f74c66b12f578a35bce41'
+            credentials: '${ALERTMANAGER_WEBHOOK_TOKEN}'
 
   - name: max-alert
     webhook_configs:
@@ -74,7 +74,7 @@ receivers:
         http_config:
           authorization:
             type: Bearer
-            credentials: '54f48bc96cee9efb244f270d8a50486e648519dd841f74c66b12f578a35bce41'
+            credentials: '${ALERTMANAGER_WEBHOOK_TOKEN}'
 
   - name: email-alert
     email_configs:

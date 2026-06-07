@@ -99,10 +99,15 @@ services:
     image: prom/alertmanager:v0.27.0
     container_name: msp-alertmanager
     restart: unless-stopped
+    environment:
+      SMTP_AUTH_PASSWORD: ${SMTP_AUTH_PASSWORD:-}
+      ALERTMANAGER_WEBHOOK_TOKEN: ${ALERTMANAGER_WEBHOOK_TOKEN:-}
     volumes:
       - alertmanager_data:/alertmanager
-      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./alertmanager/alertmanager.yml.tmpl:/etc/alertmanager/alertmanager.yml.tmpl:ro
       - ./alertmanager/templates:/etc/alertmanager/templates:ro
+      - ./alertmanager/entrypoint.sh:/etc/alertmanager/entrypoint.sh:ro
+    entrypoint: ["/etc/alertmanager/entrypoint.sh"]
     command:
       - "--config.file=/etc/alertmanager/alertmanager.yml"
       - "--storage.path=/alertmanager"

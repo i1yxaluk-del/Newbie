@@ -11,7 +11,7 @@ if ($existing) {
 }
 
 $action = New-ScheduledTaskAction -Execute "powershell.exe" `
-    -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$WatcherScript`""
+    -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"`$env:TELEGRAM_BOT_TOKEN='$(Get-ChildItem Env:TELEGRAM_BOT_TOKEN -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Value)'; `$env:TELEGRAM_CHAT_ID='$(Get-ChildItem Env:TELEGRAM_CHAT_ID -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Value)'; & '$WatcherScript'`""
 
 $trigger = New-ScheduledTaskTrigger -AtStartup
 

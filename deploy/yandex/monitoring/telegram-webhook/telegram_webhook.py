@@ -3,8 +3,8 @@ import json
 import urllib.request
 import os
 
-BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8950653616:AAGn3UrlAxD3sWP5hmnKpB6EvT2kiCxof_I")
-CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "-1004230593984")
+BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 PORT = int(os.environ.get("TELEGRAM_WEBHOOK_PORT", "9119"))
 API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 

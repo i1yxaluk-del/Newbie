@@ -10,8 +10,11 @@ if ($existing) {
     Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
 }
 
+$botToken = [System.Environment]::GetEnvironmentVariable("TELEGRAM_BOT_TOKEN", "User")
+$tgChatId = [System.Environment]::GetEnvironmentVariable("TELEGRAM_CHAT_ID", "User")
+
 $action = New-ScheduledTaskAction -Execute "powershell.exe" `
-    -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"`$env:TELEGRAM_BOT_TOKEN='$(Get-ChildItem Env:TELEGRAM_BOT_TOKEN -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Value)'; `$env:TELEGRAM_CHAT_ID='$(Get-ChildItem Env:TELEGRAM_CHAT_ID -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Value)'; & '$WatcherScript'`""
+    -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"$env:TELEGRAM_BOT_TOKEN='$botToken'; $env:TELEGRAM_CHAT_ID='$tgChatId'; & '$WatcherScript'`""
 
 $trigger = New-ScheduledTaskTrigger -AtStartup
 

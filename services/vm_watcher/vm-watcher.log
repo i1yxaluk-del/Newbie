@@ -419,3 +419,357 @@
 [2026-06-07 23:04:18] PING OK
 [2026-06-07 23:08:03] PING OK
 [2026-06-07 23:09:18] PING OK
+[2026-06-07 23:13:03] PING OK
+[2026-06-07 23:14:18] PING OK
+[2026-06-07 23:18:03] PING OK
+[2026-06-07 23:19:18] PING OK
+[2026-06-07 23:23:03] PING OK
+[2026-06-07 23:24:18] PING OK
+[2026-06-07 23:28:03] PING OK
+[2026-06-07 23:29:18] PING OK
+[2026-06-07 23:33:03] PING OK
+[2026-06-07 23:34:18] PING OK
+[2026-06-07 23:38:03] PING OK
+[2026-06-07 23:39:18] PING OK
+[2026-06-07 23:43:03] PING OK
+[2026-06-07 23:44:18] PING OK
+[2026-06-07 23:48:03] PING OK
+[2026-06-07 23:49:18] PING OK
+[2026-06-07 23:53:03] PING OK
+[2026-06-07 23:54:18] PING OK
+[2026-06-07 23:58:03] PING OK
+[2026-06-07 23:59:18] PING OK
+[2026-06-08 00:03:03] PING OK
+[2026-06-08 00:04:18] PING OK
+[2026-06-08 00:08:03] PING OK
+[2026-06-08 00:09:19] PING OK
+[2026-06-08 00:13:04] PING OK
+[2026-06-08 00:14:19] PING OK
+[2026-06-08 00:18:04] PING OK
+[2026-06-08 00:19:19] PING OK
+[2026-06-08 00:23:04] PING OK
+[2026-06-08 00:24:19] PING OK
+[2026-06-08 00:28:04] PING OK
+[2026-06-08 00:29:19] PING OK
+[2026-06-08 00:33:04] PING OK
+[2026-06-08 00:34:19] PING OK
+[2026-06-08 00:38:04] PING OK
+[2026-06-08 00:39:19] PING OK
+[2026-06-08 00:43:04] PING OK
+[2026-06-08 00:44:19] PING OK
+[2026-06-08 00:48:04] PING OK
+[2026-06-08 00:49:19] PING OK
+[2026-06-08 00:53:04] PING OK
+[2026-06-08 00:54:19] PING OK
+[2026-06-08 00:58:04] PING OK
+[2026-06-08 00:59:19] PING OK
+[2026-06-08 01:03:04] PING OK
+[2026-06-08 01:04:19] PING OK
+[2026-06-08 01:08:04] PING OK
+[2026-06-08 01:09:19] PING OK
+[2026-06-08 01:13:04] PING OK
+[2026-06-08 01:14:19] PING OK
+[2026-06-08 01:18:04] PING OK
+[2026-06-08 01:19:19] PING OK
+[2026-06-08 01:23:04] PING OK
+[2026-06-08 01:24:19] PING OK
+[2026-06-08 01:28:04] PING OK
+[2026-06-08 01:29:19] PING OK
+[2026-06-08 01:33:04] PING OK
+[2026-06-08 01:34:19] PING OK
+[2026-06-08 01:38:04] PING OK
+[2026-06-08 01:39:19] PING OK
+[2026-06-08 01:43:04] PING OK
+[2026-06-08 01:44:19] PING OK
+[2026-06-08 01:48:04] PING OK
+[2026-06-08 01:49:19] PING OK
+[2026-06-08 01:53:04] PING OK
+[2026-06-08 01:54:19] PING OK
+[2026-06-08 01:58:07] PING FAIL (1/5)
+[2026-06-08 01:58:40] PING FAIL (2/5)
+[2026-06-08 01:59:13] PING FAIL (3/5)
+[2026-06-08 01:59:22] PING FAIL (1/5)
+[2026-06-08 01:59:46] PING FAIL (4/5)
+[2026-06-08 01:59:55] PING FAIL (2/5)
+[2026-06-08 02:00:19] PING FAIL (5/5)
+[2026-06-08 02:00:19] Threshold reached - checking VM via YC CLI
+[2026-06-08 02:00:28] PING FAIL (3/5)
+[2026-06-08 02:00:34] VM status: STOPPED
+[2026-06-08 02:00:34] VM STOPPED - sending start command
+[2026-06-08 02:00:35] VM START command sent for fhmab2qg10esn09j0na2
+[2026-06-08 02:01:01] PING FAIL (4/5)
+[2026-06-08 02:01:17] Telegram send failed: Невозможно соединиться с удаленным сервером
+[2026-06-08 02:01:31] PING OK (recovered after 4 fails)
+[2026-06-08 02:01:53] Telegram send failed: Невозможно соединиться с удаленным сервером
+[2026-06-08 02:06:17] PING OK (recovered after 5 fails)
+[2026-06-08 02:06:53] PING OK
+[2026-06-08 02:07:11] Telegram send failed: Невозможно соединиться с удаленным сервером
+[2026-06-08 02:11:53] PING OK
+[2026-06-08 02:12:11] PING OK
+[2026-06-08 02:16:53] PING OK
+[2026-06-08 02:17:11] PING OK
+[2026-06-08 02:21:53] PING OK
+[2026-06-08 02:22:11] PING OK
+[2026-06-08 02:26:53] PING OK
+[2026-06-08 02:27:11] PING OK
+[2026-06-08 02:31:53] PING OK
+[2026-06-08 02:32:11] PING OK
+[2026-06-08 02:36:53] PING OK
+[2026-06-08 02:37:11] PING OK
+[2026-06-08 02:41:53] PING OK
+[2026-06-08 02:42:11] PING OK
+[2026-06-08 02:46:53] PING OK
+[2026-06-08 02:47:11] PING OK
+[2026-06-08 02:51:53] PING OK
+[2026-06-08 02:52:11] PING OK
+[2026-06-08 02:56:53] PING OK
+[2026-06-08 02:57:11] PING OK
+[2026-06-08 03:01:53] PING OK
+[2026-06-08 03:02:11] PING OK
+[2026-06-08 03:06:53] PING OK
+[2026-06-08 03:07:11] PING OK
+[2026-06-08 03:11:53] PING OK
+[2026-06-08 03:12:11] PING OK
+[2026-06-08 03:16:53] PING OK
+[2026-06-08 03:17:11] PING OK
+[2026-06-08 03:21:53] PING OK
+[2026-06-08 03:22:11] PING OK
+[2026-06-08 03:26:53] PING OK
+[2026-06-08 03:27:11] PING OK
+[2026-06-08 09:59:38] PING OK
+[2026-06-08 09:59:56] PING OK
+[2026-06-08 10:04:38] PING OK
+[2026-06-08 10:04:56] PING OK
+[2026-06-08 10:09:38] PING OK
+[2026-06-08 10:09:56] PING OK
+[2026-06-08 10:14:38] PING OK
+[2026-06-08 10:14:56] PING OK
+[2026-06-08 10:19:38] PING OK
+[2026-06-08 10:19:56] PING OK
+[2026-06-08 10:24:38] PING OK
+[2026-06-08 10:24:56] PING OK
+[2026-06-08 10:29:38] PING OK
+[2026-06-08 10:29:56] PING OK
+[2026-06-08 10:34:38] PING OK
+[2026-06-08 10:34:56] PING OK
+[2026-06-08 10:39:38] PING OK
+[2026-06-08 10:39:56] PING OK
+[2026-06-08 10:44:38] PING OK
+[2026-06-08 10:44:56] PING OK
+[2026-06-08 10:49:38] PING OK
+[2026-06-08 10:49:56] PING OK
+[2026-06-08 10:54:38] PING OK
+[2026-06-08 10:54:56] PING OK
+[2026-06-08 10:59:38] PING OK
+[2026-06-08 10:59:56] PING OK
+[2026-06-08 11:04:38] PING OK
+[2026-06-08 11:04:56] PING OK
+[2026-06-08 11:09:38] PING OK
+[2026-06-08 11:09:56] PING OK
+[2026-06-08 11:14:39] PING OK
+[2026-06-08 11:14:56] PING OK
+[2026-06-08 11:19:39] PING OK
+[2026-06-08 11:19:56] PING OK
+[2026-06-08 11:24:39] PING OK
+[2026-06-08 11:24:56] PING OK
+[2026-06-08 11:29:39] PING OK
+[2026-06-08 11:29:56] PING OK
+[2026-06-08 11:34:39] PING OK
+[2026-06-08 11:34:56] PING OK
+[2026-06-08 11:39:39] PING OK
+[2026-06-08 11:39:56] PING OK
+[2026-06-08 11:44:39] PING OK
+[2026-06-08 11:44:57] PING OK
+[2026-06-08 11:49:39] PING OK
+[2026-06-08 11:49:57] PING OK
+[2026-06-08 11:54:39] PING OK
+[2026-06-08 11:54:57] PING OK
+[2026-06-08 11:59:39] PING OK
+[2026-06-08 11:59:57] PING OK
+[2026-06-08 12:04:39] PING OK
+[2026-06-08 12:04:57] PING OK
+[2026-06-08 18:10:53] PING FAIL (1/5)
+[2026-06-08 18:11:09] PING OK
+[2026-06-08 18:11:25] PING OK (recovered after 1 fails)
+[2026-06-08 18:11:37] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 18:16:10] PING OK
+[2026-06-08 18:16:39] PING OK
+[2026-06-08 18:21:11] PING OK
+[2026-06-08 18:21:42] PING OK
+[2026-06-08 18:26:14] PING FAIL (1/5)
+[2026-06-08 18:26:45] PING OK (recovered after 1 fails)
+[2026-06-08 18:26:57] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 18:27:18] PING OK (recovered after 1 fails)
+[2026-06-08 18:27:30] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 18:31:57] PING OK
+[2026-06-08 18:32:33] PING FAIL (1/5)
+[2026-06-08 18:33:05] PING OK (recovered after 1 fails)
+[2026-06-08 18:33:17] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 18:37:00] PING FAIL (1/5)
+[2026-06-08 18:37:33] PING OK (recovered after 1 fails)
+[2026-06-08 18:37:45] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 18:38:19] PING OK
+[2026-06-08 18:42:47] PING OK
+[2026-06-08 18:43:22] PING FAIL (1/5)
+[2026-06-08 18:43:55] PING OK (recovered after 1 fails)
+[2026-06-08 18:44:07] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 18:47:50] PING FAIL (1/5)
+[2026-06-08 18:48:23] PING FAIL (2/5)
+[2026-06-08 18:48:55] PING OK (recovered after 2 fails)
+[2026-06-08 18:49:07] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 18:49:10] PING FAIL (1/5)
+[2026-06-08 18:49:41] PING OK (recovered after 1 fails)
+[2026-06-08 18:49:41] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 18:54:10] PING FAIL (1/5)
+[2026-06-08 18:54:42] PING OK
+[2026-06-08 18:54:43] PING FAIL (2/5)
+[2026-06-08 18:55:16] PING FAIL (3/5)
+[2026-06-08 18:55:49] PING FAIL (4/5)
+[2026-06-08 18:56:20] PING OK (recovered after 4 fails)
+[2026-06-08 18:56:32] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 18:59:45] PING FAIL (1/5)
+[2026-06-08 19:00:17] PING OK (recovered after 1 fails)
+[2026-06-08 19:00:17] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 19:01:34] PING OK
+[2026-06-08 19:05:20] PING FAIL (1/5)
+[2026-06-08 19:05:52] PING OK (recovered after 1 fails)
+[2026-06-08 19:05:52] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 19:06:37] PING FAIL (1/5)
+[2026-06-08 19:07:09] PING OK (recovered after 1 fails)
+[2026-06-08 19:07:21] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 19:10:55] PING FAIL (1/5)
+[2026-06-08 19:11:26] PING OK (recovered after 1 fails)
+[2026-06-08 19:11:38] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 19:12:23] PING OK
+[2026-06-08 19:16:39] PING OK
+[2026-06-08 19:17:25] PING OK
+[2026-06-08 19:21:42] PING FAIL (1/5)
+[2026-06-08 19:22:14] PING OK (recovered after 1 fails)
+[2026-06-08 19:22:26] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 19:22:28] PING FAIL (1/5)
+[2026-06-08 19:23:01] PING OK (recovered after 1 fails)
+[2026-06-08 19:23:13] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 19:27:29] PING FAIL (1/5)
+[2026-06-08 19:28:00] PING OK (recovered after 1 fails)
+[2026-06-08 19:28:12] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 19:28:15] PING OK
+[2026-06-08 19:33:14] PING OK
+[2026-06-08 19:33:18] PING FAIL (1/5)
+[2026-06-08 19:33:50] PING OK (recovered after 1 fails)
+[2026-06-08 19:34:02] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 19:38:17] PING FAIL (1/5)
+[2026-06-08 19:38:48] PING OK (recovered after 1 fails)
+[2026-06-08 19:39:00] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 19:39:03] PING OK
+[2026-06-08 19:44:02] PING OK
+[2026-06-08 19:44:06] PING FAIL (1/5)
+[2026-06-08 19:44:38] PING OK (recovered after 1 fails)
+[2026-06-08 19:44:50] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 19:49:05] PING FAIL (1/5)
+[2026-06-08 19:49:38] PING OK (recovered after 1 fails)
+[2026-06-08 19:49:50] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 19:49:53] PING FAIL (1/5)
+[2026-06-08 19:50:24] PING OK (recovered after 1 fails)
+[2026-06-08 19:50:36] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 19:54:52] PING OK
+[2026-06-08 19:55:39] PING OK
+[2026-06-08 19:59:55] PING FAIL (1/5)
+[2026-06-08 20:00:28] PING FAIL (2/5)
+[2026-06-08 20:00:39] PING OK
+[2026-06-08 20:01:00] PING OK (recovered after 2 fails)
+[2026-06-08 20:01:00] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 20:05:42] PING FAIL (1/5)
+[2026-06-08 20:06:03] PING FAIL (1/5)
+[2026-06-08 20:06:14] PING OK (recovered after 1 fails)
+[2026-06-08 20:06:26] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 20:06:34] PING OK (recovered after 1 fails)
+[2026-06-08 20:06:46] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 20:11:28] PING OK
+[2026-06-08 20:11:49] PING OK
+[2026-06-08 20:16:31] PING FAIL (1/5)
+[2026-06-08 20:16:52] PING FAIL (1/5)
+[2026-06-08 20:17:03] PING OK (recovered after 1 fails)
+[2026-06-08 20:17:15] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 20:17:24] PING OK (recovered after 1 fails)
+[2026-06-08 20:17:36] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 20:22:18] PING FAIL (1/5)
+[2026-06-08 20:22:39] PING OK
+[2026-06-08 20:22:49] PING OK (recovered after 1 fails)
+[2026-06-08 20:23:01] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 20:27:42] PING FAIL (1/5)
+[2026-06-08 20:28:02] PING OK
+[2026-06-08 20:28:13] PING OK (recovered after 1 fails)
+[2026-06-08 20:28:13] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 20:33:05] PING FAIL (1/5)
+[2026-06-08 20:33:16] PING FAIL (1/5)
+[2026-06-08 20:33:38] PING OK (recovered after 1 fails)
+[2026-06-08 20:33:38] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 20:33:48] PING OK (recovered after 1 fails)
+[2026-06-08 20:33:50] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 20:38:41] PING FAIL (1/5)
+[2026-06-08 20:38:53] PING FAIL (1/5)
+[2026-06-08 20:39:14] PING OK (recovered after 1 fails)
+[2026-06-08 20:39:24] PING OK (recovered after 1 fails)
+[2026-06-08 20:39:26] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 20:39:26] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 20:44:29] PING FAIL (1/5)
+[2026-06-08 21:24:42] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 21:28:17] PING FAIL (1/5)
+[2026-06-08 21:28:48] PING OK (recovered after 1 fails)
+[2026-06-08 21:29:00] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 21:29:45] PING OK
+[2026-06-08 21:34:03] PING FAIL (1/5)
+[2026-06-08 21:34:34] PING OK (recovered after 1 fails)
+[2026-06-08 21:34:34] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 21:34:48] PING FAIL (1/5)
+[2026-06-08 21:35:21] PING FAIL (2/5)
+[2026-06-08 21:35:53] PING OK (recovered after 2 fails)
+[2026-06-08 21:36:06] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 21:39:35] PING OK
+[2026-06-08 21:41:08] PING OK
+[2026-06-08 21:44:36] PING OK
+[2026-06-08 21:46:09] PING OK
+[2026-06-08 21:49:39] PING FAIL (1/5)
+[2026-06-08 21:50:11] PING OK (recovered after 1 fails)
+[2026-06-08 21:50:25] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 21:51:12] PING FAIL (1/5)
+[2026-06-08 21:51:44] PING OK (recovered after 1 fails)
+[2026-06-08 21:51:45] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 21:55:26] PING OK
+[2026-06-08 21:56:48] PING FAIL (1/5)
+[2026-06-08 21:57:20] PING OK (recovered after 1 fails)
+[2026-06-08 21:57:32] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 22:00:29] PING FAIL (1/5)
+[2026-06-08 22:01:01] PING OK (recovered after 1 fails)
+[2026-06-08 22:01:13] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 22:02:34] PING OK
+[2026-06-08 22:06:16] PING FAIL (1/5)
+[2026-06-08 22:06:47] PING OK (recovered after 1 fails)
+[2026-06-08 22:06:59] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 22:07:37] PING FAIL (1/5)
+[2026-06-08 22:08:10] PING OK (recovered after 1 fails)
+[2026-06-08 22:08:22] Telegram send failed: Невозможно разрешить удаленное имя: 'api.telegram.org'
+[2026-06-08 22:12:01] PING OK
+[2026-06-08 22:13:24] PING OK
+[2026-06-08 22:14:20] === VM Watcher started ===
+[2026-06-08 22:14:20] Target=93.77.184.219 Interval=300s Threshold=5 VM=fhmab2qg10esn09j0na2
+[2026-06-08 22:14:21] PING OK
+[2026-06-08 22:19:22] PING OK
+[2026-06-08 22:24:23] PING OK
+[2026-06-08 22:29:25] PING OK
+[2026-06-08 22:34:26] PING OK
+[2026-06-08 22:39:26] PING OK
+[2026-06-08 22:44:26] PING OK
+[2026-06-08 22:49:26] PING OK
+[2026-06-08 22:50:52] === VM Watcher started ===
+[2026-06-08 22:50:52] Target=93.77.184.219 Interval=300s Threshold=5 VM=fhmab2qg10esn09j0na2
+[2026-06-08 22:50:52] PING OK
+[2026-06-08 22:55:53] PING OK
+[2026-06-08 23:00:53] PING OK
+[2026-06-08 23:05:53] PING OK
+[2026-06-08 23:10:53] PING OK
+[2026-06-08 23:15:53] PING OK
+[2026-06-08 23:20:53] PING OK
+[2026-06-08 23:25:53] PING OK
+[2026-06-08 23:30:53] PING OK
+[2026-06-08 23:35:53] PING OK

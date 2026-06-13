@@ -1,5 +1,30 @@
 # CHANGELOG
 
+## Unreleased — 2026-06-13 · "Клиентские шаблоны: аудит, КП, lead magnet" (ветка viktor/528c398f)
+
+Закрыты 4 пробела из инвентаризации клиентских материалов — заполняемые документы
+для передачи клиенту. Продукт (backend/frontend/deploy) не затронут.
+
+### Added
+
+- **`docs/sales/templates/`** — заполняемые шаблоны продаж:
+  - `audit_call_checklist.md` — форма 30-мин аудит-созвона (находки + BANT), питает отчёт.
+  - `audit_report_template.md` / `.html` — клиентский отчёт экспресс-аудита (HTML→PDF,
+    брендирование «МСП Облако», стиль договоров).
+  - `kp_template.md` / `.html` — коммерческое предложение отдельным документом
+    (таблица тариф/setup/SLA/таймлайн; SLA синхронизированы с `contracts/`).
+  - `README.md` — поток данных Этап 2→3→4 и правила.
+- **`marketing/lead_magnets/`** — `sysadmin_ushel_48h_checklist.md` / `.html`
+  (lead magnet «за email», выжимка из `articles/article_03`) + `README.md`.
+
+### Changed
+
+- **`docs/sales/new_lead_workflow.md`** — Этап 3 ссылается на форму созвона,
+  Этап 4 — на шаблоны отчёта и КП; добавлен `templates/` в «Связанные документы».
+- **`docs/sales/email_templates.md`** — T4 и T6 ссылаются на шаблоны отчёта/КП.
+- **`marketing/README.md`** — добавлены строки `articles/` и `lead_magnets/`.
+- **`marketing/articles/article_03_*`** — TODO про lead magnet помечен выполненным.
+
 ## v5.6 — 2026-06-06 · "Lead delivery: Telegram + email + Kaiten"
 
 Новые каналы доставки лидов + Яндекс.Метрика на проде.

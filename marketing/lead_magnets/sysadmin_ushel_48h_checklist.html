@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Сисадмин уволился — чек-лист 48 часов · МСП Облако</title>
+<!--
+  Lead magnet (брендированный, для печати в PDF / скачивания за email).
+  Источник текста: marketing/articles/article_03_sysadmin_ushel_48_chasov.md →
+  marketing/lead_magnets/sysadmin_ushel_48h_checklist.md (выжимка). Стиль = клиентские
+  документы МСП Облако. Печать → Сохранить как PDF.
+-->
+<style>
+@import url('https://fonts.googleapis.com/css2?family=PT+Serif:ital,wght@0,400;0,700;1,400&family=PT+Sans:wght@400;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'PT Serif',serif;font-size:12pt;line-height:1.55;color:#1a1a1a;background:#fff;max-width:210mm;margin:0 auto;padding:18mm 22mm}
+.brand{display:flex;align-items:center;justify-content:space-between;border-bottom:2pt solid #2563eb;padding-bottom:10pt;margin-bottom:14pt}
+.brand .logo{font-family:'PT Sans',sans-serif;font-weight:700;font-size:14pt;color:#2563eb}
+.brand .logo span{color:#1a1a1a;font-weight:400;font-size:10pt;display:block}
+.brand .meta{font-family:'PT Sans',sans-serif;font-size:9pt;color:#666;text-align:right}
+h1{font-family:'PT Sans',sans-serif;font-size:17pt;font-weight:700;margin-bottom:8pt;line-height:1.2}
+h2{font-family:'PT Sans',sans-serif;font-size:12pt;font-weight:700;margin:16pt 0 6pt;text-transform:uppercase;letter-spacing:.03em;border-left:3pt solid #2563eb;padding-left:8pt}
+p{margin-bottom:8pt}
+.lead{background:#fff0f0;border-left:3pt solid #ef4444;padding:8pt 10pt;margin:8pt 0}
+.check{list-style:none;margin:8pt 0}
+.check li{position:relative;padding-left:26pt;margin-bottom:7pt}
+.check li::before{content:"";position:absolute;left:0;top:2pt;width:14pt;height:14pt;border:1.5pt solid #2563eb;border-radius:3pt}
+.check li b{font-family:'PT Sans',sans-serif}
+.prevent{margin:6pt 0 8pt 20pt}
+.prevent li{margin-bottom:4pt}
+.cta{background:#f7faff;border:1px solid #2563eb;border-radius:4pt;padding:12pt;margin:14pt 0;font-size:11.5pt}
+.cta b{color:#2563eb}
+.footer{margin-top:16pt;padding-top:8pt;border-top:1px solid #ddd;font-size:9pt;color:#666}
+@media print{body{padding:10mm 14mm}@page{margin:12mm}}
+</style>
+</head>
+<body>
+
+<div class="brand">
+  <div class="logo">МСП Облако<span>Managed IT · MSPShield</span></div>
+  <div class="meta">Чек-лист · 48 часов<br>msp-claude.online</div>
+</div>
+
+<h1>Сисадмин уволился и забрал доступы.<br>Чек-лист первых 48 часов</h1>
+
+<div class="lead">
+Уходящий админ с доступами — это три риска сразу: <b>месть</b> (удалить/слить данные),
+<b>простой</b> (что-то отвалится, а паролей нет) и <b>потеря знаний</b> (всё было в одной голове).
+Доступы закрывают, даже если человек ушёл по-доброму — это норма безопасности, а не обвинение.
+</div>
+
+<h2>Первые 48 часов — по порядку</h2>
+<ul class="check">
+<li><b>1. Соберите список всех доступов уходящего.</b> Почта, серверы, VPN, админки, 1С, хостинг, домен, облака, CRM, банк-клиент, соцсети/сайт.</li>
+<li><b>2. Смените пароли всех админских учёток.</b> Доменный администратор, root на серверах, админки панелей. Новые пароли — длинные, в нормальном хранилище.</li>
+<li><b>3. Отзовите удалённый доступ.</b> Заблокируйте/удалите учётку в AD, отключите SSH-ключи и доступ по VPN — через них чаще всего «возвращаются».</li>
+<li><b>4. Перевыпустите API-токены и ключи сторонних сервисов.</b> Платёжки, рассылки, облака, регистратор домена, аналитика.</li>
+<li><b>5. Проверьте, кто ещё знал эти пароли.</b> Часто «админский» пароль один на всё — меняем и его.</li>
+<li><b>6. Снимите снапшот/бэкап «как сейчас».</b> Точка отката до любых правок и до поиска «закладок».</li>
+<li><b>7. Проверьте логи за 2 недели.</b> Необычные входы, ночная активность, массовое копирование/удаление, новые учётки, изменения прав.</li>
+<li><b>8. Проверьте автозадачи и права.</b> Скрытые задания по расписанию, «технические» учётки с лишними правами, переадресация почты на внешний ящик.</li>
+<li><b>9. Проверьте, что бэкапы реально восстанавливаются.</b> Не «копируется ли», а разверните тестово последнюю копию. Часто тут вскрывается, что бэкапа по сути нет.</li>
+<li><b>10. Зафиксируйте критичные знания.</b> Если есть контакт с уходящим — корректно попросите передать письменно: где что развёрнуто, схема сети, где бэкапы.</li>
+<li><b>11. Спокойно уведомите команду.</b> «Меняем доступы по регламенту, если что-то перестало работать — пишите мне». Паника хуже проблемы.</li>
+<li><b>12. Решите вопрос с заменой.</b> Штатный, приходящий или аутсорс — но не оставайтесь без ответственного за IT надолго.</li>
+</ul>
+
+<h2>Чтобы это не повторилось</h2>
+<ul class="prevent">
+<li>Доступы — централизованно, в хранилище секретов, а не «в голове».</li>
+<li>Документация инфраструктуры: схема сети, список серверов, где бэкапы, как восстановить.</li>
+<li>Регламент офбординга: чек-лист «что отключить при увольнении» — заранее.</li>
+<li>Бэкапы по правилу 3-2-1 и с проверкой восстановлением.</li>
+<li>Не один человек на критичном IT — команда или сервис с процессами.</li>
+</ul>
+
+<div class="cta">
+<b>Не уверены, что у вас с доступами и бэкапами всё в порядке?</b><br>
+МСП Облако бесплатно за 30 минут посмотрит вашу инфраструктуру снаружи и пришлёт короткий
+разбор — даже без дальнейшей работы.<br>
+Оставьте заявку: <b>msp-claude.online</b> · sales@msp-claude.online
+</div>
+
+<div class="footer">
+МСП Облако (MSPShield) · управляемый IT-сервис для бизнеса. Материал носит рекомендательный характер.
+</div>
+
+</body>
+</html>

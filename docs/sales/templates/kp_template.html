@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Коммерческое предложение — МСП Облако</title>
+<!--
+  ШАБЛОН КП (брендированный, для печати в PDF). Связность: визуальный стиль = договоры
+  contracts/contract_*.html и отчёт об аудите audit_report_template.html; цифры SLA/тарифов
+  синхронизированы с договорами; данные берутся из отчёта об аудите и формы аудит-созвона.
+  Как пользоваться: заполни [ ... ], удали лишние строки, Печать → Сохранить как PDF,
+  приложи к письму T6 (../email_templates.md).
+-->
+<style>
+@import url('https://fonts.googleapis.com/css2?family=PT+Serif:ital,wght@0,400;0,700;1,400&family=PT+Sans:wght@400;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'PT Serif',serif;font-size:12pt;line-height:1.6;color:#1a1a1a;background:#fff;max-width:210mm;margin:0 auto;padding:20mm 25mm}
+.brand{display:flex;align-items:center;justify-content:space-between;border-bottom:2pt solid #2563eb;padding-bottom:10pt;margin-bottom:16pt}
+.brand .logo{font-family:'PT Sans',sans-serif;font-weight:700;font-size:14pt;color:#2563eb;letter-spacing:.02em}
+.brand .logo span{color:#1a1a1a;font-weight:400;font-size:10pt;display:block}
+.brand .meta{font-family:'PT Sans',sans-serif;font-size:9pt;color:#666;text-align:right}
+h1{font-family:'PT Sans',sans-serif;font-size:16pt;font-weight:700;margin-bottom:4pt}
+h1 .company{color:#2563eb}
+h2{font-family:'PT Sans',sans-serif;font-size:12pt;font-weight:700;margin:18pt 0 6pt;text-transform:uppercase;letter-spacing:.03em;border-left:3pt solid #2563eb;padding-left:8pt}
+p{margin-bottom:8pt;text-align:justify}
+ul,ol{margin:6pt 0 8pt 20pt}
+li{margin-bottom:4pt}
+.fill{background:#fffbe6;border-bottom:1px dotted #f59e0b;padding:0 3px;color:#7a5b00}
+table{width:100%;border-collapse:collapse;margin:8pt 0;font-size:10.5pt}
+th{background:#2d2d2d;color:#fff;padding:6pt 8pt;text-align:left;font-family:'PT Sans',sans-serif;font-size:10pt}
+td{padding:6pt 8pt;border:1px solid #ccc;vertical-align:top}
+tr:nth-child(even) td{background:#f9f9f9}
+.offer{background:#f7faff;border:1px solid #2563eb;border-radius:4pt;padding:12pt;margin:10pt 0}
+.total-row td{background:#eef4ff !important;font-weight:700}
+.note{font-size:9.5pt;color:#555;margin-top:4pt}
+.footer{margin-top:20pt;padding-top:8pt;border-top:1px solid #ddd;font-size:9pt;color:#666}
+@media print{body{padding:10mm 15mm}@page{margin:15mm}.fill{background:none}}
+</style>
+</head>
+<body>
+
+<div class="brand">
+  <div class="logo">МСП Облако<span>Managed IT · MSPShield</span></div>
+  <div class="meta">Дата: <span class="fill">ДД.ММ.ГГГГ</span><br>Действительно до: <span class="fill">ДД.ММ.ГГГГ</span></div>
+</div>
+
+<h1>Коммерческое предложение<br>для <span class="company fill">Название компании</span></h1>
+<p class="note">Контакт: <span class="fill">ФИО, должность</span></p>
+
+<h2>1. Контекст</h2>
+<p class="fill">2–3 предложения: по итогам бесплатного аудита от ДД.ММ мы нашли N рисков (M критичных). Ниже — как мы их закрываем.</p>
+
+<h2>2. Что мы предлагаем</h2>
+<div class="offer">
+<p style="font-family:'PT Sans',sans-serif;font-weight:700;font-size:12pt">Рекомендуемый тариф: <span class="fill">Bronze / Silver / Gold</span></p>
+<table>
+<tr><th style="width:48%">Абонентская плата</th><td><strong><span class="fill">сумма</span> ₽/мес</strong></td></tr>
+<tr><th>Setup fee (разовый, подключение)</th><td><strong><span class="fill">сумма</span> ₽</strong></td></tr>
+<tr><th>Покрытие</th><td><span class="fill">1–5 / 6–15 / 16–30</span> серверов</td></tr>
+<tr><th>Реакция на критический инцидент (P1)</th><td><span class="fill">≤ 4 ч / ≤ 2 ч / ≤ 1 ч 24/7</span></td></tr>
+<tr><th>Целевое разрешение P1</th><td><span class="fill">—</span></td></tr>
+<tr><th>Срок онбординга</th><td><span class="fill">3 / 5 / 7</span> рабочих дней</td></tr>
+</table>
+</div>
+
+<h2>3. Что включено</h2>
+<ul>
+<li>Мониторинг инфраструктуры 24/7 (серверы, сервисы, доступность)</li>
+<li>Автоматические ежедневные бэкапы с проверкой восстановления</li>
+<li>Реакция на инциденты по SLA тарифа</li>
+<li>Сопровождение инфраструктуры: серверы, AD, 1С, почта, БД, сайты</li>
+<li>Централизованное хранилище доступов и документация инфраструктуры</li>
+<li>Еженедельный отчёт о состоянии</li>
+<li class="fill">доп. пункты под тариф: защищённый канал / Wazuh / runbooks / …</li>
+</ul>
+<p class="note">Полный перечень и параметры SLA — в Приложении № 1 к договору (contracts/contract_&lt;тариф&gt;.html).</p>
+
+<h2>4. Как мы закрываем риски из аудита</h2>
+<table>
+<tr><th style="width:45%">Риск из отчёта</th><th>Как закрываем</th></tr>
+<tr><td class="fill">Р1</td><td class="fill">…</td></tr>
+<tr><td class="fill">Р2</td><td class="fill">…</td></tr>
+<tr><td class="fill">Р3</td><td class="fill">…</td></tr>
+</table>
+
+<h2>5. Альтернативы</h2>
+<ul>
+<li><strong>Ниже:</strong> <span class="fill">тариф −1, цена</span> — без <span class="fill">что теряем</span>.</li>
+<li><strong>Выше:</strong> <span class="fill">тариф +1, цена</span> — добавится <span class="fill">что получаем</span>.</li>
+</ul>
+
+<h2>6. Таймлайн запуска</h2>
+<table>
+<tr><th style="width:70%">Шаг</th><th>Срок</th></tr>
+<tr><td>1. Подтверждение тарифа и условий</td><td>вы</td></tr>
+<tr><td>2. Подписание договора + оплата setup fee и 1-го месяца</td><td class="fill">1–2 дня</td></tr>
+<tr><td>3. Сбор доступов и инвентаризация</td><td class="fill">день 1–2</td></tr>
+<tr><td>4. Подключение мониторинга, бэкапов, VPN</td><td class="fill">день 2–N</td></tr>
+<tr><td>5. Передача welcome-пакета, старт обслуживания</td><td class="fill">день N</td></tr>
+</table>
+<p class="note">Детали онбординга — docs/onboarding/day_1_7_runbook.md.</p>
+
+<h2>7. Стоимость за первый месяц</h2>
+<table>
+<tr><th style="width:70%">Позиция</th><th>Сумма</th></tr>
+<tr><td>Setup fee (разово)</td><td><span class="fill">—</span> ₽</td></tr>
+<tr><td>Абонентская плата за 1-й месяц</td><td><span class="fill">—</span> ₽</td></tr>
+<tr class="total-row"><td>Итого к оплате при старте</td><td><span class="fill">—</span> ₽</td></tr>
+<tr><td>Далее ежемесячно</td><td><span class="fill">—</span> ₽/мес</td></tr>
+</table>
+
+<h2>8. Следующий шаг</h2>
+<p>Подтвердите тариф и условия — и мы готовим финальный договор (2–3 дня). Остались вопросы? Короткий созвон 20 минут: <span class="fill">вариант 1</span> / <span class="fill">вариант 2</span>.</p>
+
+<div class="footer">
+МСП Облако (MSPShield) · управляемый IT-сервис для бизнеса.<br>
+<span class="fill">телефон</span> · sales@msp-claude.online · msp-claude.online
+</div>
+
+</body>
+</html>

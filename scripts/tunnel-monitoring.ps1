@@ -6,7 +6,7 @@
     Opens tunnels and prints access URLs. Press Ctrl+C to close.
 #>
 
-$VmIp = "93.77.184.219"
+$VmIp = "10.9.0.1"
 $SshKey = "$env:USERPROFILE\.ssh\id_ed25519_yc"
 $SshOpts = "-o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -o ServerAliveInterval=60 -o ServerAliveCountMax=3"
 

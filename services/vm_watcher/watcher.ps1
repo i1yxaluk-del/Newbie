@@ -1,5 +1,5 @@
 param(
-    [string]$Target = "93.77.184.219",
+    [string]$Target = "10.9.0.1",
     [int]$IntervalSeconds = 300,
     [int]$FailThreshold = 5,
     [string]$VmId = "fhmab2qg10esn09j0na2",

@@ -87,6 +87,8 @@ MSPShield
 
 ## T4 · Follow-up после Discovery (отправить отчёт)
 
+> Прикладывается заполненный шаблон отчёта: [`templates/audit_report_template.html`](templates/audit_report_template.html) → печать в PDF.
+
 **Тема:** `<Компания>: отчёт экспресс-аудита + рекомендации`
 
 ```
@@ -139,6 +141,8 @@ Zoom: <ссылка>
 ---
 
 ## T6 · Коммерческое предложение
+
+> Это сопроводительное письмо к документу КП: [`templates/kp_template.html`](templates/kp_template.html) → печать в PDF (полная таблица тариф/setup/SLA/таймлайн).
 
 **Тема:** `<Компания>: коммерческое предложение MSPShield`
 

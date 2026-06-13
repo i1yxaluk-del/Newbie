@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Отчёт экспресс-аудита IT-инфраструктуры — МСП Облако</title>
+<!--
+  ШАБЛОН клиентского отчёта об аудите (брендированный, для печати в PDF).
+  Связность: визуальный стиль повторяет contracts/contract_*.html (PT Serif/PT Sans,
+  тёмные заголовки таблиц, плашки highlight/warning) — чтобы все клиентские документы
+  выглядели единообразно. Данные берутся из docs/sales/templates/audit_call_checklist.md.
+  Как пользоваться: заполни все поля [ ... ], удали лишние строки рисков, открой в браузере
+  → Печать → Сохранить как PDF → приложи к письму T4 (см. ../email_templates.md).
+-->
+<style>
+@import url('https://fonts.googleapis.com/css2?family=PT+Serif:ital,wght@0,400;0,700;1,400&family=PT+Sans:wght@400;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'PT Serif',serif;font-size:12pt;line-height:1.6;color:#1a1a1a;background:#fff;max-width:210mm;margin:0 auto;padding:20mm 25mm}
+.brand{display:flex;align-items:center;justify-content:space-between;border-bottom:2pt solid #2563eb;padding-bottom:10pt;margin-bottom:16pt}
+.brand .logo{font-family:'PT Sans',sans-serif;font-weight:700;font-size:14pt;color:#2563eb;letter-spacing:.02em}
+.brand .logo span{color:#1a1a1a;font-weight:400;font-size:10pt;display:block}
+.brand .meta{font-family:'PT Sans',sans-serif;font-size:9pt;color:#666;text-align:right}
+h1{font-family:'PT Sans',sans-serif;font-size:16pt;font-weight:700;margin-bottom:4pt}
+h1 .company{color:#2563eb}
+h2{font-family:'PT Sans',sans-serif;font-size:12pt;font-weight:700;margin:18pt 0 6pt;text-transform:uppercase;letter-spacing:.03em;border-left:3pt solid #2563eb;padding-left:8pt}
+h3{font-family:'PT Sans',sans-serif;font-size:11pt;font-weight:700;margin:12pt 0 4pt}
+p{margin-bottom:8pt;text-align:justify}
+ul,ol{margin:6pt 0 8pt 20pt}
+li{margin-bottom:4pt}
+.fill{background:#fffbe6;border-bottom:1px dotted #f59e0b;padding:0 3px;color:#7a5b00}
+table{width:100%;border-collapse:collapse;margin:8pt 0;font-size:10.5pt}
+th{background:#2d2d2d;color:#fff;padding:6pt 8pt;text-align:left;font-family:'PT Sans',sans-serif;font-size:10pt}
+td{padding:6pt 8pt;border:1px solid #ccc;vertical-align:top}
+tr:nth-child(even) td{background:#f9f9f9}
+.summary{background:#f0f6ff;border:1px solid #cfe0ff;border-radius:4pt;padding:12pt;margin:10pt 0}
+.crit{background:#fff0f0;border-left:3pt solid #ef4444;padding:8pt 10pt;margin:8pt 0}
+.warn{background:#fff8e1;border-left:3pt solid #f59e0b;padding:8pt 10pt;margin:8pt 0}
+.score{font-family:'PT Sans',sans-serif;font-weight:700;font-size:11pt}
+.tier-card{border:1px solid #2563eb;border-radius:4pt;padding:10pt 12pt;margin:8pt 0;background:#f7faff}
+.steps li{margin-bottom:6pt}
+.footer{margin-top:20pt;padding-top:8pt;border-top:1px solid #ddd;font-size:9pt;color:#666}
+@media print{body{padding:10mm 15mm}@page{margin:15mm}.fill{background:none}}
+</style>
+</head>
+<body>
+
+<div class="brand">
+  <div class="logo">МСП Облако<span>Managed IT · MSPShield</span></div>
+  <div class="meta">Дата: <span class="fill">ДД.ММ.ГГГГ</span><br>sales@msp-claude.online · msp-claude.online</div>
+</div>
+
+<h1>Экспресс-аудит IT-инфраструктуры<br><span class="company fill">Название компании</span></h1>
+
+<table>
+<tr><th style="width:35%">Подготовил</th><td>МСП Облако (MSPShield)</td></tr>
+<tr><th>Контакт клиента</th><td><span class="fill">ФИО, должность</span></td></tr>
+<tr><th>Метод</th><td>Внешний экспресс-аудит периметра (без доступа к внутренней сети) + 30-минутное интервью</td></tr>
+</table>
+
+<h2>1. Резюме</h2>
+<div class="summary">
+<p class="fill">3–4 предложения: что смотрели, общее впечатление, главный вывод и рекомендация по тарифу.</p>
+<p class="score">Итоговая оценка устойчивости: <span class="fill">🔴 высокий риск / 🟡 средний / 🟢 низкий</span></p>
+</div>
+
+<h2>2. Что мы проверяли</h2>
+<p>Аудит <strong>внешний и неинвазивный</strong>: только то, что видно из интернета, плюс ваши ответы на созвоне. Внутреннюю сеть, серверы и Active Directory мы НЕ сканировали — это требует договора и предоставленных доступов.</p>
+<ul>
+<li>Домен, DNS, SSL-сертификат</li>
+<li>Настройки почты (SPF / DMARC / MX) и репутация домена</li>
+<li>Внешняя сетевая поверхность (открытые порты, версии сервисов)</li>
+<li>Публичные утечки учётных данных по вашему домену</li>
+<li>Организация инфраструктуры со слов: серверы, бэкапы, мониторинг, доступы</li>
+</ul>
+
+<h2>3. Найденные риски</h2>
+
+<h3>🔴 Критичные</h3>
+<div class="crit">
+<strong>Р1. <span class="fill">название риска</span></strong><br>
+Что нашли: <span class="fill">факт с цифрой</span><br>
+Чем грозит: <span class="fill">последствие для бизнеса</span><br>
+Срочность: <span class="fill">сейчас / недели</span>
+</div>
+<div class="crit">
+<strong>Р2. <span class="fill">название риска</span></strong><br>
+Что нашли: <span class="fill">...</span><br>
+Чем грозит: <span class="fill">...</span><br>
+Срочность: <span class="fill">...</span>
+</div>
+
+<h3>🟡 Средние</h3>
+<div class="warn">
+<strong>Р3. <span class="fill">название риска</span></strong> — <span class="fill">что нашли и чем грозит</span>
+</div>
+<div class="warn">
+<strong>Р4. <span class="fill">название риска</span></strong> — <span class="fill">что нашли и чем грозит</span>
+</div>
+
+<h2>4. Сводная таблица находок</h2>
+<table>
+<tr><th>#</th><th>Область</th><th>Находка</th><th>Риск</th><th>Срочность</th></tr>
+<tr><td>Р1</td><td class="fill">область</td><td class="fill">находка</td><td>🔴</td><td class="fill">—</td></tr>
+<tr><td>Р2</td><td class="fill">область</td><td class="fill">находка</td><td>🔴</td><td class="fill">—</td></tr>
+<tr><td>Р3</td><td class="fill">область</td><td class="fill">находка</td><td>🟡</td><td class="fill">—</td></tr>
+<tr><td>Р4</td><td class="fill">область</td><td class="fill">находка</td><td>🟡</td><td class="fill">—</td></tr>
+</table>
+
+<h2>5. Что можно сделать самостоятельно</h2>
+<ol>
+<li class="fill">пункт, который клиент закроет сам</li>
+<li class="fill">...</li>
+<li class="fill">...</li>
+</ol>
+
+<h2>6. Что логично передать нам</h2>
+<p class="fill">2–3 предложения: какие риски системно закрываются управляемым сервисом (мониторинг 24/7, проверяемые бэкапы, централизованные доступы, реакция по SLA), и почему это надёжнее «одного админа с паролями в блокноте».</p>
+
+<h2>7. Рекомендация</h2>
+<div class="tier-card">
+<h3>Рекомендуемый тариф: <span class="fill">Bronze / Silver / Gold</span></h3>
+<table>
+<tr><th style="width:45%">Абонентская плата</th><td>от <span class="fill">25 000 / 50 000 / 85 000</span> ₽/мес</td></tr>
+<tr><th>Покрытие</th><td><span class="fill">1–5 / 6–15 / 16–30</span> серверов</td></tr>
+<tr><th>Реакция на критический инцидент (P1)</th><td><span class="fill">≤ 4 ч / ≤ 2 ч / ≤ 1 ч 24/7</span></td></tr>
+<tr><th>Setup fee (разовый)</th><td><span class="fill">—</span> ₽</td></tr>
+<tr><th>Срок онбординга</th><td><span class="fill">3 / 5 / 7</span> рабочих дней</td></tr>
+</table>
+<p><strong>Почему этот тариф:</strong> <span class="fill">обоснование от числа серверов / критичности / требуемого SLA</span></p>
+</div>
+
+<h2>8. Следующие шаги</h2>
+<ol class="steps">
+<li>Вы изучаете отчёт и присылаете вопросы.</li>
+<li>Мы готовим коммерческое предложение — в течение 24 часов.</li>
+<li>Короткий созвон 20 минут по деталям и договору.</li>
+<li>Подписание → онбординг <span class="fill">3–7</span> рабочих дней.</li>
+</ol>
+
+<div class="footer">
+Отчёт подготовлен МСП Облако (MSPShield) на основе внешнего экспресс-аудита и интервью.
+Не является исчерпывающим аудитом безопасности и не заменяет полноценный пентест.<br>
+Контакты: <span class="fill">телефон</span> · sales@msp-claude.online · msp-claude.online
+</div>
+
+</body>
+</html>

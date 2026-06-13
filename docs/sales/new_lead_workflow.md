@@ -65,6 +65,7 @@ Jitsi Meet (self-hosted) или Google Meet.
    - Если клиент в серой зоне → задать уточняющие вопросы, назначить follow-up через 3–5 дней.
 
 Детальный BANT-скрипт: [`bant_q_script.md`](bant_q_script.md).
+Заполняемая форма созвона (находки + BANT в одном файле): [`templates/audit_call_checklist.md`](templates/audit_call_checklist.md) — из неё сразу собирается отчёт.
 
 **DoD этапа 3:** заметки с созвона в Kaiten (3–5 пунктов); решение о следующем шаге; статус карточки переведён в «КП» или «Отклонено» или «Отложено».
 
@@ -74,7 +75,8 @@ Jitsi Meet (self-hosted) или Google Meet.
 
 1. Собрать PDF-отчёт с 3–5 конкретными рисками, обнаруженными на этапе 2+3:
    - Пример: «SSL на основном сайте истекает через 34 дня», «MX → mail.ru без SPF → письма спуфят», «на AD нет второго DC → single point of failure», …
-2. Приложить к PDF наше предложение по тарифу + таймлайн онбординга.
+   - Готовый шаблон отчёта (заполнить → печать в PDF): [`templates/audit_report_template.html`](templates/audit_report_template.html) (мастер — [`.md`](templates/audit_report_template.md)).
+2. Приложить наше предложение по тарифу + таймлайн онбординга. Шаблон КП: [`templates/kp_template.html`](templates/kp_template.html) (мастер — [`.md`](templates/kp_template.md)).
 3. Отправить email + продублировать в канале клиента («выслала, гляньте»).
 4. Договориться о дате follow-up (через 3–5 раб. дней).
 
@@ -110,5 +112,6 @@ Jitsi Meet (self-hosted) или Google Meet.
 - [`funnel_6_stages.md`](funnel_6_stages.md) — воронка продаж в целом.
 - [`bant_q_script.md`](bant_q_script.md) — детальный BANT-скрипт.
 - [`email_templates.md`](email_templates.md) — шаблоны писем.
+- [`templates/`](templates/README.md) — заполняемые шаблоны: форма аудит-созвона, отчёт об аудите, КП.
 - [`../onboarding/pre_onboarding_checklist.md`](../onboarding/pre_onboarding_checklist.md) — что собрать ДО старта онбординга (после подписания контракта).
 - [`../roadmap/wife_role.md`](../roadmap/wife_role.md) — границы ответственности супруги в account mgmt.

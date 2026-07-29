@@ -104,3 +104,9 @@ package-lock.json
 .emergent/
 test_result.md
 test_reports/
+
+# Migration data (dumps + secrets — never commit)
+migration/*.gz
+migration/*.bak
+migration/restic-env.sh
+migration/restic-excludes.txt

@@ -1,7 +1,24 @@
 # Миграция MSP Cloud — полный цикл
 
 > Перенос `msp-claude.online` со старого аккаунта YC (грант кончился) на новый (с грантом).
-> Дата миграции: 29 июля 2026.
+> Дата миграции: 29–30 июля 2026.
+
+## Финальный статус (30.07.2026)
+
+| Компонент | Статус | Примечание |
+|-----------|--------|------------|
+| HTTPS + SSL (Caddy) | ✅ | Let's Encrypt, автопродление |
+| API + форма заявки | ✅ | 201 Created, валидация |
+| Email (Postbox SMTP) | ✅ | `yc.postbox.send` scope обязателен |
+| Kaiten (карточки) | ✅ | card создаётся автоматически |
+| MongoDB (leads) | ✅ | 10 leads перенесено |
+| Stalwart (почта) | ✅ | re-bootstrap с новым паролем |
+| Vaultwarden | ✅ | данные перенесены |
+| Monitoring (12 конт.) | ✅ | Prometheus+Grafana+Alertmanager |
+| AmneziaWG VPN | ✅ | SSH только через 10.9.0.1 |
+| Restic бэкапы | ✅ | новый бакет `mspshield-backups-new` |
+| Telegram-уведомления | ⚠️ | токен протух — пересоздать в @BotFather |
+| MAX (webhook) | ⚠️ | нужна интерактивная авторизация (SMS-код) |
 
 ## Итог миграции
 
@@ -190,6 +207,13 @@ cd monitoring && sudo docker compose up -d --build
 - `yc vpc address create` требует `--external-ipv4 zone=...` (не просто `--zone`).
 - Monitoring: `services/max_alerter` нужен для билда. **Включать в zip.**
 - Alertmanager entrypoint.sh: нет +x после unzip. **Фикс: `chmod +x`.**
+- `/var/log/caddy/access.log` — Caddy не стартует без прав. **Фикс: `mkdir + chown caddy:caddy`.**
+- OAuth-токены после 01.06.2026 не работают с yc CLI. **Фикс: SA JSON-ключ.**
+- Postbox SMTP: API key без scope `yc.postbox.send` → 535. **Scope обязателен.**
+- `docker compose restart` НЕ перечитывает env_file. **Нужен `up -d --force-recreate`.**
+- AmneziaWG скрипты с CRLF (из Windows) → `set: pipefail\r: invalid`. **Фикс: `sed -i 's/\r$//'`.**
+- UFW `delete` спрашивает подтверждение → таймаут. **Фикс: `yes | sudo ufw delete N`.**
+- Stalwart bootstrap: env vars читаются ТОЛЬКО при пустом volume. После restore — старый конфиг. **Фикс: удалить volume + re-bootstrap.**
 
 ---
 
@@ -310,19 +334,22 @@ yc compute instance delete fhmab2qg10esn09j0na2 --folder-id b1gd6dph0a4cnds0heel
 
 ### 7.2. Postbox (SMTP relay)
 
-Если SMTP-ключи от старого облака не работают:
-1. Console нового облака → Postbox → создать API key
-2. Обновить на ВМ: `sudo nano /opt/msp/Newbie/backend/.env`
-   - `SMTP_USER=<new_key_id>`
-   - `SMTP_PASSWORD=<new_secret>`
-3. `cd /opt/msp/Newbie/deploy/yandex && sudo docker compose restart backend`
+Создан в новом облаке (30.07.2026):
+- SA: `postbox-sender` (`ajeq2njbvgqf0fohc2g1`), роль `postbox.sender`
+- API key: `ajecoam3o060ble9c3hn` (scope: **`yc.postbox.send`** — обязательно!)
+- Домен: `msp-claude.online` (DKIM verified)
+
+**Урок**: API key БЕЗ scope `yc.postbox.send` даёт 535 Auth failed.
+**Урок**: `docker compose restart` НЕ перечитывает `.env` — нужен `up -d --force-recreate`.
 
 ### 7.3. Object Storage (бэкапы)
 
-Restic пишет в бакет `mspshield-backups-prod` (старое облако).
-Ключи в `/etc/restic/env.sh` на ВМ. Если нужно перенести:
-1. Создать бакет в новом облаке
-2. Обновить `/etc/restic/env.sh` (AWS keys + RESTIC_REPOSITORY)
+Создан в новом облаке (30.07.2026):
+- Бакет: `mspshield-backups-new`
+- SA: `restic-backup` (`ajelluv4koa355uduqon`), роль `storage.editor`
+- Static key: `YCAJEjHm-OMbs2zvXVNs8x5nD`
+- Restic repo: `s3:storage.yandexcloud.net/mspshield-backups-new`
+- Timer: ежедневно 02:00 (`restic-backup.timer`)
 
 ---
 

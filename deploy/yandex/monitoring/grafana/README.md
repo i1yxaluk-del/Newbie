@@ -42,10 +42,10 @@ grafana/
 
 ```bash
 # 1. Скопировать обновлённые файлы на ВМ
-scp -r deploy/yandex/monitoring/grafana ubuntu@<IP>:/opt/msp-monitoring/
+scp -r deploy/yandex/monitoring/grafana ubuntu@<IP>:/opt/msp/Newbie/deploy/yandex/monitoring/
 
 # 2. Перезапустить только Grafana (без остановки Prometheus)
-ssh ubuntu@<IP> "cd /opt/msp-monitoring && docker compose up -d grafana"
+ssh ubuntu@<IP> "cd /opt/msp/Newbie/deploy/yandex/monitoring && docker compose up -d grafana"
 
 # 3. Открыть SSH-туннель и зайти
 ssh -L 3000:127.0.0.1:3000 ubuntu@<IP>

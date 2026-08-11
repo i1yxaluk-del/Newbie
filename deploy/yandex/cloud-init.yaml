@@ -7,7 +7,7 @@
 # ═══════════════════════════════════════════════════════════════════
 
 # Замена SSH-ключа Devin/PowerShell-скрипта: подменяется при рендере
-# из deploy.ps1 на реальный ~/.ssh/id_ed25519_yc.pub.
+# из deploy.ps1 на реальный ~/.ssh/id_ed25519_yc_new.pub.
 users:
   - name: ubuntu
     sudo: ALL=(ALL) NOPASSWD:ALL

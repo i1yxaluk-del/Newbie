@@ -105,7 +105,7 @@ yc storage bucket get mspshield-tfstate
 
 ```bash
 # Сначала очистить:
-yc storage s3api delete-objects --bucket mspshield-backups-prod ...
+yc storage s3api delete-objects --bucket mspshield-backups-new ...
 # Потом destroy.
 ```
 

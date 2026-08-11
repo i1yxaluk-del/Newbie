@@ -16,7 +16,7 @@
 
 ## Устранение
 
-1. Рестарт: `cd /opt/msp-monitoring && docker compose restart grafana`
+1. Рестарт: `cd /opt/msp/Newbie/deploy/yandex/monitoring && docker compose restart grafana`
 2. Если DB corruption: проверить volume `sudo ls /var/lib/docker/volumes/msp-grafana-data/_data/`
 3. Переустановить CSS theme после рестарта
 4. После: SSH tunnel + http://localhost:3000

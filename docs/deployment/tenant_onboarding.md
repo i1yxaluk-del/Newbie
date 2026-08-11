@@ -192,7 +192,7 @@ sudo /usr/local/sbin/restic snapshots
 ### Проверить, что snapshot появился в Object Storage:
 
 ```bash
-yc storage s3 ls s3://mspshield-backups-prod/acme/
+yc storage s3 ls s3://mspshield-backups-new/acme/
 ```
 
 ---

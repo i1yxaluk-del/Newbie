@@ -115,10 +115,10 @@ function Invoke-Yc {
 $SshKeyDir = "$env:USERPROFILE\.ssh"
 if (-not (Test-Path $SshKeyDir)) { New-Item -ItemType Directory -Path $SshKeyDir -Force }
 
-ssh-keygen -t ed25519 -f "$SshKeyDir\id_ed25519_yc" -N '""' -C "msp-admin@$env:COMPUTERNAME"
+ssh-keygen -t ed25519 -f "$SshKeyDir\id_ed25519_yc_new" -N '""' -C "msp-admin@$env:COMPUTERNAME"
 
 # Публичный ключ — будем класть в `--ssh-key` при создании VM
-Get-Content "$SshKeyDir\id_ed25519_yc.pub"
+Get-Content "$SshKeyDir\id_ed25519_yc_new.pub"
 ```
 
 ### 0.5. Шаблон рабочих переменных (положить в $PROFILE)
@@ -127,7 +127,7 @@ Get-Content "$SshKeyDir\id_ed25519_yc.pub"
 # Постоянные переменные сессии — для всех команд ниже
 $Env:MSP_FOLDER_ID = "<folder-id-из-yc-config-list>"
 $Env:MSP_ZONE      = "ru-central1-a"
-$Env:MSP_SSH_KEY   = "$env:USERPROFILE\.ssh\id_ed25519_yc"
+$Env:MSP_SSH_KEY   = "$env:USERPROFILE\.ssh\id_ed25519_yc_new"
 $Env:MSP_VM_NAME   = "msp-monitoring"
 
 # Helper-функция: открыть SSH в управляющую VM

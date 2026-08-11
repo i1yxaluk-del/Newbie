@@ -2,8 +2,8 @@
 # MSPShield — Стек мониторинга (Prometheus + Grafana + Alertmanager)
 # ═══════════════════════════════════════════════════════════════════
 #
-# КУДА: /opt/msp-monitoring/docker-compose.yml на ВМ
-# ЗАПУСК: cd /opt/msp-monitoring && docker compose up -d
+# КУДА: /opt/msp/Newbie/deploy/yandex/monitoring/docker-compose.yml на ВМ
+# ЗАПУСК: cd /opt/msp/Newbie/deploy/yandex/monitoring && docker compose up -d
 #
 # Сеть: msp-monitoring (172.20.0.0/24) — изолирована от msp_default
 # Порты: все привязаны к 127.0.0.1 — доступны ТОЛЬКО через SSH-туннель:
@@ -140,7 +140,8 @@ services:
   grafana:
     image: grafana/grafana:10.4.2
     container_name: msp-grafana
-    hostname: msp-claude.online
+    # Не задаём hostname доменом сайта: Docker DNS иначе направляет
+    # blackbox-проверки msp-claude.online в контейнер Grafana, а не наружу.
     restart: unless-stopped
     env_file: .env
     volumes:
@@ -295,7 +296,7 @@ services:
     container_name: msp-max-alerter
     restart: unless-stopped
     volumes:
-      - /opt/msp-monitoring/max-session:/session
+      - /opt/msp/Newbie/deploy/yandex/monitoring/max-session:/session
       - max-alerter-data:/data
     environment:
       MAX_PHONE: "+79990703823"

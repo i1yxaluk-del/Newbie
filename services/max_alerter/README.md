@@ -48,7 +48,7 @@ docker exec -it msp-max-alerter python -m max_alerter.auth
 # → Вводишь 6-значный код → сессия сохранена
 ```
 
-Сессия: `/session/max.db` (volume: `/opt/msp-monitoring/max-session/`).
+Сессия: `/session/max.db` (volume: `/opt/msp/Newbie/deploy/yandex/monitoring/max-session/`).
 
 ---
 
@@ -76,7 +76,7 @@ asyncio.run(check())
 "
 
 # Лог недоставленных алертов
-cat /opt/msp-monitoring/max-alerter-data/failed_alerts.log
+cat /opt/msp/Newbie/deploy/yandex/monitoring/max-alerter-data/failed_alerts.log
 ```
 
 ---

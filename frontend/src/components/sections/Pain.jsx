@@ -28,7 +28,7 @@ export default function Pain() {
     const hourCost = revenueN / workHours;
     const perIncident = hourCost * downtime;
     const yearLoss = perIncident * incidents;
-    const serviceYear = Number(c.bronzeAnnualPrice) || 240_000;
+    const serviceYear = Number(c.bronzeAnnualPrice) || 300_000;
     const ratio = yearLoss / serviceYear;
     let verdict;
     if (ratio >= 5) {

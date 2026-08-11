@@ -100,7 +100,7 @@ Stalwart в `deploy/yandex/docker-compose.yml` настроен под эту р
 
 1. SSH-tunnel в админку:
  ```powershell
- ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -L 8080:localhost:8080 -i "$HOME\.ssh\id_ed25519_yc" ubuntu@<vm-ip>
+ ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -L 8080:localhost:8080 -i "$HOME\.ssh\id_ed25519_yc_new" ubuntu@<vm-ip>
  ```
  Открыть в браузере: <http://localhost:8080/admin>
 

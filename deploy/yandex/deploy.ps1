@@ -18,6 +18,10 @@
   - SCP через VPN (AmneziaWG): ненадёжно (таймауты). Используйте
     echo BASE64 | base64 -d > file через SSH для маленьких файлов,
     или архив zip через scp без WireGuard.
+  - OAuth-токены после 01.06.2026 НЕ работают с yc CLI (IAM token exchange).
+    УРОК МИГРАЦИИ 2: используйте сервисный аккаунт —
+    yc config set service-account-key <path-to-authorized_key.json>.
+    Если профиль уже настроен на SA — скрипт работает без изменений.
 #>
 
 [CmdletBinding()]
@@ -52,7 +56,7 @@ try {
     $DeployDir = $PSScriptRoot
     $StateFile = Join-Path $DeployDir ".deploy-state.json"
     $LogFile = Join-Path $env:TEMP ("msp-deploy-{0}.log" -f (Get-Date -Format "yyyyMMdd-HHmmss"))
-    $SshKeyPath = Join-Path $env:USERPROFILE ".ssh\id_ed25519_yc"
+    $SshKeyPath = Join-Path $env:USERPROFILE ".ssh\id_ed25519_yc_new"
     $SshKeyPubPath = "$SshKeyPath.pub"
 
     # Полный путь к ssh.exe — PowerShell 5.1 может не иметь его в PATH.

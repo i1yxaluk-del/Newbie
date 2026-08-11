@@ -10,7 +10,7 @@
 > **Если ты Junior и проходишь обучение** — иди в
 > [`../docs/training/README.md`](../docs/training/README.md).
 >
-> **Mail-стек:** outbound через Yandex Cloud Postbox на 587 (STARTTLS) —
+> **Mail-стек:** outbound через Yandex Cloud Postbox на 465 (implicit TLS) —
 > подробности в [`../deploy/yandex/STALWART_RELAY_MODE.md`](../deploy/yandex/STALWART_RELAY_MODE.md).
 
 ---
@@ -142,4 +142,4 @@ Junior-каталог (`technical/Junior/`) был удалён при v4.3-clea
 
 ---
 
-*Последняя ревизия: 2026-05 (v4.5 — рестрyктура навигации; AmneziaWG UDP/443; Postbox 587 STARTTLS).*
+*Последняя ревизия: 2026-08 (AmneziaWG UDP/443; Postbox 465 implicit TLS).*

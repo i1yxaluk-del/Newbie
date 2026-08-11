@@ -96,8 +96,8 @@ cd Newbie
 **Альтернатива:** гарантированная (regular) VM с теми же спеками — ~1 300₽/мес + static IP = ~1 490₽/мес (дороже preemptible, но без риска остановки).
 
 **Для сравнения (из тарифов):**
-- Bronze отпускная цена: 20 000–30 000 ₽/мес
-- Инфра-расход: ~1 700₽ → маржа ≈ 91–94% (без учёта труда)
+- Bronze отпускная цена: от 25 000 ₽/мес
+- Инфра-расход: ~1 700₽ → маржа ≈ 93% (без учёта труда)
 
 ---
 
@@ -199,7 +199,7 @@ cd C:\путь\к\репозиторию\Newbie
 ```powershell
 # Запустите SSH-туннель к Stalwart admin (порт 8080)
 $IP = "<ваш IP>"
-$SshKey = "$env:USERPROFILE\.ssh\id_ed25519_yc"
+$SshKey = "$env:USERPROFILE\.ssh\id_ed25519_yc_new"
 ssh -L 8080:localhost:8080 -i $SshKey ubuntu@$IP
 ```
 
@@ -238,7 +238,7 @@ default._domainkey.msp-claude.online   TXT   "v=DKIM1; k=rsa; p=MIGfMA0GCSq..."
 
 ```powershell
 $IP = "<ваш IP>"
-$SshKey = "$env:USERPROFILE\.ssh\id_ed25519_yc"
+$SshKey = "$env:USERPROFILE\.ssh\id_ed25519_yc_new"
 ssh -i $SshKey ubuntu@$IP "cat ~/msp-deploy-secrets.txt"
 ```
 
@@ -406,7 +406,7 @@ global:
 ### 9.1. SSH на ВМ
 
 ```powershell
-ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i "$env:USERPROFILE\.ssh\id_ed25519_yc" ubuntu@<public-ip>
+ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i "$env:USERPROFILE\.ssh\id_ed25519_yc_new" ubuntu@<public-ip>
 ```
 
 > ⚠️ `UserKnownHostsFile=NUL` обязателен для preemptible VM — host keys
@@ -580,7 +580,7 @@ Necoray не создаёт TUN-адаптер, AWG работает через 
 **Симптом:** Grafana не может отправить email через `stalwart:587`, Alertmanager не может через `postbox:465`.
 
 **Причина:** мониторинг-стек развёрнут из отдельного compose-файла
-(`/opt/msp-monitoring/docker-compose.yml`) в сети `msp-monitoring`
+(`/opt/msp/Newbie/deploy/yandex/monitoring/docker-compose.yml`) в сети `msp-monitoring`
 (172.20.0.0/24). Stalwart работает в сети `msp_default` — сети не связаны.
 
 **Фикс:**
@@ -667,7 +667,7 @@ email_configs:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ VM node-01 (93.77.184.219 / 10.9.0.1 via AWG)                  │
+│ VM node-01 (158.160.47.130 / 10.9.0.1 via AWG)                  │
 │                                                                  │
 │  ┌─── msp_default сеть ──────────────────────────────────────┐  │
 │  │  mongo:7.0  backend(FastAPI)  stalwart:0.16  vaultwarden  │  │
@@ -684,7 +684,7 @@ email_configs:
 │  └────────────────────────────────────────────────────────────┘  │
 │                                                                  │
 │  restic-backup (systemd timer, 02:00 daily)                      │
-│  → S3: mspshield-backups-prod                                    │
+│  → S3: mspshield-backups-new                                    │
 │  → metrics via node-exporter textfile                            │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -815,16 +815,16 @@ swaks --to sales@msp-claude.online --from postmaster@example.com \
 
 ### 10.4. SSH "Permission denied"
 
-Проверь что ключ из аргумента совпадает с `~/.ssh/id_ed25519_yc`:
+Проверь что ключ из аргумента совпадает с `~/.ssh/id_ed25519_yc_new`:
 ```powershell
-ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i "$env:USERPROFILE\.ssh\id_ed25519_yc" -v ubuntu@<ip>
+ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i "$env:USERPROFILE\.ssh\id_ed25519_yc_new" -v ubuntu@<ip>
 ```
 
 ### 10.5. Скрипт упал на этапе `[7/8] setup-on-vm.sh`
 
 Зайдите на ВМ и посмотрите лог:
 ```bash
-ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i ~/.ssh/id_ed25519_yc ubuntu@<ip>
+ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i ~/.ssh/id_ed25519_yc_new ubuntu@<ip>
 tail -200 /var/log/msp-deploy.log
 ```
 
@@ -1003,7 +1003,7 @@ dig +short -x <public-ip>
 
 ```powershell
 # SSH-туннель (через VPN или внешний IP)
-ssh -L 8080:localhost:8080 -i "$env:USERPROFILE\.ssh\id_ed25519_yc" ubuntu@10.9.0.1
+ssh -L 8080:localhost:8080 -i "$env:USERPROFILE\.ssh\id_ed25519_yc_new" ubuntu@10.9.0.1
 # → http://localhost:8080/admin
 # Логин: admin / Пароль: из ~/msp-deploy-secrets.txt на ВМ (shred после копирования!)
 ```
@@ -1025,7 +1025,7 @@ ssh -L 8080:localhost:8080 -i "$env:USERPROFILE\.ssh\id_ed25519_yc" ubuntu@10.9.
 ### DNS TXT-записи (после DKIM из шага 5)
 
 ```
-TXT  msp-claude.online                     v=spf1 a ip4:93.77.184.219 include:_spf.yandex.net -all
+TXT  msp-claude.online                     v=spf1 a ip4:158.160.47.130 include:_spf.yandex.net -all
 TXT  default._domainkey.msp-claude.online   v=DKIM1; k=rsa; p=<из Stalwart Admin шаг 5>
 TXT  _dmarc.msp-claude.online              v=DMARC1; p=quarantine; rua=mailto:admin@msp-claude.online
 ```
@@ -1087,7 +1087,7 @@ print('SENT OK')
 | `/etc` | Конфиги ОС, systemd units, UFW rules, restic env | Высокая |
 | `/home` | Домашние директории пользователей | Средняя |
 | `/root` | Root home | Средняя |
-| `/opt` | `/opt/msp-monitoring/`, `/opt/msp/Newbie/deploy/`, `/opt/restic-scripts/` | Высокая |
+| `/opt` | `/opt/msp/Newbie/deploy/yandex/monitoring/`, `/opt/msp/Newbie/deploy/`, `/opt/restic-scripts/` | Высокая |
 | `/var/www` | Лендинг `landing/` (React build) | Средняя |
 | `/var/lib/docker/volumes` | Все Docker volumes: mongo-data, stalwart-etc, stalwart-data, vaultwarden-data, grafana-data, prometheus-data, alertmanager-data | Критическая |
 | `/var/lib/caddy` | SSL-сертификаты Let's Encrypt (152K) — без них Caddy не стартанёт | Критическая |
@@ -1098,7 +1098,7 @@ print('SENT OK')
 
 **Retention:** daily 7, weekly 4, monthly 6, yearly 1
 
-**S3 bucket:** `mspshield-backups-prod` (Yandex Object Storage)
+**S3 bucket:** `mspshield-backups-new` (Yandex Object Storage)
 
 **Verify:** каждую неделю (воскресенье, встроено в backup-скрипт)
 

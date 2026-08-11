@@ -21,7 +21,7 @@
   become: true
   vars:
     tier: bronze
-    restic_repo_base: "s3:storage.yandexcloud.net/mspshield-backups-prod"
+    restic_repo_base: "s3:storage.yandexcloud.net/mspshield-backups-new"
   tasks:
     - name: Install restic
       ansible.builtin.package:

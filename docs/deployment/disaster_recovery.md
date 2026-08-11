@@ -134,7 +134,7 @@ curl -H "X-Admin-Token: ..." https://msp-claude.online/api/leads | jq length
 
 - Terraform state в S3-бакете `mspshield-tfstate` (другой регион? — нет, один; **слабое звено**).
 - Код в GitHub.
-- Restic-бэкапы данных в S3-бакете `mspshield-backups-prod`.
+- Restic-бэкапы данных в S3-бакете `mspshield-backups-new`.
 - Vaultwarden бэкап в отдельном S3-бакете.
 
 ### План

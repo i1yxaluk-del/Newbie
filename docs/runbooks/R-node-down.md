@@ -17,7 +17,7 @@
 ## Устранение
 
 1. Если хост жив, Docker упал: `sudo systemctl restart docker`
-2. Если node-exporter упал: `cd /opt/msp-monitoring && docker compose up -d node-exporter`
+2. Если node-exporter упал: `cd /opt/msp/Newbie/deploy/yandex/monitoring && docker compose up -d node-exporter`
 3. Если хост недоступен — проверить статус VM в Yandex Cloud Console
 4. После восстановления проверить http://127.0.0.1:9090 → targets → node
 

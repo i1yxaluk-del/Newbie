@@ -45,37 +45,37 @@
 
 ```bash
 # На VM клиента
-sudo mkdir -p /opt/msp-monitoring/{prometheus/rules,alertmanager/templates,grafana/{dashboards,provisioning/{datasources,dashboards},theme}}
-sudo chown -R ubuntu:ubuntu /opt/msp-monitoring
+sudo mkdir -p /opt/msp/Newbie/deploy/yandex/monitoring/{prometheus/rules,alertmanager/templates,grafana/{dashboards,provisioning/{datasources,dashboards},theme}}
+sudo chown -R ubuntu:ubuntu /opt/msp/Newbie/deploy/yandex/monitoring
 ```
 
 ### 2.2. Копируем конфиги из репозитория
 
 ```bash
 # С Windows-станции (через VPN)
-scp -r deploy/yandex/monitoring/* ubuntu@<IP>:/opt/msp-monitoring/
+scp -r deploy/yandex/monitoring/* ubuntu@<IP>:/opt/msp/Newbie/deploy/yandex/monitoring/
 ```
 
 Или с VM если репо уже там:
 ```bash
 cd /opt/msp/Newbie
-cp -r deploy/yandex/monitoring/* /opt/msp-monitoring/
+cp -r deploy/yandex/monitoring/* /opt/msp/Newbie/deploy/yandex/monitoring/
 ```
 
 ### 2.3. Создаём .env с паролями
 
 ```bash
-cat > /opt/msp-monitoring/.env << 'EOF'
+cat > /opt/msp/Newbie/deploy/yandex/monitoring/.env << 'EOF'
 GRAFANA_ADMIN_USER=admin
 GRAFANA_ADMIN_PASSWORD=<сгенерируй 24+ символа>
 EOF
-sudo chmod 600 /opt/msp-monitoring/.env
+sudo chmod 600 /opt/msp/Newbie/deploy/yandex/monitoring/.env
 ```
 
 ### 2.4. Запускаем стек
 
 ```bash
-cd /opt/msp-monitoring
+cd /opt/msp/Newbie/deploy/yandex/monitoring
 docker compose up -d
 
 # Проверяем что всё поднялось
@@ -282,7 +282,7 @@ groups:
 Применяем:
 ```bash
 # Копируем на VM
-scp rules/myservice.yml ubuntu@<IP>:/opt/msp-monitoring/prometheus/rules/
+scp rules/myservice.yml ubuntu@<IP>:/opt/msp/Newbie/deploy/yandex/monitoring/prometheus/rules/
 
 # Reload Prometheus (без рестарта!)
 ssh ubuntu@<IP> "docker kill --signal=SIGHUP msp-prometheus"

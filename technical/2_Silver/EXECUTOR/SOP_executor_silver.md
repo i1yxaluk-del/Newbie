@@ -124,7 +124,7 @@ Write-Host "Automation VM internal IP: $Env:MSP_AUTO_IP"
 Host msp-bastion
   HostName    <MSP_VM_IP>
   User        ubuntu
-  IdentityFile ~/.ssh/id_ed25519_yc
+  IdentityFile ~/.ssh/id_ed25519_yc_new
   # ⚠️ УРОК ИЗ ДЕПЛОЯ: preemptible VM меняет host keys при рестарте
   StrictHostKeyChecking no
   UserKnownHostsFile NUL
@@ -132,7 +132,7 @@ Host msp-bastion
 Host msp-automation
   HostName    <MSP_AUTO_IP>
   User        ubuntu
-  IdentityFile ~/.ssh/id_ed25519_yc
+  IdentityFile ~/.ssh/id_ed25519_yc_new
   ProxyJump   msp-bastion
 ```
 

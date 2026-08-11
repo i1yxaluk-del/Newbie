@@ -130,7 +130,7 @@
       "name": "Silver",
       "tagline": "Windows + Linux · AD / DNS / GPO",
       "price": "50 000",
-      "setup": "Запуск от 30 000 ₽",
+      "setup": "Запуск 40 000 ₽",
       "limit": "",
       "cta": "Начать с Silver",
       "featured": true,
@@ -149,7 +149,7 @@
       "name": "Gold",
       "tagline": "Wazuh SIEM + Kaspersky · 152-ФЗ",
       "price": "85 000",
-      "setup": "Запуск от 45 000 ₽",
+      "setup": "Запуск 60 000 ₽",
       "limit": "",
       "cta": "Начать с Gold",
       "featured": false,
@@ -201,7 +201,7 @@
   ],
   "calcTitle": "Калькулятор стоимости простоя",
   "calcLead": "Введите параметры — расчёт обновится автоматически",
-  "bronzeAnnualPrice": 240000
+  "bronzeAnnualPrice": 300000
 },
 "faq": {
   "eyebrow": "Частые вопросы",

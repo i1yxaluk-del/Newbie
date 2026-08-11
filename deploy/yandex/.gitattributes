@@ -1,7 +1,9 @@
 # PowerShell 5.1 на русской Windows 10 читает .ps1 без BOM как Windows-1251
 # и ломается на первом UTF-8 символе. Поэтому держим .ps1 как бинарный файл —
 # git не должен трогать ни кодировку, ни line endings.
-*.ps1 binary
+# Исключение: deploy.ps1 хранится как UTF-8 с BOM и CRLF — git может
+# диффить его как текст; кодировка и line endings при этом не меняются.
+deploy.ps1 text eol=crlf
 
 # Остальные shell/yaml/conf файлы — нормальные текстовые с LF (исполняются на Ubuntu)
 *.sh   text eol=lf

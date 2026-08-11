@@ -214,6 +214,8 @@ cd monitoring && sudo docker compose up -d --build
 - AmneziaWG скрипты с CRLF (из Windows) → `set: pipefail\r: invalid`. **Фикс: `sed -i 's/\r$//'`.**
 - UFW `delete` спрашивает подтверждение → таймаут. **Фикс: `yes | sudo ufw delete N`.**
 - Stalwart bootstrap: env vars читаются ТОЛЬКО при пустом volume. После restore — старый конфиг. **Фикс: удалить volume + re-bootstrap.**
+- Docker автоматически стартует после перезагрузки ВМ, но контейнеры с политикой `restart: unless-stopped` не поднимутся, если их до этого остановили вручную. **Проверка после boot: `docker compose up -d` для основного и monitoring стеков.**
+- Restic из Ubuntu 22.04 не поддерживает `--compression auto`; имя Mongo-контейнера не стабильно. **Фикс: убрать флаг, получать ID контейнера через `docker compose ps -q mongo`.**
 
 ---
 

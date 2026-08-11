@@ -6,8 +6,9 @@
     Opens tunnels and prints access URLs. Press Ctrl+C to close.
 #>
 
-$VmIp = "93.77.184.219"
-$SshKey = "$env:USERPROFILE\.ssh\id_ed25519_yc"
+# SSH только через AmneziaWG (UDP/443, публичный порт 22 закрыт) — хост 10.9.0.1
+$VmIp = "10.9.0.1"
+$SshKey = "$env:USERPROFILE\.ssh\id_ed25519_yc_new"
 $SshOpts = "-o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -o ServerAliveInterval=60 -o ServerAliveCountMax=3"
 
 Write-Host ""

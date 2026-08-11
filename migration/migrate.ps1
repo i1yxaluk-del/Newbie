@@ -30,7 +30,7 @@ param(
 $ErrorActionPreference = "Stop"
 $MigrationDir = $PSScriptRoot
 $DeployDir = Join-Path $MigrationDir "..\deploy\yandex"
-$SshKeyPath = Join-Path $env:USERPROFILE ".ssh\id_ed25519_yc"
+$SshKeyPath = Join-Path $env:USERPROFILE ".ssh\id_ed25519_yc_new"
 $SshExe = "C:\Windows\System32\OpenSSH\ssh.exe"
 $ScpExe = "C:\Windows\System32\OpenSSH\scp.exe"
 $SshOpts = "-o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL"

@@ -80,7 +80,10 @@ scrape_configs:
       module: [tcp_connect]
     static_configs:
       - targets:
-          - msp-claude.online:465
+          # Stalwart доступен Blackbox через общую msp_default сеть.
+          # Внешний DNS нельзя использовать: Docker DNS может вернуть
+          # hostname другого контейнера, а host-gateway не видит published port.
+          - stalwart:465
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
@@ -114,7 +117,7 @@ scrape_configs:
       module: [tcp_connect]
     static_configs:
       - targets:
-          - msp-claude.online:993
+          - stalwart:993
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target

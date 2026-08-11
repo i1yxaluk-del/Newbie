@@ -1,8 +1,8 @@
 param(
-    [string]$Target = "93.77.184.219",
+    [string]$Target = "158.160.47.130",
     [int]$IntervalSeconds = 300,
     [int]$FailThreshold = 5,
-    [string]$VmId = "fhmab2qg10esn09j0na2",
+    [string]$VmId = "fhmedri2e4gitkd90l1i",
     [string]$YcConfigDir = "C:\ProgramData\yandex-cloud"
 )
 

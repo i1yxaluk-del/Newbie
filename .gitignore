@@ -110,3 +110,5 @@ migration/*.gz
 migration/*.bak
 migration/restic-env.sh
 migration/restic-excludes.txt
+# AmneziaWG-конфиги (awg-admin.conf) содержат PrivateKey/PresharedKey — не для git
+migration/*.conf

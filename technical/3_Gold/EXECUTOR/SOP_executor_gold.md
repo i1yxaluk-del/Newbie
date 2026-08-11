@@ -109,7 +109,7 @@ Write-Host "Wazuh VM internal IP: $Env:MSP_WAZUH_IP"
 Host msp-wazuh
   HostName     <MSP_WAZUH_IP>
   User         ubuntu
-  IdentityFile ~/.ssh/id_ed25519_yc
+  IdentityFile ~/.ssh/id_ed25519_yc_new
   ProxyJump    msp-bastion
 ```
 

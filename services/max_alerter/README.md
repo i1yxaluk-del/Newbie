@@ -36,19 +36,34 @@ Python-сервис, который принимает вебхуки от Alert
 
 ---
 
-## Авторизация (сессия слетает при пересоздании контейнера)
+## Авторизация и постоянная сессия
 
 **Запускать только с `-it`** — pymax отправляет SMS и ждёт ввод кода в терминале:
 
 ```bash
 # На VM через SSH:
-docker exec -it msp-max-alerter python -m max_alerter.auth
+docker exec -it msp-max-alerter python -m max_alerter.auth --authorize
 
 # → MAX отправляет SMS на +79990703823
 # → Вводишь 6-значный код → сессия сохранена
 ```
 
-Сессия: `/session/max.db` (volume: `/opt/msp/Newbie/deploy/yandex/monitoring/max-session/`).
+Сессия: `/session/max.db`, bind mount
+`/opt/msp/Newbie/deploy/yandex/monitoring/max-session:/session`.
+Это host path, поэтому `docker compose down/up`, restart Docker и recreate
+контейнера не удаляют его. Не удаляйте данный каталог.
+
+Безопасная проверка после reboot (не запускает pymax и не отправляет SMS):
+
+```bash
+docker exec msp-max-alerter python -m max_alerter.auth
+docker inspect msp-max-alerter --format '{{range .Mounts}}{{println .Source "->" .Destination}}{{end}}'
+```
+
+Команда проверки возвращает `0`, если файл есть, и `2`, если отсутствует.
+При отсутствии или ошибке сессии сервис не инициирует авторизацию: он делает
+одну неуспешную попытку доставки, затем подавляет MAX-повторы на cooldown.
+Реавторизация всегда выполняется оператором с `--authorize`.
 
 ---
 
@@ -61,19 +76,8 @@ docker logs msp-max-alerter --tail 50
 # Здоровье webhook
 curl http://localhost:9095/health
 
-# Проверить, жива ли MAX-сессия
-docker exec msp-max-alerter python -c "
-import asyncio
-from pymax import Client
-async def check():
-    c = Client(phone='+79990703823', work_dir='/session', session_name='max.db')
-    try:
-        await asyncio.wait_for(c.start(), timeout=10)
-        print('MAX session OK')
-    except Exception as e:
-        print('MAX session FAILED:', e)
-asyncio.run(check())
-"
+# Проверить наличие сессии безопасно (без pymax/SMS)
+docker exec msp-max-alerter python -m max_alerter.auth
 
 # Лог недоставленных алертов
 cat /opt/msp/Newbie/deploy/yandex/monitoring/max-alerter-data/failed_alerts.log
@@ -86,4 +90,6 @@ cat /opt/msp/Newbie/deploy/yandex/monitoring/max-alerter-data/failed_alerts.log
 - Сессия хранится в SQLite, монтируется как volume — не внутри контейнера.
 - Авторизация выполняется на хосте, не в Docker.
 - Bearer-токен для webhook — рекомендуется.
-- Telegram fallback — рекомендуется для критичных алертов.
+- Telegram и email независимы. При ошибке MAX или Telegram уведомление о
+  неисправном канале уходит на email, не блокируя остальные каналы.
+- Токены и SMTP-пароли задаются только в ignored `.env` на VM.

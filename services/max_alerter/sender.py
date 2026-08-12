@@ -10,9 +10,11 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import smtplib
 from datetime import datetime, timezone
+from email.mime.text import MIMEText
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 log = logging.getLogger("max_alerter.sender")
 
@@ -21,11 +23,19 @@ MAX_SESSION_DIR: Path = Path(os.environ.get("MAX_SESSION_DIR", "/session"))
 MAX_SESSION_NAME: str = os.environ.get("MAX_SESSION_NAME", "max.db")
 TG_BOT_TOKEN: str = os.environ.get("TG_BOT_TOKEN", "")
 TG_CHAT_ID: str = os.environ.get("TG_CHAT_ID", "")
+SMTP_HOST: str = os.environ.get("SMTP_HOST", "").strip()
+SMTP_PORT: int = int(os.environ.get("SMTP_PORT", "465"))
+SMTP_USER: str = os.environ.get("SMTP_USER", "").strip()
+SMTP_PASSWORD: str = os.environ.get("SMTP_PASSWORD", "").strip()
+SMTP_FROM: str = os.environ.get("SMTP_FROM", "").strip()
+ALERT_EMAIL_TO: str = os.environ.get("ALERT_EMAIL_TO", "").strip()
+MAX_FAILURE_COOLDOWN: int = int(os.environ.get("MAX_FAILURE_COOLDOWN", "300"))
 
 FAILED_LOG: Path = Path(os.environ.get("FAILED_LOG", "/data/failed_alerts.log"))
 
 _client: Optional[object] = None
 _client_lock = asyncio.Lock()
+_max_retry_after: Optional[datetime] = None
 
 
 async def get_client():
@@ -36,15 +46,17 @@ async def get_client():
         if _client is not None:
             return _client
 
+        if not MAX_PHONE:
+            raise RuntimeError("MAX_PHONE not set in environment")
+
+        session_file = MAX_SESSION_DIR / MAX_SESSION_NAME
+        if not session_file.is_file() or session_file.stat().st_size == 0:
+            raise RuntimeError(f"MAX session missing at {session_file}; manual authorization required")
+
         try:
             from pymax import Client
         except ImportError as exc:
             raise RuntimeError("pymax not installed: pip install maxapi-python") from exc
-
-        if not MAX_PHONE:
-            raise RuntimeError("MAX_PHONE not set in environment")
-
-        MAX_SESSION_DIR.mkdir(parents=True, exist_ok=True)
 
         log.info("Starting pymax Client (phone=%s, session=%s/%s)",
                  MAX_PHONE, MAX_SESSION_DIR, MAX_SESSION_NAME)
@@ -73,13 +85,44 @@ async def get_client():
 
 async def send_to_max(chat_id: int, text: str) -> bool:
     """Send text to MAX chat. Returns True on success, False on error."""
+    global _max_retry_after
     try:
+        now = datetime.now(timezone.utc)
+        if _max_retry_after and now < _max_retry_after:
+            log.warning("MAX delivery suppressed after a previous failure")
+            return False
         client = await get_client()
         await client.send_message(chat_id=chat_id, text=text)
         log.info("MAX OK chat_id=%s len=%d", chat_id, len(text))
         return True
     except Exception as exc:
+        from datetime import timedelta
+        _max_retry_after = datetime.now(timezone.utc) + timedelta(seconds=MAX_FAILURE_COOLDOWN)
         log.error("MAX FAIL chat_id=%s error=%s", chat_id, exc)
+        return False
+
+
+async def send_to_email(subject: str, text: str) -> bool:
+    """Send a channel-failure notice independently of MAX and Telegram."""
+    if not (SMTP_HOST and SMTP_FROM and ALERT_EMAIL_TO):
+        log.warning("Email channel-failure notification is not configured")
+        return False
+    recipients = [item.strip() for item in ALERT_EMAIL_TO.split(",") if item.strip()]
+    try:
+        message = MIMEText(text, "plain", "utf-8")
+        message["Subject"], message["From"], message["To"] = subject, SMTP_FROM, ", ".join(recipients)
+        if SMTP_PORT == 465:
+            smtp = smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=10)
+        else:
+            smtp = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10)
+            smtp.starttls()
+        if SMTP_USER and SMTP_PASSWORD:
+            smtp.login(SMTP_USER, SMTP_PASSWORD)
+        smtp.sendmail(SMTP_FROM, recipients, message.as_string())
+        smtp.quit()
+        return True
+    except Exception as exc:
+        log.error("Email channel-failure notification failed: %s", exc)
         return False
 
 
@@ -124,9 +167,10 @@ async def deliver_max(chat_id: int, text: str) -> bool:
     ok = await send_to_max(chat_id, text)
     if not ok:
         _write_failed_log(chat_id, text, "send_to_max failed")
+        warn = "MAX unavailable; original alerts continue through independent Telegram and email channels. Check the persisted MAX session before manual reauthorization."
         if TG_CHAT_ID and TG_BOT_TOKEN:
-            warn = "\u26a0\ufe0f MAX \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d \u2014 \u0430\u043b\u0435\u0440\u0442 \u043d\u0435 \u0434\u043e\u0441\u0442\u0430\u0432\u043b\u0435\u043d. \u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 max-alerter \u0438 \u0441\u0435\u0441\u0441\u0438\u044e pymax."
             await send_to_telegram(TG_CHAT_ID, warn)
+        await send_to_email("[MSPShield] MAX channel unavailable", warn)
     return ok
 
 
@@ -135,3 +179,7 @@ async def deliver_telegram(chat_id: str, text: str) -> None:
     ok = await send_to_telegram(chat_id, text)
     if not ok:
         _write_failed_log(chat_id, text, "send_to_telegram failed")
+        await send_to_email(
+            "[MSPShield] Telegram channel unavailable",
+            "Telegram delivery failed. MAX and email remain independent channels.\n\n" + text,
+        )

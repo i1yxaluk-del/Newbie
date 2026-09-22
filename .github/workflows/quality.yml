@@ -48,6 +48,7 @@ jobs:
           STALWART_ADMIN_PASSWORD: ci-only
           VAULTWARDEN_ADMIN_TOKEN: ci-only
         run: |
+          cp backend/.env.example backend/.env
           docker compose -f deploy/yandex/docker-compose.yml config >/dev/null
           ! grep -q '0.0.0.0:8001:8001' deploy/yandex/docker-compose.yml
           ! grep -q ':-changeme' deploy/yandex/docker-compose.yml

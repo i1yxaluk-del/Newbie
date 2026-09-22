@@ -53,3 +53,16 @@ jobs:
           ! grep -q '0.0.0.0:8001:8001' deploy/yandex/docker-compose.yml
           ! grep -q ':-changeme' deploy/yandex/docker-compose.yml
           ! grep -q 'vaultwarden/server:latest' deploy/yandex/docker-compose.yml
+          grep -q 'secure_server:app' deploy/yandex/Dockerfile.backend
+
+  external-perimeter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan production perimeter
+        run: bash scripts/production-readiness/external_scan.sh msp-claude.online external-scan.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: external-perimeter-scan
+          path: external-scan.txt

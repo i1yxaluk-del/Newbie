@@ -1,15 +1,6 @@
-# ═══════════════════════════════════════════════════════════════════
-# Prod-стек на VM в Yandex Cloud:
-#   mongo    — БД (volume на host, expose только в docker-сеть)
-#   backend  — FastAPI (bind 0.0.0.0:8001 на хосте; UFW закрывает 8001
-#              извне; Caddy на хосте проксирует /api/ → 8001;
-#              monitoring-стек (Prometheus) скрейпит через имя `backend`
-#              в Docker-сети msp_default — см. урок M1/M3 в CHANGELOG).
-#
-# Запуск:  cd /opt/msp/Newbie/deploy/yandex && docker compose up -d
-# Логи:    docker compose logs -f
-# Стоп:    docker compose down
-# ═══════════════════════════════════════════════════════════════════
+# Production stack for the MSPShield pilot.
+# Backend is reachable only through host Caddy. Monitoring must scrape
+# backend:8001 over the shared Docker network, never through a public host port.
 name: msp
 
 services:
@@ -18,7 +9,6 @@ services:
     restart: unless-stopped
     volumes:
       - mongo-data:/data/db
-    # MongoDB доступна ТОЛЬКО внутри docker-сети, наружу не светим.
     expose:
       - "27017"
     healthcheck:
@@ -33,74 +23,25 @@ services:
       dockerfile: ../deploy/yandex/Dockerfile.backend
     restart: unless-stopped
     env_file: ../../backend/.env
-    # Переопределяем MONGO_URL — внутри compose-сети mongo доступна по имени.
     environment:
       MONGO_URL: mongodb://mongo:27017
       DB_NAME: mspshield
-    # 0.0.0.0:8001 — слушаем все интерфейсы (Caddy проксирует через хост,
-    # Prometheus скрейпит через Docker-сеть msp_default).
-    # UFW не открывает 8001 — порт доступен только изнутри VM/Docker.
     ports:
-      - "0.0.0.0:8001:8001"
+      - "127.0.0.1:8001:8001"
     depends_on:
       mongo:
         condition: service_healthy
 
-  # ─── Stalwart Mail Server (relay/submit-only режим) ──────────────
-  # Документация: https://stalw.art/docs/install/platform/docker/
-  #
-  # ВАЖНО · Yandex Cloud блокирует TCP/25 на публичных IP VPC:
-  #   Исходящий трафик с публичных IP VPC на TCP/25 автоматически
-  #   блокируется (анти-спам). Получить адрес с открытым :25 в YC
-  #   сейчас технически невозможно. Поэтому Stalwart работает в
-  #   submit-only режиме: только 465/587 для отправки + 143/993 для
-  #   чтения локальных ящиков.
-  #
-  #   Outbound: через Yandex Cloud Postbox (postbox.cloud.yandex.net:465
-  #   implicit TLS, auth = API key ID + secret). Исходящий :25 заблокирован YC,
-  #   поэтому smarthost — см. STALWART_RELAY_MODE.md §2 · Вариант A.
-  #
-  #   Inbound: порт 25 открыт на VM — внешние MTA доставляют почту
-  #   на наш MX (mail.msp-claude.online). YC блокирует ИСХОДЯЩИЙ :25,
-  #   но ВХОДЯЩИЙ работает.
-  #
-  #   ВАЖНО (урок из деплоя): порт 465 + implicit TLS = true, НЕ :587
-  #   STARTTLS. Postbox на :587 STARTTLS отбрасывает соединения.
-  #   Bootstrap env vars подхватываются ТОЛЬКО при первом запуске Stalwart
-  #   (пустой volume stalwart-etc). Дальше — JMAP API или Admin WebUI.
-  #
-  #   Inbound (если нужны входящие ящики): отдельный MX-провайдер
-  #   (Yandex 360, Mail.ru для бизнеса, Mailgun routes) принимает почту
-  #   и forwards на наш :587. Postbox MX НЕ выдаёт — это outbound-only.
-  #
-  # Активные порты:
-  #   465   — SMTPS submission (implicit TLS) — клиенты шлют ИСХОДЯЩЕЕ
-  #   587   — STARTTLS submission — legacy клиенты / inbound forwarding
-  #   143   — IMAP STARTTLS (для legacy клиентов)
-  #   993   — IMAPS (TLS) — основное чтение ящиков
-  #   4190  — ManageSieve (фильтры на сервере)
-  #   8080  — Admin WebUI (БЕЗ публичного выхода — bind на 127.0.0.1, SSH tunnel)
-  #
-  # Закрыто Yandex Cloud:
-  #   25 outbound — ИСХОДЯЩИЙ :25 заблокирован YC.
-  #   Outbound идёт через smarthost Yandex Cloud Postbox
-  #   (postbox.cloud.yandex.net:465 implicit TLS, auth = API key).
-  #   ВХОДЯЩИЙ :25 открыт — внешние MTA доставляют почту на MX.
-  #           STALWART_RELAY_MODE.md §2 · Вариант A.
-  #
-  # TLS-сертификаты для mail.<domain> Caddy получает у Let's Encrypt и
-  # Stalwart читает их через bind-mount /var/lib/caddy → /etc/stalwart-certs:ro
+  # Optional legacy mail server. Production outbound mail uses Yandex Cloud
+  # Postbox directly. Start this profile only if inbound/IMAP is deliberately
+  # required and its public ports have been reviewed:
+  # docker compose --profile mail up -d stalwart
   stalwart:
+    profiles: ["mail"]
     image: stalwartlabs/stalwart:v0.16
     restart: unless-stopped
     environment:
-      # Bootstrap admin (первый вход в WebUI). Пароль генерируется
-      # setup-on-vm.sh и пишется в ~/msp-deploy-secrets.txt
-      STALWART_RECOVERY_ADMIN: "admin:${STALWART_ADMIN_PASSWORD:-changeme}"
-      # Outbound smarthost через Yandex Cloud Postbox (см. STALWART_RELAY_MODE.md §2).
-      # ВНИМАНИЕ: порт 465 + implicitTls=true. Postbox на :587 STARTTLS НЕ работает.
-      # Подхватывается ТОЛЬКО при первом запуске (bootstrap). Дальше менять через
-      # JMAP API или Admin WebUI; конфиг живёт в volume stalwart-etc.
+      STALWART_RECOVERY_ADMIN: "admin:${STALWART_ADMIN_PASSWORD:?set STALWART_ADMIN_PASSWORD}"
       STALWART_QUEUE_DEFAULT_ROUTE: postbox-outbound
       STALWART_ROUTES_POSTBOX_OUTBOUND_TYPE: relay
       STALWART_ROUTES_POSTBOX_OUTBOUND_ADDRESS: postbox.cloud.yandex.net
@@ -111,30 +52,24 @@ services:
     volumes:
       - stalwart-etc:/etc/stalwart
       - stalwart-data:/var/lib/stalwart
-      # Read-only mount Caddy cert store — Stalwart читает PEM-файлы напрямую.
-      # Caddy перевыпускает сертификаты автоматически каждые 60 дней,
-      # Stalwart автоматически подхватывает новые (watch на mtime файлов).
       - /var/lib/caddy:/etc/stalwart-certs:ro
     ports:
-      # 25 — inbound SMTP (внешние MTA доставляют почту на наш MX)
       - "25:25"
-      # Submission / IMAP — публично на всех интерфейсах.
       - "465:465"
       - "587:587"
       - "143:143"
       - "993:993"
       - "4190:4190"
-      # Admin WebUI — ТОЛЬКО локально (доступ через SSH tunnel)
       - "127.0.0.1:8080:8080"
 
   vaultwarden:
-    image: vaultwarden/server:latest
+    image: vaultwarden/server:1.36.0
     restart: unless-stopped
     environment:
       DOMAIN: ${VAULTWARDEN_DOMAIN:-https://vault.msp-claude.online}
       SIGNUPS_ALLOWED: "false"
       INVITATIONS_ALLOWED: "true"
-      ADMIN_TOKEN: $$argon2id$$v=19$$m=65536,t=3,p=4$$dmF1bHR3YXJkZW5zYWx0$$mZVZVaK8HQq0SJ6CsQjf8VzVGYhZxiz/jUH5b/7S92A
+      ADMIN_TOKEN: ${VAULTWARDEN_ADMIN_TOKEN:?set a unique Argon2 admin token}
       WEBSOCKET_ENABLED: "true"
       LOG_FILE: /data/vaultwarden.log
       LOG_LEVEL: warn

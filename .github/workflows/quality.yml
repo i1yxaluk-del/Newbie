@@ -1,0 +1,54 @@
+name: quality
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  backend-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: pip install -r backend/requirements.txt
+      - run: python -m compileall -q backend
+      - run: pytest -q backend/tests/test_kaiten_integration.py backend/tests/test_alertmanager.py backend/tests/test_max_integration.py
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: yarn
+          cache-dependency-path: frontend/yarn.lock
+      - run: yarn install --frozen-lockfile
+      - run: yarn build
+        env:
+          CI: "true"
+
+  production-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate compose and security invariants
+        env:
+          STALWART_ADMIN_PASSWORD: ci-only
+          VAULTWARDEN_ADMIN_TOKEN: ci-only
+        run: |
+          docker compose -f deploy/yandex/docker-compose.yml config >/dev/null
+          ! grep -q '0.0.0.0:8001:8001' deploy/yandex/docker-compose.yml
+          ! grep -q ':-changeme' deploy/yandex/docker-compose.yml
+          ! grep -q 'vaultwarden/server:latest' deploy/yandex/docker-compose.yml

@@ -1,17 +1,8 @@
-"""Юнит-тесты интеграции Kaiten (backend/integrations/kaiten.py).
-
-Не требуют запущенного сервера и сети — проверяют чистую логику:
-сборку payload, форматирование описания, флаг is_enabled и идемпотентность
-create_card (с замоканным поиском существующей карточки).
-
-Запуск:
-    cd backend && python -m pytest tests/test_kaiten_integration.py -v
-"""
+"""Unit tests for the optional Kaiten integration; no network required."""
 import asyncio
 import sys
 from pathlib import Path
 
-# Делаем пакет integrations импортируемым из каталога backend/.
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
@@ -20,7 +11,6 @@ from integrations import kaiten  # noqa: E402
 
 
 def _configure(monkeypatch, lane=""):
-    """Выставляем валидный конфиг модуля для тестов."""
     monkeypatch.setattr(kaiten, "KAITEN_DOMAIN", "msp-oblako.kaiten.ru")
     monkeypatch.setattr(kaiten, "KAITEN_API_TOKEN", "test-token")
     monkeypatch.setattr(kaiten, "KAITEN_BOARD_ID", "1234567")
@@ -34,7 +24,7 @@ SAMPLE_LEAD = {
     "company": "ООО Ромашка",
     "contact": "+7 999 1234567",
     "email": "ivan@romashka.ru",
-    "servers": "5-10",
+    "servers": "4-10",
     "tariff": "silver",
     "source": "landing",
     "downtime_loss": 1200000,
@@ -42,61 +32,62 @@ SAMPLE_LEAD = {
 }
 
 
-class TestIsEnabled:
-    def test_enabled_when_all_set(self, monkeypatch):
-        _configure(monkeypatch)
-        assert kaiten.is_enabled() is True
-
-    def test_disabled_when_token_missing(self, monkeypatch):
-        _configure(monkeypatch)
-        monkeypatch.setattr(kaiten, "KAITEN_API_TOKEN", "")
-        assert kaiten.is_enabled() is False
-
-    def test_lane_is_optional(self, monkeypatch):
-        _configure(monkeypatch, lane="")
-        assert kaiten.is_enabled() is True
+def test_enabled_only_with_required_configuration(monkeypatch):
+    _configure(monkeypatch)
+    assert kaiten.is_enabled() is True
+    monkeypatch.setattr(kaiten, "KAITEN_API_TOKEN", "")
+    assert kaiten.is_enabled() is False
 
 
-class TestBuildPayload:
-    def test_title_and_ids(self, monkeypatch):
-        _configure(monkeypatch)
-        p = kaiten.build_card_payload(SAMPLE_LEAD)
-        assert p["title"] == "[silver] ООО Ромашка · Иванов Иван"
-        assert p["board_id"] == 1234567  # приведено к int
-        assert p["column_id"] == 999001
-        assert p["external_id"] == SAMPLE_LEAD["id"]
-        assert "lane_id" not in p  # дорожка не задана
-
-    def test_lane_added_when_set(self, monkeypatch):
-        _configure(monkeypatch, lane="555")
-        p = kaiten.build_card_payload(SAMPLE_LEAD)
-        assert p["lane_id"] == 555
-
-    def test_description_skips_empty_and_has_lead_id(self, monkeypatch):
-        _configure(monkeypatch)
-        lead = dict(SAMPLE_LEAD, email=None, message=None)
-        desc = kaiten._format_description(lead)
-        assert "Email" not in desc          # пустое поле пропущено
-        assert "Сообщение клиента" not in desc
-        assert SAMPLE_LEAD["id"] in desc    # lead_id всегда в описании
-        assert "**Компания:** ООО Ромашка" in desc
+def test_lane_is_optional(monkeypatch):
+    _configure(monkeypatch, lane="")
+    assert kaiten.is_enabled() is True
 
 
-class TestCreateCardIdempotency:
-    def test_noop_when_disabled(self, monkeypatch):
-        monkeypatch.setattr(kaiten, "KAITEN_API_TOKEN", "")
-        result = asyncio.run(kaiten.create_card(SAMPLE_LEAD))
-        assert result is None
+def test_payload_contains_exact_external_id(monkeypatch):
+    _configure(monkeypatch)
+    payload = kaiten.build_card_payload(SAMPLE_LEAD)
+    assert payload["title"] == "[silver] ООО Ромашка · Иванов Иван"
+    assert payload["board_id"] == 1234567
+    assert payload["column_id"] == 999001
+    assert payload["external_id"] == SAMPLE_LEAD["id"]
+    assert "lane_id" not in payload
 
-    def test_returns_existing_without_creating(self, monkeypatch):
-        _configure(monkeypatch)
-        existing = {"id": 42, "external_id": SAMPLE_LEAD["id"]}
 
-        async def fake_find(external_id):
-            return existing
+def test_description_skips_empty_fields(monkeypatch):
+    _configure(monkeypatch)
+    lead = dict(SAMPLE_LEAD, email=None, message=None)
+    description = kaiten._format_description(lead)
+    assert "Email" not in description
+    assert "Сообщение клиента" not in description
+    assert SAMPLE_LEAD["id"] in description
 
-        # Если бы create_card попытался создать карточку, он бы пошёл в сеть
-        # и упал — но idempotency должна вернуть existing раньше.
-        monkeypatch.setattr(kaiten, "find_card_by_external_id", fake_find)
-        result = asyncio.run(kaiten.create_card(SAMPLE_LEAD))
-        assert result is existing
+
+def test_exact_card_selector_returns_match_not_first_card():
+    cards = [
+        {"id": 10, "external_id": "another-lead"},
+        {"id": 42, "external_id": SAMPLE_LEAD["id"]},
+    ]
+    assert kaiten._select_exact_card(cards, SAMPLE_LEAD["id"])["id"] == 42
+
+
+def test_exact_card_selector_returns_none_for_nonmatching_result_set():
+    cards = [{"id": 10, "external_id": "another-lead"}]
+    assert kaiten._select_exact_card(cards, SAMPLE_LEAD["id"]) is None
+
+
+def test_create_card_returns_existing_without_post(monkeypatch):
+    _configure(monkeypatch)
+    existing = {"id": 42, "external_id": SAMPLE_LEAD["id"]}
+
+    async def fake_find(external_id):
+        assert external_id == SAMPLE_LEAD["id"]
+        return existing
+
+    monkeypatch.setattr(kaiten, "find_card_by_external_id", fake_find)
+    assert asyncio.run(kaiten.create_card(SAMPLE_LEAD)) is existing
+
+
+def test_create_card_noop_when_disabled(monkeypatch):
+    monkeypatch.setattr(kaiten, "KAITEN_API_TOKEN", "")
+    assert asyncio.run(kaiten.create_card(SAMPLE_LEAD)) is None

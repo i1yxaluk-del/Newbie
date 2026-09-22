@@ -36,7 +36,7 @@ def is_enabled() -> bool:
 def _api_base() -> str:
     domain = KAITEN_DOMAIN
     if "://" not in domain:
-        domain = f"https://{domain}"
+        domain = "https://" + domain
     return f"{domain}/api/latest"
 
 
@@ -91,12 +91,7 @@ def build_card_payload(lead: Dict[str, Any]) -> Dict[str, Any]:
 def _select_exact_card(
     cards: Iterable[Dict[str, Any]], external_id: str
 ) -> Optional[Dict[str, Any]]:
-    """Return only an exact external_id match.
-
-    Kaiten may return a non-empty result set that does not contain the requested
-    card. Falling back to the first card would attach a lead to somebody else's
-    card and suppress creation of the correct one.
-    """
+    """Return only an exact external_id match."""
     expected = str(external_id)
     for card in cards:
         if str(card.get("external_id") or "") == expected:

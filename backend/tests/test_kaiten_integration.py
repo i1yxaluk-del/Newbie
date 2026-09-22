@@ -39,6 +39,11 @@ def test_enabled_only_with_required_configuration(monkeypatch):
     assert kaiten.is_enabled() is False
 
 
+def test_api_base_adds_https(monkeypatch):
+    _configure(monkeypatch)
+    assert kaiten._api_base() == "https://msp-oblako.kaiten.ru/api/latest"
+
+
 def test_lane_is_optional(monkeypatch):
     _configure(monkeypatch, lane="")
     assert kaiten.is_enabled() is True

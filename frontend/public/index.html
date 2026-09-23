@@ -1,118 +1,17 @@
 <!doctype html>
-<html lang="en">
-    <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="theme-color" content="#1b4d3e" />
-        <link rel="icon" type="image/svg+xml" href="%PUBLIC_URL%/favicon.svg" />
-        <meta name="description" content="МСП Облако — управляемый IT-сервис для СМБ в РФ: мониторинг 24/7, бэкапы, реакция по SLA ≤ 4 ч. Данные в России, 152-ФЗ. Bronze 25k ₽/мес, Silver 50k, Gold 85k. Бесплатный аудит за 30 минут." />
-        <meta name="keywords" content="managed it service, MSP, outsource IT, управляемый сервис, 152-ФЗ, импортозамещение, мониторинг 24/7, бэкапы, SLA, Astra Linux, РЕД ОС" />
-        <meta name="robots" content="index, follow" />
-        <link rel="canonical" href="https://msp-claude.online/" />
-
-        <meta property="og:title" content="МСП Облако — Управляемый IT-сервис для бизнеса в РФ" />
-        <meta property="og:description" content="Мониторинг 24/7, автоматические бэкапы, реакция по SLA. Данные в России. Фиксированная плата от 25 000 ₽/мес." />
-        <meta property="og:type" content="website" />
-        <meta property="og:locale" content="ru_RU" />
-        <meta property="og:url" content="https://msp-claude.online/" />
-        <meta property="og:site_name" content="МСП Облако" />
-
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="МСП Облако — Управляемый IT-сервис для бизнеса в РФ" />
-        <meta name="twitter:description" content="Мониторинг 24/7, бэкапы, SLA ≤ 4 ч. Данные в России. От 25 000 ₽/мес." />
-
-        <script type="application/ld+json">
-        {
-            "@context": "https://schema.org",
-            "@type": "LocalBusiness",
-            "@id": "https://msp-claude.online/#organization",
-            "name": "МСП Облако",
-            "description": "Managed Service Provider для СМБ в РФ. Мониторинг 24/7, бэкапы, SLA, 152-ФЗ.",
-            "url": "https://msp-claude.online/",
-            "telephone": "+7-000-000-00-00",
-            "email": "sales@msp-claude.online",
-            "priceRange": "25000 RUB - 85000 RUB / мес",
-            "areaServed": {"@type": "Country", "name": "Russian Federation"},
-            "address": {"@type": "PostalAddress", "addressCountry": "RU"},
-            "hasOfferCatalog": {
-                "@type": "OfferCatalog",
-                "name": "Tariffs",
-                "itemListElement": [
-                    {"@type": "Offer", "name": "Bronze", "price": "25000", "priceCurrency": "RUB", "description": "1–5 серверов, SLA P1 ≤ 4 ч"},
-                    {"@type": "Offer", "name": "Silver", "price": "50000", "priceCurrency": "RUB", "description": "80–300 сотрудников, AD/GPO, SLA P1 ≤ 2 ч"},
-                    {"@type": "Offer", "name": "Gold", "price": "85000", "priceCurrency": "RUB", "description": "Compliance/152-ФЗ, SIEM, 24/7, SLA P1 ≤ 1 ч"}
-                ]
-            }
-        }
-        </script>
-
-        <script type="application/ld+json">
-        {
-            "@context": "https://schema.org",
-            "@type": "FAQPage",
-            "mainEntity": [
-                {
-                    "@type": "Question",
-                    "name": "Что делает МСП Облако?",
-                    "acceptedAnswer": {"@type": "Answer", "text": "Управляет вашей IT-инфраструктурой: мониторинг 24/7, автоматические бэкапы, реакция на инциденты по SLA, compliance 152-ФЗ."}
-                },
-                {
-                    "@type": "Question",
-                    "name": "Сколько стоит управляемый IT-сервис?",
-                    "acceptedAnswer": {"@type": "Answer", "text": "От 25 000 ₽/мес (Bronze) до 85 000 ₽/мес (Gold). Цена зависит от количества серверов, SLA и compliance-требований."}
-                },
-                {
-                    "@type": "Question",
-                    "name": "Где хранятся данные?",
-                    "acceptedAnswer": {"@type": "Answer", "text": "В российских дата-центрах (распределённое облачное хранилище). Соответствие 152-ФЗ."}
-                }
-            ]
-        }
-        </script>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-        <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&family=Inter:wght@600&display=swap" rel="stylesheet" />
-        <!--
-        manifest.json provides metadata used when your web app is installed on a
-        user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
-        -->
-        <!--
-        Notice the use of %PUBLIC_URL% in the tags above.
-        It will be replaced with the URL of the `public` folder during the build.
-        Only files inside the `public` folder can be referenced from the HTML.
-
-        Unlike "/favicon.ico" or "favicon.ico", "%PUBLIC_URL%/favicon.ico" will
-        work correctly both with client-side routing and a non-root public URL.
-        Learn how to configure a non-root public URL by running `npm run build`.
-        -->
-        <title>МСП Облако — Управляемый IT-сервис для бизнеса в РФ</title>
-
-        <!-- Yandex.Metrika counter -->
-        <script type="text/javascript">
-            (function(m,e,t,r,i,k,a){
-            m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
-            m[i].l=1*new Date();
-            for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
-            k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
-            })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=109692310', 'ym');
-
-            ym(109692310, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
-        </script>
-        <noscript><div><img src="https://mc.yandex.ru/watch/109692310" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
-        <!-- /Yandex.Metrika counter -->
-    </head>
-    <body>
-        <noscript>You need to enable JavaScript to run this app.</noscript>
-        <div id="root"></div>
-        <!--
-      This HTML file is a template.
-      If you open it directly in the browser, you will see an empty page.
-
-      You can add webfonts, meta tags, or analytics to this file.
-      The build step will place the bundled scripts into the <body> tag.
-
-      To begin the development, run `npm start` or `yarn start`.
-      To create a production bundle, use `npm run build` or `yarn build`.
-    -->
-    </body>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#1b4d3e" />
+  <meta name="description" content="МСП Облако — управляемый IT-сервис: мониторинг, проверяемые резервные копии и реакция по договорному SLA. Bronze от 25 000 ₽, Silver от 50 000 ₽. Gold от 120 000 ₽ после запуска дежурной ротации." />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://msp-claude.online/" />
+  <link rel="icon" type="image/svg+xml" href="%PUBLIC_URL%/favicon.svg" />
+  <title>МСП Облако — управляемый IT-сервис</title>
+</head>
+<body>
+  <noscript>Для работы сайта требуется JavaScript.</noscript>
+  <div id="root"></div>
+</body>
 </html>

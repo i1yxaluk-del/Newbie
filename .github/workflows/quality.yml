@@ -9,6 +9,13 @@ permissions:
   contents: read
 
 jobs:
+  business-consistency:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Проверить цены, SLA и обещания лендинга
+        run: python scripts/validate_business_consistency.py
+
   backend-unit:
     runs-on: ubuntu-latest
     steps:
@@ -19,7 +26,7 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements.txt
       - run: pip install -r backend/requirements.txt
-      - run: python -m compileall -q backend
+      - run: python -m compileall -q backend scripts
       - run: pytest -q backend/tests/test_kaiten_integration.py backend/tests/test_alertmanager.py backend/tests/test_max_integration.py
 
   frontend-build:
@@ -43,13 +50,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Validate compose and security invariants
+      - name: Проверить Compose и защитные инварианты
         env:
           STALWART_ADMIN_PASSWORD: ci-only
           VAULTWARDEN_ADMIN_TOKEN: ci-only
         run: |
+          # Создаём только тестовый env: реальные production-секреты в CI не нужны.
           cp backend/.env.example backend/.env
           docker compose -f deploy/yandex/docker-compose.yml config >/dev/null
+          # Эти проверки запрещают публикацию внутренних портов и небезопасные defaults.
           ! grep -q '0.0.0.0:8001:8001' deploy/yandex/docker-compose.yml
           ! grep -q ':-changeme' deploy/yandex/docker-compose.yml
           ! grep -q 'vaultwarden/server:latest' deploy/yandex/docker-compose.yml
@@ -59,7 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Scan production perimeter
+      - name: Проверить внешний периметр production
         run: bash scripts/production-readiness/external_scan.sh msp-claude.online external-scan.txt
       - uses: actions/upload-artifact@v4
         if: always()

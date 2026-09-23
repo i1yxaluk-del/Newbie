@@ -1,62 +1,54 @@
-# 12-недельная программа обучения · Junior MSP Engineer
+# Программа допуска Junior MSP Engineer
 
-> **Канонический Junior-слой.** Этот документ — главная точка входа
-> для Junior-инженера, который обслуживает клиентов (не путать с
-> [`../LANDING_ADMIN_GUIDE.md`](../LANDING_ADMIN_GUIDE.md) — там про
-> наш сайт MSPShield, не про клиентов).
->
-> **После прохождения программы** Junior использует ежедневно:
-> - [`../runbooks/README.md`](../runbooks/README.md) — R-01..R-11 при инцидентах.
-> - [`../checklists/weekly.md`](../checklists/weekly.md), [`monthly.md`](../checklists/monthly.md), [`quarterly.md`](../checklists/quarterly.md) — регулярные ритуалы.
-> - [`../deployment/troubleshooting.md`](../deployment/troubleshooting.md) — типовые ошибки развёртывания.
-> - [`../deployment/secrets_management.md`](../deployment/secrets_management.md) — Vaultwarden.
-> - [`../../technical/README.md`](../../technical/README.md) — тарифные SOP'ы.
+Цель программы — не «прочитать 12 недель», а доказать безопасное выполнение операций. Junior никогда не получает production-доступ только по сроку работы.
 
-## Философия
+## Уровни допуска
 
-1. **50% времени первые 2 недели — в паре с тобой (owner).** После
-   этого — самостоятельная работа под supervision, еженедельные
-   retrospectives.
-2. **Не learn-by-drinking-from-firehose.** Никаких «прочитай эту книгу
-   на выходных». Всё обучение встроено в рабочие задачи.
-3. **По неделям:** каждая неделя = 1 основная тема + повседневные
-   задачи. В конце недели — 15-минутный check-in.
-4. **Выход из испытательного:** через 12 недель должен уверенно вести
-   P2/P3 один, понимать архитектуру, уметь отвечать клиенту.
+| Уровень | Разрешено | Запрещено |
+|---|---|---|
+| L0 Observe | читать логи, смотреть dashboard, вести документацию | любые изменения |
+| L1 Assisted | выполнять типовой runbook при демонстрации экрана | самостоятельный production |
+| L2 Supervised | выполнять одобренное изменение с peer review | P1 commander, firewall/backup policy без owner |
+| L3 Independent | Bronze P2/P3 и регулярные операции | Gold/on-call без отдельного допуска |
 
-## Итоговый тест (месяц 4)
+## Общий алгоритм любой операции
 
-По завершении 12 недель — **проверка под нагрузкой**:
-- 1 день недели полностью один на P2/P3 тикетах.
-- Weekly-sync с клиентом ведёт junior, owner слушает.
-- Написание одной главы runbook'а с нуля.
+1. Назови tenant и целевой hostname вслух.
+2. Проверь тикет, периметр и окно изменения.
+3. Сделай backup/снимок, если изменение обратимо таким способом.
+4. Запиши команду и ожидаемый результат до запуска.
+5. Подготовь rollback.
+6. Выполни на test/staging.
+7. Получи необходимое подтверждение.
+8. Выполни production и сохрани evidence.
+9. Проверь сервис глазами клиента.
+10. Обнови тикет и документацию.
 
-## Расписание
+## 12 недель
 
-| Week | Theme | File |
+| Неделя | Тема | Практический результат |
 |---:|---|---|
-| 1 | Онбординг + tooling | [week_01.md](week_01.md) |
-| 2 | Linux deep-dive + our baseline | [week_02.md](week_02.md) |
-| 3 | Monitoring (Prometheus + Grafana) | [week_03.md](week_03.md) |
-| 4 | Backup & Recovery (restic + DR) | [week_04.md](week_04.md) |
-| 5 | Networking + AmneziaWG (UDP/443) | [week_05.md](week_05.md) |
-| 6 | Security (hardening, SIEM basics) | [week_06.md](week_06.md) |
-| 7 | Active Directory + GPO | [week_07.md](week_07.md) |
-| 8 | 1С и специфика РФ | [week_08.md](week_08.md) |
-| 9 | Ansible + Infrastructure-as-Code | [week_09.md](week_09.md) |
-| 10 | Incident response в deep-dive | [week_10.md](week_10.md) |
-| 11 | Communication + customer success | [week_11.md](week_11.md) |
-| 12 | Go-live + самостоятельная неделя | [week_12.md](week_12.md) |
+| 1 | Доступы, секреты, коммуникация | вход с MFA, корректный handover |
+| 2 | Linux baseline | безопасная диагностика без изменений |
+| 3 | Prometheus/Grafana | объяснить алерт и проверить источник |
+| 4 | Restic/DR | restore в чистую test-среду и JSON evidence |
+| 5 | Сети/VPN | диагностировать tunnel без отключения клиента |
+| 6 | Hardening/ПДн | finding с риском и rollback, без ложного compliance |
+| 7 | AD/GPO | стендовый restore GPO и peer-reviewed change |
+| 8 | 1С/PostgreSQL | диагностика read-only; изменение только с владельцем 1С |
+| 9 | Ansible/IaC | идемпотентный playbook и check mode |
+| 10 | Incident response | tabletop P1 и корректная эскалация |
+| 11 | Клиентская коммуникация | status update без неподтверждённых обещаний |
+| 12 | Экзамен | полный Bronze-сценарий на стенде |
 
-## Ресурсы (read if/when needed, not all at once)
+## Экзамен L2
 
-- *The Site Reliability Workbook* — Google SRE (выборочно: главы 1, 6, 8, 11).
-- *Linux Bible* (Negus) — справочник, не учебник.
-- Официальная документация: Ansible, Prometheus, restic.
-- Наш internal wiki (`docs/`).
+- развернуть test tenant;
+- вызвать контролируемый алерт;
+- диагностировать причину;
+- восстановить файл из backup;
+- оформить change, evidence и клиентский отчёт;
+- объяснить разницу между monitoring 24/7 и engineer on-call;
+- не использовать реальные секреты или production ПДн.
 
-## Правила compensation time
-
-- 1 час в неделю — «личное обучение» вне задач (курсы, YouTube, чтение).
-- 1 час в неделю — pairing-звонок с senior (вопросы, ретро).
-- Не более 40 часов в неделю суммарно.
+Провал любого security-критерия означает повтор упражнения, а не доступ «под ответственность».

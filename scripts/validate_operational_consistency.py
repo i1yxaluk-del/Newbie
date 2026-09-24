@@ -23,8 +23,8 @@ need("services/vm_watcher/watcher.ps1", "TcpClient")
 ban("services/vm_watcher/watcher.ps1", "$env:YC_CONFIG_DIR")
 if re.search(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', read("services/vm_watcher/watcher.ps1")):
     errors.append("watcher.ps1: hardcoded IP")
-for path in ("migration/README.md", "migration/migrate.ps1"):
-    ban(path, "StrictHostKeyChecking=no")
+# Документация может называть опасную команду как запрет; исполняемый uploader — нет.
+ban("migration/migrate.ps1", "StrictHostKeyChecking=no")
 need("scripts/deployment/preflight.sh", "BOM/CRLF")
 need("README.md", "docs/README.md")
 need("docs/README.md", "CLIENT_LIFECYCLE.md")

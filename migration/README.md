@@ -102,3 +102,6 @@ sudo docker exec -it msp-max-alerter python -m max_alerter.auth --authorize
 6. **Preemptible VM**: получает новый IP/host keys; держать static IP и `-o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL`.
 7. **DNS-минимум:** `A mail.<domain>`, `TXT` SPF с `include:postbox.cloud.yandex.net`, `_dmarc`; DKIM — CNAME на `dkim.pstbx.ru` (Postbox) либо собственные ключи Stalwart (тогда их TXT). Ставить DMARC `p=quarantine` после стабилизации.
 8. **Telegram с ВМ недоступен** (блокировка) — не закладывать его как единственный канал алертов на новом хосте.
+9. **`deploy/yandex/.env` и `backend/.env`** — при переносе не копировать «как есть»: убрать BOM/CRLF, убедиться в наличии `VAULTWARDEN_ADMIN_TOKEN` (compose требует) и `ADMIN_TOKEN` (иначе backend отдаёт 503).
+10. **`yc`-профиль на Windows** читается из `%USERPROFILE%\.config\yandex-cloud\config.yaml` (переменная `YC_CONFIG_DIR` игнорируется) — на новой станции создавать профиль там.
+11. **MAX-сессия** переносится вместе с томом (`…/monitoring/max-session/max.db`); `docker-compose.override.yml` требует `MAX_PHONE`, `MAX_CHAT_ID`, `ALERTMANAGER_WEBHOOK_TOKEN`.

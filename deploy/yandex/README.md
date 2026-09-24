@@ -1157,3 +1157,32 @@ print('SENT OK')
 ### 11.0.9. Стратегия маршрута Stalwart применяется после рестарта
 
 - Изменение «Outbound Delivery Strategy» (Routing → `postbox-outbound`) в UI вступает в силу только после перезапуска контейнера Stalwart; до рестарта письма уходят по старому маршруту `mx` (прямо на :25 → отбой).
+
+### 11.0.10. `deploy/yandex/.env`: BOM/CRLF и обязательные переменные
+
+- Файл был в UTF-8 с BOM и CRLF → первый ключ читался как `\ufeffSMTP_HOST`. Нормализовать: убрать BOM и CRLF.
+- Новый compose требует **`VAULTWARDEN_ADMIN_TOKEN`** — без него `docker compose` падает на интерполяции (`is missing a value`). Значение для уже работающей Vaultwarden брать из контейнера (`docker inspect msp-vaultwarden-1` → `ADMIN_TOKEN`), чтобы не менять admin-токен.
+
+### 11.0.11. `backend/.env`: `ADMIN_TOKEN` обязателен
+
+- Пустой/отсутствующий `ADMIN_TOKEN` → защищённые эндпоинты (`/api/leads`) отдают **503**. Генерировать `openssl rand -hex 32` и прописывать в `backend/.env`.
+- Файл легко «замусорить» дампом окружения контейнера (`PATH/LANG/GPG_KEY/PYTHON_*`) — проверять состав.
+
+### 11.0.12. Starlette: middleware только с параметром `app`
+
+- `backend/secure_server.py`: класс middleware с `__init__(self, asgi_app)` ломает приложение при старте — Starlette вызывает `cls(app=app, **options)` → `TypeError: unexpected keyword argument 'app'`, `/api/health` = 500. Параметр должен называться **`app`**.
+- Диагностика: health 500 сразу после ребилда бэкенда; в логах — `TypeError`.
+
+### 11.0.13. MAX: сессия и обязательные env
+
+- Bind-mount сессии MAX переехал на `deploy/yandex/monitoring/max-session` (`/session/max.db`). При обновлении **переносить `max.db`**, иначе MAX теряет авторизацию (авто-SMS отключены).
+- `docker-compose.override.yml` требует `MAX_PHONE`, `MAX_CHAT_ID`, `ALERTMANAGER_WEBHOOK_TOKEN` в `monitoring/.env` — без них `docker compose` не поднимется.
+
+### 11.0.14. vm_watcher (`services/vm_watcher`)
+
+- `install.ps1` подставлял `$env:TELEGRAM_BOT_TOKEN` прямо в строку задачи → PowerShell раскрывал переменную в **имя** переменной, задача планировщика ломалась (Last Result=1, алерт не уходил). Экранировать: `\`$env:...` в двойных кавычках.
+- Watcher использовал устаревший `YC_CONFIG_DIR` и старую ВМ. Фикс: абсолютный путь к `yc.exe`, актуальные `Target`/`VmId`, **TCP-фоллбек на :443** (в SG нет ICMP — чистый ping всегда «недоступен»).
+
+### 11.0.15. `yc` на Windows: конфиг читается из `~/.config/yandex-cloud`
+
+- `YC_CONFIG_DIR` установленными сборками **игнорируется**; конфиг — `%USERPROFILE%\.config\yandex-cloud\config.yaml`. Для нового пользователя профиль нужно создать там (профиль `msp-new` с ключом сервисного аккаунта).

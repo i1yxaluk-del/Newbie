@@ -11,62 +11,31 @@ templates:
   - '/etc/alertmanager/templates/*.tmpl'
 
 route:
-  group_by: ['alertname', 'severity']
+  group_by: ['alertname', 'severity', 'instance']
   group_wait: 30s
   group_interval: 5m
   repeat_interval: 4h
   receiver: email-alert
-
   routes:
-    - matchers:
-        - severity = P1
+    # P1 идёт напрямую в канонический MAX userbot webhook и параллельно в email.
+    - matchers: ['severity = P1']
       receiver: max-alert
       group_wait: 10s
       group_interval: 2m
       repeat_interval: 1h
       continue: true
-
-    - matchers:
-        - severity = P1
+    - matchers: ['severity = P1']
       receiver: email-alert
       group_wait: 10s
       group_interval: 2m
       repeat_interval: 1h
-      continue: true
-
-    - matchers:
-        - severity = P1
-      receiver: msp-backend
-      group_wait: 10s
-      group_interval: 2m
-      repeat_interval: 1h
-
-    - matchers:
-        - severity =~ "P2|P3"
+    - matchers: ['severity =~ "P2|P3"']
       receiver: email-alert
-      group_wait: 1m
-      group_interval: 10m
-      repeat_interval: 4h
-      continue: true
-
-    - matchers:
-        - severity =~ "P2|P3"
-      receiver: msp-backend
       group_wait: 1m
       group_interval: 10m
       repeat_interval: 4h
 
 receivers:
-  - name: msp-backend
-    webhook_configs:
-      - url: 'https://msp-claude.online/api/alerts/alertmanager'
-        send_resolved: true
-        max_alerts: 0
-        http_config:
-          authorization:
-            type: Bearer
-            credentials: '${ALERTMANAGER_WEBHOOK_TOKEN}'
-
   - name: max-alert
     webhook_configs:
       - url: 'http://msp-max-alerter:9095/alert'
@@ -75,7 +44,6 @@ receivers:
           authorization:
             type: Bearer
             credentials: '${ALERTMANAGER_WEBHOOK_TOKEN}'
-
   - name: email-alert
     email_configs:
       - to: "alert@msp-claude.online"
@@ -86,14 +54,8 @@ receivers:
           Subject: '{{ template "mspshield.subject" . }}'
           Auto-Submitted: auto-generated
           Precedence: bulk
-          List-ID: "MSPShield Alerts <alerts.msp-claude.online>"
-          List-Unsubscribe: "<https://msp-claude.online>"
-          X-Mailer: "MSPShield Alertmanager"
-          X-Priority: '{{ if eq .Status "firing" }}1{{ else }}3{{ end }}'
 
 inhibit_rules:
-  - source_matchers:
-      - severity = P1
-    target_matchers:
-      - severity =~ "P2|P3"
+  - source_matchers: ['severity = P1']
+    target_matchers: ['severity =~ "P2|P3"']
     equal: ['alertname', 'instance']

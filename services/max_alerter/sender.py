@@ -88,7 +88,7 @@ async def send_to_telegram(chat_id: str, text: str) -> bool:
     if not (TG_BOT_TOKEN and chat_id):
         return False
     try:
-        url = f"https://api.telegram.org/bot{TG_BOT_TOKEN}/sendMessage"
+        url = "https://api.telegram.org/bot" + TG_BOT_TOKEN + "/sendMessage"
         async with httpx.AsyncClient(timeout=10) as client:
             response = await client.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"})
             response.raise_for_status()

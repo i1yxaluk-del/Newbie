@@ -23,7 +23,7 @@ for marker in ("my.telegram.org/apps", "Telethon", "API_HASH", "session.session"
 require("docs/MAX_SETUP.md", "docker exec -it msp-max-alerter python -m max_alerter.auth --authorize")
 require("docs/MAX_SETUP.md", "/session/max.db")
 require("services/max_alerter/requirements.txt", "maxapi-python==2.1.2")
-require("services/max_alerter/sender.py", 'url = f"https://api.telegram.org/bot{TG_BOT_TOKEN}/sendMessage"')
+require("services/max_alerter/sender.py", 'url = "https://api.telegram.org/bot" + TG_BOT_TOKEN + "/sendMessage"')
 forbid("services/max_alerter/sender.py", 'f"{{https://api.telegram.org')
 require("services/max_alerter/webhook.py", "HTTP_503_SERVICE_UNAVAILABLE")
 require("deploy/yandex/monitoring/alertmanager/alertmanager.yml.tmpl", "http://msp-max-alerter:9095/alert")

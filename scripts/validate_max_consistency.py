@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""CI-gate против возврата старого Telegram/MAX и небезопасного deploy."""
+"""CI-gate канонического MAX userbot и безопасного deployment.
+
+Исторические термины разрешены в разделе migration/legacy, но активные
+команды, route и код должны соответствовать одному production-контуру.
+"""
 from pathlib import Path
 import re
 import sys
@@ -16,12 +20,11 @@ def require(path: str, value: str) -> None:
 
 def forbid(path: str, value: str) -> None:
     if value in text(path):
-        errors.append(f"{path}: запрещён старый фрагмент {value!r}")
+        errors.append(f"{path}: запрещён фрагмент {value!r}")
 
-for marker in ("my.telegram.org/apps", "Telethon", "API_HASH", "session.session", "порт `8080`"):
-    forbid("docs/MAX_SETUP.md", marker)
 require("docs/MAX_SETUP.md", "docker exec -it msp-max-alerter python -m max_alerter.auth --authorize")
 require("docs/MAX_SETUP.md", "/session/max.db")
+require("docs/MAX_SETUP.md", "Alertmanager → POST http://msp-max-alerter:9095/alert")
 require("services/max_alerter/requirements.txt", "maxapi-python==2.1.2")
 require("services/max_alerter/sender.py", 'url = "https://api.telegram.org/bot" + TG_BOT_TOKEN + "/sendMessage"')
 forbid("services/max_alerter/sender.py", 'f"{{https://api.telegram.org')
@@ -33,6 +36,7 @@ if re.search(r"MAX_PHONE:\s*[\"']?\+?\d{10,}", compose):
     errors.append("monitoring compose: MAX_PHONE захардкожен")
 if re.search(r"MAX_CHAT_ID:\s*[\"']?-\d{6,}", compose):
     errors.append("monitoring compose: MAX_CHAT_ID захардкожен")
+require("deploy/yandex/monitoring/docker-compose.yml", "127.0.0.1:9095:9095")
 for path in ("migration/README.md", "migration/migrate.ps1", "migration/restore-on-vm.sh"):
     forbid(path, "StrictHostKeyChecking=no")
     forbid(path, "msp-mongo-1")

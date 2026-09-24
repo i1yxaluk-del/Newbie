@@ -1,11 +1,11 @@
 global:
   resolve_timeout: 5m
-  smtp_smarthost: "stalwart:25"
+  smtp_smarthost: "postbox.cloud.yandex.net:465"
   smtp_from: "MSPShield <alert@msp-claude.online>"
   smtp_hello: "msp-claude.online"
-  smtp_auth_username: "alert@msp-claude.online"
+  smtp_auth_username: "${SMTP_AUTH_USER}"
   smtp_auth_password: "${SMTP_AUTH_PASSWORD}"
-  smtp_require_tls: false
+  smtp_require_tls: true
 
 templates:
   - '/etc/alertmanager/templates/*.tmpl'

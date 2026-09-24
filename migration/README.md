@@ -86,3 +86,19 @@ sudo docker exec -it msp-max-alerter python -m max_alerter.auth --authorize
 - проверять executable bit у entrypoint;
 - не отключать SSH host-key verification;
 - не публиковать полный inventory облака и ключи в runbook.
+
+
+---
+
+## Уроки миграции (сентябрь 2026)
+
+> Дополнение: что упускали при переносе между серверами/аккаунтами.
+
+1. **Stalwart: конфиг лежит в томе `stalwart-etc`** (`/etc/stalwart/config.json`), а данные — в `stalwart-data`. Бэкапить **оба** тома. Если сохранить только data — почта не поднимется без переинициализации (домен/ящики/DKIM создаются заново).
+2. **Restic не покрывал Docker-тома.** Бэкап-скрипт исключал `/var/lib/docker`; добавили `/var/lib/docker/volumes` (кроме `msp_mongo-data` — MongoDB закрыта `mongodump`). Проверять состав снапшота (`restic ls latest`).
+3. **Postbox API-ключ привязан к сервисному аккаунту `postbox-sender`** и должен иметь scope `yc.postbox.send`. После переноса ключи могли быть удалены — проверять `yc iam api-key list --service-account-id ajeq2njbvgqf0fohc2g1` и создавать новый при необходимости; в `.env` хранить ID ключа и секрет.
+4. **Stalwart: SPIFFE/роли.** Отправку (`emailSend`) даёт роль `User`; у админской роли её нет. Логин в клиенте — полный адрес.
+5. **Очередь Stalwart:** после смены креденшелов маршрута письма из очереди могут ретраиться со старыми ошибками — проверять `x:QueuedMessage/get`; стратегия маршрута применяется после рестарта контейнера.
+6. **Preemptible VM**: получает новый IP/host keys; держать static IP и `-o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL`.
+7. **DNS-минимум:** `A mail.<domain>`, `TXT` SPF с `include:postbox.cloud.yandex.net`, `_dmarc`; DKIM — CNAME на `dkim.pstbx.ru` (Postbox) либо собственные ключи Stalwart (тогда их TXT). Ставить DMARC `p=quarantine` после стабилизации.
+8. **Telegram с ВМ недоступен** (блокировка) — не закладывать его как единственный канал алертов на новом хосте.

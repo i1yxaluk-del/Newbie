@@ -52,11 +52,11 @@ services:
       options: { max-size: "10m", max-file: "3" }
 
   alertmanager:
-    image: prom/alertmanager:v0.27.0
+    image: prom/alertmanager:v0.34.1
     container_name: msp-alertmanager
     restart: unless-stopped
     environment:
-      SMTP_AUTH_PASSWORD: "${SMTP_AUTH_PASSWORD:-}"
+      SMTP_AUTH_USER: "${SMTP_AUTH_USER:-}"
       ALERTMANAGER_WEBHOOK_TOKEN: "${ALERTMANAGER_WEBHOOK_TOKEN:?ALERTMANAGER_WEBHOOK_TOKEN обязателен}"
     volumes:
       - alertmanager_data:/alertmanager

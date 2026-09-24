@@ -1130,6 +1130,10 @@ print('SENT OK')
 - Диагностика по заголовкам: `X-Spam-Result` показывает вклад тегов. Главные: `VIOLATED_DIRECT_SPF` 3.5, `MIXED_CHARSET` 2.0, `RCPT_LOCAL_IN_SUBJECT` 2.0, `DMARC_NA`/`HELPO_IPREV_MISMATCH`/`PARTS_DIFFER` по 1.0.
 - Радикальное решение: доставлять алерты от **аутентифицированного** отправителя (submission :465) либо разрешить внутреннюю сеть/отправителя в спам-фильтре. Вариант «убрать спамные заголовки» помогает лишь частично.
 
+### 11.0.3a. Секреты Alertmanager подставляются entrypoint-скриптом
+
+- entrypoint.sh рендерит lertmanager.yml.tmpl через sed, подставляя ${SMTP_AUTH_USER}, ${SMTP_AUTH_PASSWORD}, ${ALERTMANAGER_WEBHOOK_TOKEN}. Если переменная не добавлена в environment: сервиса или sed-подстановка потеряна при правке — контейнер падает (ERROR: SMTP_AUTH_* не заданы) или в конфиг попадает литерал ${VAR} → 535 Authentication failed. Всегда проверяйте docker exec msp-alertmanager grep smtp_auth /etc/alertmanager/alertmanager.yml.
+
 ### 11.0.4. Тема письма не должна начинаться с перевода строки
 
 - В `templates/mspshield.tmpl` блок `mspshield.subject` начинался с `\n` → `Subject` кодировался как `=0D=0A[...]` и добавлял спам-теги. Определение шаблона должно быть **одной строкой** без ведущих/замыкающих переводов.

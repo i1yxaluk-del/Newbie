@@ -6,6 +6,11 @@ on:
 permissions:
   contents: read
 jobs:
+  markdown-navigation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python scripts/validate_markdown_links.py
   business-consistency:
     runs-on: ubuntu-latest
     steps:

@@ -1,50 +1,60 @@
 # MSPShield / «МСП Облако»
 
-Управляемый IT-сервис для малого и среднего бизнеса в РФ: мониторинг, резервное копирование, защищённый доступ и реакция в согласованное рабочее окно.
+Управляемый IT-сервис для малого и среднего бизнеса: monitoring, backup, защищённый доступ и реакция в договорное окно.
 
-> Monitoring 24/7 означает круглосуточную автоматику, а не круглосуточное дежурство инженера. Gold и 24/7 engineer on-call закрыты до отдельного operational gate.
+> **Начинайте не с поиска файлов, а с нужного маршрута ниже.** Полная карта: [`docs/NAVIGATION.md`](docs/NAVIGATION.md).
 
-## Быстрый маршрут
+## Маршруты работы
 
-| Задача | Начать здесь | Затем |
+| Что нужно сделать | Точка входа | Дальше по маршруту |
 |---|---|---|
-| понять проект | [`docs/README.md`](docs/README.md) | [`docs/PROJECT_8_OF_10.md`](docs/PROJECT_8_OF_10.md) |
-| развернуть production | [`docs/deployment/README.md`](docs/deployment/README.md) | [`docs/deployment/DEPLOYMENT_LESSONS.md`](docs/deployment/DEPLOYMENT_LESSONS.md) |
-| перенести VM | [`migration/README.md`](migration/README.md) | [`migration/restore-on-vm.sh`](migration/restore-on-vm.sh) |
-| работать с клиентом | [`docs/operations/CLIENT_LIFECYCLE.md`](docs/operations/CLIENT_LIFECYCLE.md) | [`docs/onboarding/README.md`](docs/onboarding/README.md) |
-| продавать и считать цену | [`commercial/README.md`](commercial/README.md) | [`commercial/PRICING.md`](commercial/PRICING.md) |
-| подготовить договор | [`contracts/README.md`](contracts/README.md) | [`contracts/MSP_SERVICE_AGREEMENT.md`](contracts/MSP_SERVICE_AGREEMENT.md) |
-| обучить Junior | [`docs/training/README.md`](docs/training/README.md) | [`docs/training/DEPLOYMENT_MIGRATION_LABS.md`](docs/training/DEPLOYMENT_MIGRATION_LABS.md) |
-| настроить MAX | [`docs/MAX_SETUP.md`](docs/MAX_SETUP.md) | [`services/max_alerter/README.md`](services/max_alerter/README.md) |
+| Продать услугу | [`commercial/README.md`](commercial/README.md) | цена → квалификация → discovery → КП → договор |
+| Подготовить договор | [`contracts/README.md`](contracts/README.md) | единый MSA → Order Form → DOCX |
+| Развернуть production | [`docs/deployment/README.md`](docs/deployment/README.md) | preflight → deploy → health → alert → restore evidence |
+| Перенести VM | [`migration/README.md`](migration/README.md) | backup → restore → gates → DNS switch |
+| Подключить клиента | [`docs/operations/README.md`](docs/operations/README.md) | Won → onboarding → steady state → offboarding |
+| Разобрать инцидент | [`docs/runbooks/README.md`](docs/runbooks/README.md) | severity → runbook → evidence → postmortem |
+| Настроить MAX | [`docs/MAX_SETUP.md`](docs/MAX_SETUP.md) | webhook → ручная авторизация → test alert |
+| Обучить Junior | [`docs/training/README.md`](docs/training/README.md) | guide → weeks → labs → допуск |
+| Разрабатывать приложение | [`docs/NAVIGATION.md#разработка`](docs/NAVIGATION.md#разработка) | backend/frontend → tests → PR |
+| Понять готовность | [`docs/PROJECT_8_OF_10.md`](docs/PROJECT_8_OF_10.md) | gates → evidence → ограничения |
 
-## Структура
+## По ролям
 
-| Каталог | Назначение |
-|---|---|
-| `commercial/` | единственные актуальные прайс, воронка, скрипты, КП и объявления |
-| `contracts/` | один полный договор, приложения и DOCX builder |
-| `backend/`, `frontend/` | приложение и тесты |
-| `deploy/`, `migration/`, `infra/` | production, перенос и IaC |
-| `services/` | MAX alerter и VM watcher |
-| `technical/`, `docs/` | эксплуатация, обучение и runbooks |
-| `scripts/` | проверки и bootstrap |
+- **Owner / инженер:** [`docs/deployment/README.md`](docs/deployment/README.md) → [`docs/operations/README.md`](docs/operations/README.md).
+- **Product / Service Manager:** [`commercial/README.md`](commercial/README.md) → [`docs/operations/CLIENT_LIFECYCLE.md`](docs/operations/CLIENT_LIFECYCLE.md).
+- **Junior Engineer:** [`docs/training/README.md`](docs/training/README.md) → [`docs/runbooks/README.md`](docs/runbooks/README.md).
+- **Разработчик:** [`docs/NAVIGATION.md#разработка`](docs/NAVIGATION.md#разработка).
 
-## Production flow
+## Структура без путаницы
 
-```text
-Изменение → preflight → backup/rollback → deploy → health checks
-→ test alert → restore evidence → change record → наблюдение
-```
+| Каталог | Что внутри | Читать или выполнять |
+|---|---|---|
+| [`commercial/`](commercial/README.md) | прайс, воронка, scripts, объявления, КП | читать и копировать в сделку |
+| [`contracts/`](contracts/README.md) | один договор и DOCX builder | заполнять после КП |
+| [`docs/`](docs/README.md) | оглавления, runbooks, обучение, процессы | начинать с index-файлов |
+| [`deploy/`](deploy/README.md) | Compose/Docker/Nginx production-код | выполнять только через deploy runbook |
+| [`migration/`](migration/README.md) | backup/restore/migration scripts | выполнять только по migration gate |
+| [`services/`](services/README.md) | MAX alerter и VM watcher | код сервисов и их README |
+| [`scripts/`](scripts/README.md) | preflight и validators | инструменты, не бизнес-документация |
+| [`technical/`](technical/README.md) | технический состав тарифов | reference после прайса |
+| [`infra/`](infra/README.md) | Terraform/IaC альтернативного контура | не основной pilot path |
+| `backend/`, `frontend/` | приложение и тесты | разработка |
+| `analysis/`, `marketing/`, `docs/sales/` | исторические материалы/redirects | не источник истины |
+
+## Приоритет при конфликте
+
+1. код и CI-инварианты;
+2. канонический документ из [`docs/README.md`](docs/README.md);
+3. профильный index/README;
+4. исторические audit, analysis и postmortem.
+
+Gold On Demand доступен только после capacity gate. Monitoring 24/7 не означает 24/7 реакцию, если это отдельно не активировано в Gold Order Form.
+
+## Проверка ссылок
 
 ```bash
-bash scripts/deployment/preflight.sh
+python scripts/validate_markdown_links.py
 ```
 
-## Безопасные правила
-
-- Не коммитить `.env`, state, session DB, токены и backup credentials.
-- Не копировать старые `.env` на новую VM.
-- Не отключать SSH host-key verification.
-- Не считать snapshot доказанным backup без restore evidence.
-- Junior не меняет production вне уровня допуска и change record.
-- Активное обследование клиента выполняется только после письменного разрешения.
+CI не позволит слить изменение с тупиковой ссылкой в основных оглавлениях.

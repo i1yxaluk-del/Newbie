@@ -1,5 +1,7 @@
-# Никогда не коммитить:
-.deploy-state.json    # содержит folder-id, VM-id, public-ip
-.env                  # docker-compose substitution (STALWART_ADMIN_PASSWORD)
+# Локальное состояние конкретной cloud-среды — никогда не коммитить.
+.deploy-state.json
+.env
+monitoring/.env
+monitoring/max-session/
 *.log
 *.tar.gz

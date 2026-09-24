@@ -1,47 +1,39 @@
 # Воронка продаж для двух человек
 
-Воронка учитывает ограниченное время основателя и Product/Service Manager. Цель — качество квалификации, а не массовый спам.
-
 | Этап | Вход | Обязательное действие | Выход |
 |---|---|---|---|
 | New | входящая заявка или выбранный ICP-лид | источник, согласие, компания, контакт | принят либо Lost: not ICP |
-| Qualified | подтверждены РФ/B2B, 10+ сотрудников или значимый серверный контур | 15-минутная квалификация: need, authority, timing, budget range | назначен Discovery |
-| Discovery | согласован созвон | интервью без доступа; технические работы только по письменному разрешению | evidence и рекомендуемый пакет |
-| Proposal | есть подтверждённая потребность | одно КП: рекомендуемый пакет, scope, exclusions, onboarding, цена | решение/вопросы |
-| Contract | согласованы коммерческие условия | единый договор + Order Form + DPA при необходимости | подписано и оплачено |
-| Won | договор и onboarding оплачены | передача в onboarding checklist | продажа закрыта |
+| Qualified | подтверждены РФ/B2B и значимый IT-контур | need, authority, timing, budget range | назначен Discovery |
+| Discovery | согласован созвон | интервью; технические действия только по письменному разрешению | evidence и рекомендуемый пакет |
+| Proposal | есть подтверждённая потребность | одно КП: пакет, scope, exclusions, onboarding, цена | решение/вопросы |
+| Gold Capacity Check | клиент выбрал Gold | staffing/cost/legal/DR/P1 gate | capacity approved либо waitlist/Lost |
+| Contract | условия и capacity согласованы | единый договор + Order Form + DPA | подписано и оплачено |
+| Won | договор и onboarding оплачены | передача в onboarding | продажа закрыта |
 | Lost/Nurture | нет решения | код причины и дата следующего контакта | закрыто без зависания |
+
+Gold проходит отдельную стадию. Нельзя перейти из Proposal сразу в Contract, обещать дату старта или SLA до письменного capacity approval владельца.
 
 ## SLA продаж
 
 - входящая заявка: ответ в тот же рабочий день;
-- предложение слотов: в течение 1 рабочего дня;
-- КП: до 2 рабочих дней после достаточного discovery;
-- follow-up: +3, +7 и +14 дней, затем Lost/Nurture;
-- никакой стадии «подумает» без даты следующего действия.
+- предложение слотов: 1 рабочий день;
+- обычное КП: до 2 рабочих дней после discovery;
+- предварительный Gold solution outline: до 3 рабочих дней;
+- Gold capacity decision: после подтверждения кандидатов, стоимости и drills, без фиктивного быстрого срока;
+- follow-up: +3, +7 и +14 дней, затем Lost/Nurture.
 
-## Причины Lost
+## Причины Lost/Waitlist
 
-`not_icp`, `no_budget`, `no_authority`, `timing`, `no_response`, `competitor`, `inhouse`, `security_or_legal_mismatch`, `capacity_limit`, `scope_unsupported`.
+`not_icp`, `no_budget`, `no_authority`, `timing`, `no_response`, `competitor`, `inhouse`, `security_or_legal_mismatch`, `capacity_limit`, `scope_unsupported`. Для подходящего Gold без текущей ёмкости использовать waitlist с датой следующей проверки, а не обещать запуск.
 
 ## Метрики
 
-Первые 30 квалифицированных лидов — период сбора baseline, а не обещанных конверсий. После baseline ежемесячно считаются:
-
-- contacted → reply;
-- reply → qualified;
-- qualified → discovery;
-- discovery → proposal;
-- proposal → contract;
-- median days per stage;
-- MRR, onboarding revenue и contribution margin;
-- Lost по причине, каналу и ICP.
+Первые 30 qualified leads формируют baseline. Далее считаются stage conversion, median days, MRR, onboarding revenue, margin, Lost reason и отдельно: Gold requests, capacity-approved rate, стоимость усиления и срок формирования ротации.
 
 ## Недельный лимит пилота
 
 - 20–30 персонализированных касаний;
 - не более 4 discovery;
-- не более 2 КП одновременно без пересмотра capacity;
-- один 30-минутный sales review в неделю.
-
-Массовый парсинг и автоматическая рассылка без проверки законности, источника контакта и возможности отказаться не применяются.
+- не более 2 обычных КП;
+- не более одного активного Gold capacity assessment одновременно;
+- один 30-минутный sales review.

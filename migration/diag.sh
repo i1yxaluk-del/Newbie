@@ -1,17 +1,25 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# Диагностика после deploy/переноса. Скрипт только читает состояние.
+set -u
+
+echo "=== APPLICATION ==="
+curl -fsS http://127.0.0.1:8001/api/health || echo "FAIL: backend health"
+
+echo "=== MONITORING ==="
+curl -fsS http://127.0.0.1:9090/-/healthy || echo "FAIL: Prometheus"
+curl -fsS http://127.0.0.1:9093/-/healthy || echo "FAIL: Alertmanager"
+curl -fsS http://127.0.0.1:9095/health || echo "FAIL: MAX webhook"
+
+echo "=== MAX SESSION (SMS не отправляется) ==="
+docker exec msp-max-alerter python -m max_alerter.auth || echo "WARN: нужна ручная авторизация"
+
 echo "=== PROMETHEUS TARGETS ==="
-curl -s http://localhost:9090/api/v1/targets | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-for t in d['data']['activeTargets']:
-    job = t['labels'].get('job', '?')
-    health = t['health']
-    err = t.get('lastError', '')[:80]
-    print(f'{job:25s} {health:8s} {err}')
-"
-echo ""
-echo "=== RESTIC METRICS ==="
-cat /var/lib/node_exporter/textfile_collector/restic_backup.prom 2>/dev/null || echo "NO METRICS FILE (restic not run yet)"
-echo ""
-echo "=== BLACKBOX CONFIG (targets) ==="
-grep -A2 'targets:' /opt/msp/Newbie/deploy/yandex/monitoring/prometheus/blackbox.yml 2>/dev/null | head -20
+curl -fsS http://127.0.0.1:9090/api/v1/targets | python3 -c '
+import json, sys
+for target in json.load(sys.stdin)["data"]["activeTargets"]:
+    print(f"{target["labels"].get("job", "?"):25s} {target["health"]:8s} {target.get("lastError", "")[:80]}")
+' || echo "FAIL: targets API"
+
+echo "=== RESTIC ==="
+systemctl is-active restic-backup.timer || true
+cat /var/lib/node_exporter/textfile_collector/restic_backup.prom 2>/dev/null || echo "WARN: restic metrics отсутствуют"

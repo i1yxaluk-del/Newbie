@@ -1,6 +1,4 @@
-{{ define "mspshield.subject" }}
-[{{ .Status | toUpper }}] {{ range .Alerts }}{{ .Labels.severity }} · {{ .Annotations.summary }}{{ end }}
-{{ end }}
+{{ define "mspshield.subject" }}{{ if eq .Status "resolved" }}RESOLVED{{ else }}ALERT{{ end }} - MSPShield - {{ range .Alerts }}{{ .Labels.severity }}: {{ .Annotations.summary }}{{ end }}{{ end }}
 
 {{ define "mspshield.alert.text" }}
 MSPShield · {{ if eq .Status "resolved" }}RESOLVED{{ else }}ALERT{{ end }} · prod

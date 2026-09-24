@@ -91,6 +91,7 @@ BACKUP_PATHS=(
     "/var/www"
     "/var/lib/caddy"
     "$MONGO_DUMP_DIR"
+    "/var/lib/docker/volumes"
 )
 
 EXISTING_PATHS=()

@@ -11,6 +11,7 @@ rule_files:
   - rules/site.yml
   - rules/containers.yml
   - rules/services.yml
+  - rules/backups.yml
 
 alerting:
   alertmanagers:

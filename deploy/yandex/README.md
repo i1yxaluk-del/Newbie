@@ -1108,3 +1108,48 @@ print('SENT OK')
 
 > Поддержка: `admin@msp-claude.online` (после деплоя) ·
 > репозиторий: https://github.com/i1yxaluk-del/Newbie
+
+
+## 11. Уроки деплоя — почта и алерты (сентябрь 2026)
+
+> Собрано при восстановлении почты, привязке Alertmanager и разборе «алерты в спаме».
+
+### 11.0.1. Stalwart v0.16: права на отправку и формат логина
+
+- Отправку (`emailSend`) даёт роль **User**. У роли «System Administrator» `emailSend` выключен — админ-аккаунт не мог отправлять письма.
+- В почтовом клиенте логин должен быть **полным адресом** (`user@domain`), иначе submission отвечает `You are not allowed to send from this address`.
+- Аккаунты создаются через `x:Account/set` (create) — **без** поля `emailAddress` (оно server-set, иначе `Cannot modify server set property`). `x:Principal/set` в v0.16 сломан.
+
+### 11.0.2. Alertmanager 0.27 не умеет implicit TLS (:465)
+
+- Попытка слать письма напрямую через Postbox `postbox.cloud.yandex.net:465` падает: `'require_tls' is true but ... does not advertise the STARTTLS extension`. AM 0.27 поддерживает только STARTTLS, поэтому вынужденно используется внутренний Stalwart `:25`. Grafana/Vaultwarden (Go/CLI) implicit TLS умеют — им путь через Postbox доступен.
+
+### 11.0.3. Внутренняя инъекция алертов на :25 → спам-скор
+
+- Stalwart принимает письма AM как **входящие** (SPF softfail для docker-IP 172.18.0.x), DKIM нет → встроенный спам-фильтр даёт скор ≈11–19 и `X-Spam-Status: Yes` (письма уходят в «Junk Mail»).
+- Диагностика по заголовкам: `X-Spam-Result` показывает вклад тегов. Главные: `VIOLATED_DIRECT_SPF` 3.5, `MIXED_CHARSET` 2.0, `RCPT_LOCAL_IN_SUBJECT` 2.0, `DMARC_NA`/`HELPO_IPREV_MISMATCH`/`PARTS_DIFFER` по 1.0.
+- Радикальное решение: доставлять алерты от **аутентифицированного** отправителя (submission :465) либо разрешить внутреннюю сеть/отправителя в спам-фильтре. Вариант «убрать спамные заголовки» помогает лишь частично.
+
+### 11.0.4. Тема письма не должна начинаться с перевода строки
+
+- В `templates/mspshield.tmpl` блок `mspshield.subject` начинался с `\n` → `Subject` кодировался как `=0D=0A[...]` и добавлял спам-теги. Определение шаблона должно быть **одной строкой** без ведущих/замыкающих переводов.
+
+### 11.0.5. Git-распаковка сбивает бит исполняемости
+
+- `entrypoint.sh` после `unzip` из git становится `644` → `docker compose up` падает с `permission denied`. Всегда `chmod +x` для `*.sh` после выкладки.
+
+### 11.0.6. Postbox API-ключ: проверять наличие и scope
+
+- Если ключ удалён/ротирован, Postbox отвечает `535 5.7.8 Authentication failed`. Проверка: `yc iam api-key list --service-account-id <postbox-sender>`, создать новый со scope `yc.postbox.send`. В `.env` хранить **ID ключа** (username) и секрет — не ID сервисного аккаунта.
+
+### 11.0.7. Telegram с ВМ недоступен
+
+- Исходящие к `api.telegram.org` с ВМ блокируются (все IP в таймаут, IPv6-маршрута нет) → `telegram send_alert_text failed`. Ранее работало; канал Telegram для алертов с ВМ ненадёжен — основной канал MAX/email, а Telegram оставить на локальном `vm_watcher`.
+
+### 11.0.8. Конфиг Stalwart живёт в томе `stalwart-etc`
+
+- Миграционный бэкап содержал только data-том (RocksDB), а `config.json` (домен/ящики/DKIM) — в `stalwart-etc`, который был пуст → восстановление почты невозможно без переинициализации. В бэкап включать **оба** тома.
+
+### 11.0.9. Стратегия маршрута Stalwart применяется после рестарта
+
+- Изменение «Outbound Delivery Strategy» (Routing → `postbox-outbound`) в UI вступает в силу только после перезапуска контейнера Stalwart; до рестарта письма уходят по старому маршруту `mx` (прямо на :25 → отбой).

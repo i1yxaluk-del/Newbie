@@ -52,7 +52,7 @@
     "targets": [
       {
         "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "expr": "restic_backup_success{repo=\"mspshield-prod\"}",
+        "expr": "restic_backup_success{repo=\"mspshield-backups-new\"}",
         "legendFormat": "{{host}}",
         "refId": "A"
       }
@@ -88,7 +88,7 @@
     "targets": [
       {
         "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "expr": "restic_backup_size_bytes{repo=\"mspshield-prod\"}",
+        "expr": "restic_backup_size_bytes{repo=\"mspshield-backups-new\"}",
         "legendFormat": "{{host}}",
         "refId": "A"
       }
@@ -124,7 +124,7 @@
     "targets": [
       {
         "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "expr": "time() - restic_backup_timestamp_seconds{repo=\"mspshield-prod\"}",
+        "expr": "time() - restic_backup_timestamp_seconds{repo=\"mspshield-backups-new\"}",
         "legendFormat": "{{host}}",
         "refId": "A"
       }
@@ -196,7 +196,7 @@
     "targets": [
       {
         "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "expr": "restic_backup_success{repo=\"mspshield-prod\"}",
+        "expr": "restic_backup_success{repo=\"mspshield-backups-new\"}",
         "legendFormat": "{{host}}",
         "refId": "A",
         "range": true
@@ -239,7 +239,7 @@
     "targets": [
       {
         "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "expr": "restic_backup_size_bytes{repo=\"mspshield-prod\"}",
+        "expr": "restic_backup_size_bytes{repo=\"mspshield-backups-new\"}",
         "format": "table",
         "instant": true,
         "legendFormat": "__auto",

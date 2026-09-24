@@ -13,7 +13,7 @@ groups:
           runbook: "runbooks/R-backup-failed"
 
       - alert: BackupMissed24h
-        expr: (time() - restic_backup_last_timestamp_seconds) > 93600
+        expr: (time() - restic_backup_timestamp_seconds) > 93600
         for: 10m
         labels:
           severity: P1

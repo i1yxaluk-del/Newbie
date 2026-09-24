@@ -28,12 +28,12 @@ class RequireExplicitConsentMiddleware:
     validation and route behavior remain unchanged.
     """
 
-    def __init__(self, asgi_app):
-        self.asgi_app = asgi_app
+    def __init__(self, app):
+        self.app = app
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http" or scope["method"] != "POST" or scope["path"] != "/api/leads":
-            await self.asgi_app(scope, receive, send)
+            await self.app(scope, receive, send)
             return
 
         chunks = []
@@ -63,7 +63,7 @@ class RequireExplicitConsentMiddleware:
             sent = True
             return {"type": "http.request", "body": body, "more_body": False}
 
-        await self.asgi_app(scope, replay_receive, send)
+        await self.app(scope, replay_receive, send)
 
 
 app.add_middleware(RequireExplicitConsentMiddleware)

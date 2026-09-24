@@ -6,12 +6,20 @@ on:
 permissions:
   contents: read
 jobs:
-  consistency:
+  business-consistency:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: python scripts/validate_business_consistency.py
+  max-consistency:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - run: python scripts/validate_max_consistency.py
+  operational-consistency:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - run: python scripts/validate_operational_consistency.py
       - run: bash -n scripts/deployment/preflight.sh migration/restic-backup.sh migration/restore-on-vm.sh migration/diag.sh deploy/yandex/monitoring/alertmanager/entrypoint.sh
   max-alerter-unit:

@@ -57,5 +57,7 @@ fi
 (cd "$ROOT/deploy/yandex" && docker compose config >/dev/null)
 (cd "$ROOT/deploy/yandex/monitoring" && docker compose config >/dev/null)
 grep -q 'secure_server:app' "$ROOT/deploy/yandex/Dockerfile.backend"
-! grep -Rqs 'StrictHostKeyChecking=no' "$ROOT/migration" || { echo "ERROR: небезопасный SSH bypass" >&2; exit 1; }
+if grep -RqsE --include='*.sh' --include='*.ps1' --include='*.py' 'StrictHostKeyChecking=no' "$ROOT/migration"; then
+  echo "ERROR: небезопасный SSH bypass (активное использование в скриптах)" >&2; exit 1
+fi
 echo "PRE-FLIGHT OK"

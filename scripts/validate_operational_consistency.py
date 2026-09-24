@@ -19,7 +19,7 @@ need("migration/restic-backup.sh", "max-session.tar.gz")
 ban("migration/restic-backup.sh", '"/var/lib/docker/volumes"')
 need("migration/restore-on-vm.sh", "stalwart-data.tar.gz")
 need("services/vm_watcher/watcher.ps1", "TcpClient")
-ban("services/vm_watcher/watcher.ps1", "YC_CONFIG_DIR")
+ban("services/vm_watcher/watcher.ps1", "$env:YC_CONFIG_DIR")
 if re.search(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', read("services/vm_watcher/watcher.ps1")): errors.append("watcher.ps1: hardcoded IP")
 for path in ("migration/README.md", "migration/migrate.ps1"):
     ban(path, "StrictHostKeyChecking=no")

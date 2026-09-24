@@ -6,12 +6,14 @@ on:
 permissions:
   contents: read
 jobs:
-  business-consistency:
+  consistency:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: python scripts/validate_business_consistency.py
       - run: python scripts/validate_max_consistency.py
+      - run: python scripts/validate_operational_consistency.py
+      - run: bash -n scripts/deployment/preflight.sh migration/restic-backup.sh migration/restore-on-vm.sh migration/diag.sh deploy/yandex/monitoring/alertmanager/entrypoint.sh
   max-alerter-unit:
     runs-on: ubuntu-latest
     steps:
@@ -21,7 +23,6 @@ jobs:
       - run: pip install fastapi==0.111.0 httpx==0.27.0 pytest==8.3.5
       - run: PYTHONPATH=services pytest -q services/max_alerter/test_sender.py
       - run: python -m compileall -q services/max_alerter scripts
-      - run: bash -n migration/restore-on-vm.sh migration/diag.sh deploy/yandex/monitoring/alertmanager/entrypoint.sh
   backend-unit:
     runs-on: ubuntu-latest
     steps:
@@ -58,6 +59,8 @@ jobs:
           VAULTWARDEN_ADMIN_TOKEN: ci-only
           ALERTMANAGER_WEBHOOK_TOKEN: ci-only-token
           GRAFANA_ADMIN_PASSWORD: ci-only-password
+          SMTP_AUTH_USER: ci-only-user
+          SMTP_AUTH_PASSWORD: ci-only-password
           MAX_PHONE: "+70000000000"
           MAX_CHAT_ID: "-1000000000000"
         run: |

@@ -25,7 +25,7 @@ function Test-Tcp443 {
 function Invoke-Yc([string[]]$Arguments) {
     # Современный yc читает профиль из %USERPROFILE%\.config\yandex-cloud; YC_CONFIG_DIR не задаём.
     $output = & $YcExe @Arguments --format json 2>&1 | Out-String
-    if ($LASTEXITCODE -ne 0) { throw "yc exit=$LASTEXITCODE: $output" }
+    if ($LASTEXITCODE -ne 0) { throw "yc exit=$($LASTEXITCODE): $output" }
     return $output
 }
 function Get-VmStatus { try { return ((Invoke-Yc @("compute","instance","get",$VmId)) | ConvertFrom-Json).status } catch { Write-Log $_; return "unknown" } }

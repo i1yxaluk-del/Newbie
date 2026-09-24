@@ -1,8 +1,7 @@
 """Доставка webhook-алертов в MAX с независимым fallback.
 
 Junior: модуль не авторизует аккаунт сам. Если `/session/max.db` отсутствует,
-нужно вызвать ручную команду из docs/MAX_SETUP.md. Токены и текст алерта
-нельзя печатать целиком в production-лог.
+нужно вызвать ручную команду из docs/MAX_SETUP.md.
 """
 from __future__ import annotations
 
@@ -13,7 +12,7 @@ import smtplib
 from datetime import datetime, timedelta, timezone
 from email.mime.text import MIMEText
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 import httpx
 
@@ -50,13 +49,12 @@ async def get_client():
         try:
             from pymax import Client
         except ImportError as exc:
-            raise RuntimeError("pymax не установлен; проверьте закреплённые requirements") from exc
+            raise RuntimeError("pymax не установлен") from exc
         client = Client(phone=MAX_PHONE, work_dir=str(MAX_SESSION_DIR), session_name=MAX_SESSION_NAME)
         ready = asyncio.Event()
 
         @client.on_start()
         async def on_start(current_client) -> None:
-            # ID допустимо логировать, но номер телефона и session payload — нет.
             user_id = current_client.me.contact.id if current_client.me else "unknown"
             log.info("MAX client ready, user_id=%s", user_id)
             ready.set()
@@ -68,7 +66,7 @@ async def get_client():
 
 
 async def send_to_max(chat_id: int, text: str) -> bool:
-    """Отправляет в MAX и включает cooldown после ошибки, чтобы не устроить retry storm."""
+    """Отправляет в MAX и включает cooldown после ошибки."""
     global _max_retry_after
     try:
         now = datetime.now(timezone.utc)
@@ -79,7 +77,7 @@ async def send_to_max(chat_id: int, text: str) -> bool:
         await client.send_message(chat_id=chat_id, text=text)
         log.info("MAX delivery OK, chat_id=%s, length=%d", chat_id, len(text))
         return True
-    except Exception as exc:  # внешний клиент нестабилен; ошибка обрабатывается fallback-каналами.
+    except Exception as exc:
         _max_retry_after = datetime.now(timezone.utc) + timedelta(seconds=MAX_FAILURE_COOLDOWN)
         log.error("MAX delivery FAIL, chat_id=%s: %s", chat_id, exc)
         return False
@@ -90,7 +88,6 @@ async def send_to_telegram(chat_id: str, text: str) -> bool:
     if not (TG_BOT_TOKEN and chat_id):
         return False
     try:
-        # Ранее URL содержал фигурные скобки и fallback всегда падал.
         url = f"https://api.telegram.org/bot{TG_BOT_TOKEN}/sendMessage"
         async with httpx.AsyncClient(timeout=10) as client:
             response = await client.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"})
@@ -102,7 +99,7 @@ async def send_to_telegram(chat_id: str, text: str) -> bool:
 
 
 async def send_to_email(subject: str, text: str) -> bool:
-    """Сообщает об отказе канала по email; не используется как основной alert transport."""
+    """Сообщает об отказе канала по email."""
     recipients = [item.strip() for item in ALERT_EMAIL_TO.split(",") if item.strip()]
     if not (SMTP_HOST and SMTP_FROM and recipients):
         return False
@@ -123,7 +120,7 @@ async def send_to_email(subject: str, text: str) -> bool:
 
 
 def _write_failed_log(chat_id: int | str, text: str, error: str) -> None:
-    """Сохраняет недоставленный алерт локально; каталог должен входить в backup policy."""
+    """Сохраняет недоставленный алерт локально."""
     try:
         FAILED_LOG.parent.mkdir(parents=True, exist_ok=True)
         with FAILED_LOG.open("a", encoding="utf-8") as stream:
@@ -133,19 +130,19 @@ def _write_failed_log(chat_id: int | str, text: str, error: str) -> None:
 
 
 async def deliver_max(chat_id: int, text: str) -> bool:
-    """Основной канал MAX; при отказе сообщает в Telegram и email."""
+    """Основной канал MAX; Telegram/email вызываются только при отказе."""
     if await send_to_max(chat_id, text):
         return True
     _write_failed_log(chat_id, text, "send_to_max failed")
-    notice = "MAX недоступен. Проверьте persisted session и выполните ручную авторизацию только при необходимости."
+    notice = "MAX недоступен. Проверьте persisted session; SMS-авторизацию запускайте вручную."
     if TG_CHAT_ID and TG_BOT_TOKEN:
-        await send_to_telegram(TG_CHAT_ID, notice)
+        await send_to_telegram(TG_CHAT_ID, notice + "\n\n" + text)
     await send_to_email("[MSPShield] MAX channel unavailable", notice)
     return False
 
 
 async def deliver_telegram(chat_id: str, text: str) -> None:
-    """Независимый Telegram-канал для legacy-конфигураций webhook.py."""
+    """Совместимый интерфейс для отдельной Telegram-доставки."""
     if not await send_to_telegram(chat_id, text):
         _write_failed_log(chat_id, text, "send_to_telegram failed")
         await send_to_email("[MSPShield] Telegram channel unavailable", text)

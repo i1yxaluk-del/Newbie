@@ -1,95 +1,30 @@
-# max_alerter — доставка алертов Alertmanager в MAX
+# max_alerter — production webhook для MAX
 
-Python-сервис, который принимает вебхуки от Alertmanager и доставляет
-алерты в мессенджер MAX через неофициальный userbot (pymax).
+Канонический путь: Alertmanager отправляет webhook на `msp-max-alerter:9095/alert`, сервис доставляет сообщение через вручную авторизованную пользовательскую сессию MAX.
 
-> ⚠️ Использует внутренний API MAX. Работает на ваш страх и риск.
-> Рекомендуется резервный канал (Telegram fallback) на случай блокировки.
-
----
-
-## Архитектура
-
-```
-┌─────────────┐     POST /alert      ┌──────────────┐
-│ Alertmanager│ ───────────────────► │ max_alerter  │
-│  (webhook)  │   Bearer token       │  (FastAPI)   │
-└─────────────┘                      └──────┬───────┘
-                                          │
-                     ┌────────────────────┘
-                     │ TCP + SQLite session
-                     ▼
-            ┌─────────────────┐
-            │   MAX (pymax)   │
-            │  userbot client  │
-            └─────────────────┘
-                     │
-       ┌─────────────┴─────────────┐
-       │                           │
-       ▼                           ▼
- ┌──────────┐              ┌──────────────┐
- │  MAX chat │  (fallback)  │  Telegram   │
- │  (client) │◄────────────│  (httpx)    │
- └──────────┘   (if MAX    └──────────────┘
-                  fails)
-```
-
----
-
-## Авторизация и постоянная сессия
-
-**Запускать только с `-it`** — pymax отправляет SMS и ждёт ввод кода в терминале:
+## Запуск
 
 ```bash
-# На VM через SSH:
-docker exec -it msp-max-alerter python -m max_alerter.auth --authorize
-
-# → MAX отправляет SMS на +79990703823
-# → Вводишь 6-значный код → сессия сохранена
+cd /opt/msp/Newbie/deploy/yandex/monitoring
+sudo docker compose up -d --build max-alerter alertmanager
+sudo docker exec -it msp-max-alerter python -m max_alerter.auth --authorize
 ```
 
-Сессия: `/session/max.db`, bind mount
-`/opt/msp/Newbie/deploy/yandex/monitoring/max-session:/session`.
-Это host path, поэтому `docker compose down/up`, restart Docker и recreate
-контейнера не удаляют его. Не удаляйте данный каталог.
+Сессия: `/session/max.db`, на хосте — `deploy/yandex/monitoring/max-session/max.db`. Авторизация всегда ручная; сервис не должен сам инициировать SMS.
 
-Безопасная проверка после reboot (не запускает pymax и не отправляет SMS):
+## Проверка
 
 ```bash
-docker exec msp-max-alerter python -m max_alerter.auth
-docker inspect msp-max-alerter --format '{{range .Mounts}}{{println .Source "->" .Destination}}{{end}}'
+sudo docker exec msp-max-alerter python -m max_alerter.auth
+curl -fsS http://127.0.0.1:9095/health
+sudo docker logs msp-max-alerter --tail 100
 ```
 
-Команда проверки возвращает `0`, если файл есть, и `2`, если отсутствует.
-При отсутствии или ошибке сессии сервис не инициирует авторизацию: он делает
-одну неуспешную попытку доставки, затем подавляет MAX-повторы на cooldown.
-Реавторизация всегда выполняется оператором с `--authorize`.
+Полная инструкция и перенос: [`../../docs/MAX_SETUP.md`](../../docs/MAX_SETUP.md).
 
----
+## Границы
 
-## Диагностика
-
-```bash
-# Логи контейнера (имя: msp-max-alerter, НЕ max-alerter!)
-docker logs msp-max-alerter --tail 50
-
-# Здоровье webhook
-curl http://localhost:9095/health
-
-# Проверить наличие сессии безопасно (без pymax/SMS)
-docker exec msp-max-alerter python -m max_alerter.auth
-
-# Лог недоставленных алертов
-cat /opt/msp/Newbie/deploy/yandex/monitoring/max-alerter-data/failed_alerts.log
-```
-
----
-
-## Безопасность
-
-- Сессия хранится в SQLite, монтируется как volume — не внутри контейнера.
-- Авторизация выполняется на хосте, не в Docker.
-- Bearer-токен для webhook — рекомендуется.
-- Telegram и email независимы. При ошибке MAX или Telegram уведомление о
-  неисправном канале уходит на email, не блокируя остальные каналы.
-- Токены и SMTP-пароли задаются только в ignored `.env` на VM.
+- Это не официальный Bot API и не Telegram MTProto.
+- `backend/integrations/max.py` — отдельный бот лидов.
+- Номер, chat ID, webhook token и session database не хранятся в Git.
+- Telegram используется только как необязательный fallback при отказе MAX.

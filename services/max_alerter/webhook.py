@@ -1,14 +1,11 @@
-"""
-max_alerter/webhook.py — FastAPI server, receives alerts from Alertmanager.
+"""Внутренний webhook Alertmanager → MAX userbot.
 
-Alertmanager sends POST /alert with Bearer token.
-Server formats the alert:
-- Telegram: HTML text, runbook as short path (e.g. sites/rd01)
-- MAX: plain text, runbook as short path
+Junior: endpoint нельзя публиковать наружу. В production Bearer token обязателен.
+Telegram вызывается внутри sender.py только как fallback после отказа MAX.
 """
-
 from __future__ import annotations
 
+import hmac
 import logging
 import os
 from typing import Any
@@ -16,212 +13,82 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)-7s %(name)s %(message)s",
-    datefmt="%H:%M:%S",
-)
+from .sender import deliver_max
 
-from .sender import deliver_max, deliver_telegram
-
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-7s %(name)s %(message)s")
 log = logging.getLogger("max_alerter.webhook")
-
-WEBHOOK_TOKEN: str = os.environ.get("WEBHOOK_TOKEN", "")
-MAX_CHAT_ID: int = int(os.environ.get("MAX_CHAT_ID", "0"))
-TG_CHAT_ID: str = os.environ.get("TG_CHAT_ID", "")
-
+WEBHOOK_TOKEN = os.environ.get("WEBHOOK_TOKEN", "").strip()
+ALLOW_INSECURE_WEBHOOK = os.environ.get("ALLOW_INSECURE_WEBHOOK", "false").lower() == "true"
+MAX_CHAT_ID_RAW = os.environ.get("MAX_CHAT_ID", "").strip()
 app = FastAPI(title="max-alerter", docs_url=None, redoc_url=None)
-
-_SEV = {
-  "critical": ("🔴", "P1"),
-  "p1": ("🔴", "P1"),
-  "warning": ("🟡", "P2"),
-  "p2": ("🟡", "P2"),
-  "info": ("🔵", "P3"),
-  "p3": ("🔵", "P3"),
-}
-_STATUS_ICON = {
-  "firing": "🔥",
-  "resolved": "✅",
-}
-_STATUS = {
-  "firing": "АЛЕРТ",
-  "resolved": "РЕШЕНО",
-}
-
-
-def _status_sev_icon(status_raw: str, sev_raw: str) -> str:
-  if status_raw == "resolved":
-      return "✅"
-  icon, _ = _SEV.get(sev_raw, ("⚪", "P3"))
-  return icon
-
-
-def _fmt_alert_tg(alert: dict[str, Any], payload_status: str) -> str:
-  """Format for Telegram: HTML text."""
-  labels = alert.get("labels", {})
-  annotations = alert.get("annotations", {})
-
-  sev_raw = labels.get("severity", "info").lower()
-  status_raw = payload_status.lower()
-
-  sev_icon = _status_sev_icon(status_raw, sev_raw)
-  _, sev_label = _SEV.get(sev_raw, ("⚪", "P3"))
-  status_label = _STATUS.get(status_raw, "АЛЕРТ")
-
-  name = labels.get("alertname", "Alert")
-  summary = annotations.get("summary", "")
-  description = annotations.get("description", "")
-  host = labels.get("instance", labels.get("host", ""))
-  env = labels.get("env", "prod")
-  runbook = annotations.get("runbook", "")
-
-  lines = [f"{sev_icon} <b>{sev_label} · {status_label} · {env.upper()}</b>"]
-  lines.append("")
-
-  title = summary or name
-  lines.append(f"<b>{title}</b>")
-
-  if description:
-      lines.append(description)
-
-  lines.append("")
-
-  if host:
-      lines.append(f"узел: <code>{host}</code>")
-  lines.append(f"важность: {sev_label}")
-
-  metric = annotations.get("metric", "")
-  if metric:
-      lines.append(f"метрика: <code>{metric}</code>")
-
-  if runbook:
-      lines.append(f"runbook: <code>{runbook}</code>")
-
-  return "\n".join(lines)
-
-
-def _fmt_alert_max(alert: dict[str, Any], payload_status: str) -> str:
-  """Format for MAX: plain text."""
-  labels = alert.get("labels", {})
-  annotations = alert.get("annotations", {})
-
-  sev_raw = labels.get("severity", "info").lower()
-  status_raw = payload_status.lower()
-
-  sev_icon = _status_sev_icon(status_raw, sev_raw)
-  _, sev_label = _SEV.get(sev_raw, ("⚪", "P3"))
-  status_label = _STATUS.get(status_raw, "АЛЕРТ")
-
-  name = labels.get("alertname", "Alert")
-  summary = annotations.get("summary", "")
-  description = annotations.get("description", "")
-  host = labels.get("instance", labels.get("host", ""))
-  env = labels.get("env", "prod")
-  runbook = annotations.get("runbook", "")
-
-  lines = [f"{sev_icon} {sev_label} · {status_label} · {env.upper()}"]
-  lines.append("")
-
-  title = summary or name
-  lines.append(title)
-
-  if description:
-      lines.append(description)
-
-  lines.append("")
-
-  if host:
-      lines.append(f"узел: {host}")
-  lines.append(f"важность: {sev_label}")
-
-  metric = annotations.get("metric", "")
-  if metric:
-      lines.append(f"метрика: {metric}")
-
-  if runbook:
-      lines.append(f"runbook: {runbook}")
-
-  return "\n".join(lines)
-
-
-def _fmt_payload_tg(payload: dict[str, Any]) -> str:
-  alerts: list[dict] = payload.get("alerts", [])
-  if not alerts:
-      return "Пустой ответ от Alertmanager"
-
-  pstatus = payload.get("status", "firing")
-  texts = [_fmt_alert_tg(a, pstatus) for a in alerts]
-  header_status = _STATUS.get(pstatus, "АЛЕРТ")
-  header_icon = _STATUS_ICON.get(pstatus, "🔥")
-  header = f"<b>{header_icon} {header_status} MSPShield</b>"
-  return header + "\n\n" + "\n\n".join(texts)
-
-
-def _fmt_payload_max(payload: dict[str, Any]) -> str:
-  alerts: list[dict] = payload.get("alerts", [])
-  if not alerts:
-      return "Пустой ответ от Alertmanager"
-
-  pstatus = payload.get("status", "firing")
-  parts = [_fmt_alert_max(a, pstatus) for a in alerts]
-  header_status = _STATUS.get(pstatus, "АЛЕРТ")
-  header_icon = _STATUS_ICON.get(pstatus, "🔥")
-  header = f"{header_icon} {header_status} MSPShield"
-  return header + "\n\n" + "\n\n".join(parts)
+_SEVERITY = {"critical": ("🔴", "P1"), "p1": ("🔴", "P1"), "warning": ("🟡", "P2"), "p2": ("🟡", "P2"), "info": ("🔵", "P3"), "p3": ("🔵", "P3")}
+_STATUS = {"firing": "АЛЕРТ", "resolved": "РЕШЕНО"}
 
 
 def _check_token(request: Request) -> None:
-  if not WEBHOOK_TOKEN:
-      return
-  auth = request.headers.get("Authorization", "")
-  if not auth.startswith("Bearer ") or auth[7:] != WEBHOOK_TOKEN:
-      raise HTTPException(
-          status_code=status.HTTP_401_UNAUTHORIZED,
-          detail="Invalid token",
-      )
+    """Fail closed: пустой production token — ошибка, а не открытый доступ."""
+    if not WEBHOOK_TOKEN:
+        if ALLOW_INSECURE_WEBHOOK:
+            return
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Webhook token is not configured")
+    if not hmac.compare_digest(request.headers.get("Authorization", ""), f"Bearer {WEBHOOK_TOKEN}"):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
+
+def _chat_id() -> int:
+    try:
+        return int(MAX_CHAT_ID_RAW)
+    except ValueError as exc:
+        raise HTTPException(status_code=503, detail="MAX_CHAT_ID is invalid") from exc
+
+
+def _format_alert(alert: dict[str, Any], payload_status: str) -> str:
+    labels, annotations = alert.get("labels", {}), alert.get("annotations", {})
+    severity_raw = str(labels.get("severity", "info")).lower()
+    status_raw = str(payload_status).lower()
+    icon, severity = _SEVERITY.get(severity_raw, ("⚪", "P3"))
+    if status_raw == "resolved":
+        icon = "✅"
+    title = annotations.get("summary") or labels.get("alertname", "Alert")
+    lines = [f"{icon} {severity} · {_STATUS.get(status_raw, 'АЛЕРТ')} · {str(labels.get('env', 'prod')).upper()}", "", str(title)]
+    if annotations.get("description"):
+        lines.append(str(annotations["description"]))
+    lines.append("")
+    host = labels.get("instance") or labels.get("host")
+    if host:
+        lines.append(f"узел: {host}")
+    lines.append(f"важность: {severity}")
+    if annotations.get("metric"):
+        lines.append(f"метрика: {annotations['metric']}")
+    if annotations.get("runbook"):
+        lines.append(f"runbook: {annotations['runbook']}")
+    return "\n".join(lines)
+
+
+def _format_payload(payload: dict[str, Any]) -> str:
+    alerts = payload.get("alerts")
+    if not isinstance(alerts, list) or not alerts:
+        raise HTTPException(status_code=422, detail="Alertmanager payload has no alerts")
+    payload_status = str(payload.get("status", "firing"))
+    header = f"{'✅' if payload_status == 'resolved' else '🔥'} {_STATUS.get(payload_status, 'АЛЕРТ')} MSPShield"
+    return header + "\n\n" + "\n\n".join(_format_alert(item, payload_status) for item in alerts)
 
 
 @app.post("/alert")
 async def receive_alert(request: Request) -> JSONResponse:
-  _check_token(request)
-
-  try:
-      payload = await request.json()
-  except Exception as exc:
-      log.error("Cannot parse JSON: %s", exc)
-      raise HTTPException(status_code=400, detail="Invalid JSON") from exc
-
-  status_raw = payload.get("status", "firing")
-
-  # Telegram delivery
-  if TG_CHAT_ID:
-      tg_text = _fmt_payload_tg(payload)
-      log.info("Alert received, delivering to Telegram chat_id=%s", TG_CHAT_ID)
-      await deliver_telegram(chat_id=TG_CHAT_ID, text=tg_text)
-
-  # MAX delivery (plain text)
-  if MAX_CHAT_ID:
-      max_text = _fmt_payload_max(payload)
-      log.info("Alert received, delivering to MAX chat_id=%s", MAX_CHAT_ID)
-      max_ok = await deliver_max(chat_id=MAX_CHAT_ID, text=max_text)
-      if not max_ok and TG_CHAT_ID:
-          log.warning("MAX failed, alert already sent to Telegram above")
-
-  return JSONResponse({"status": "ok", "channels": {"telegram": bool(TG_CHAT_ID), "max": bool(MAX_CHAT_ID)}})
+    _check_token(request)
+    try:
+        payload = await request.json()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Invalid JSON") from exc
+    delivered = await deliver_max(chat_id=_chat_id(), text=_format_payload(payload))
+    if not delivered:
+        raise HTTPException(status_code=502, detail="MAX delivery failed; fallback attempted")
+    return JSONResponse({"status": "ok", "channel": "max"})
 
 
 @app.get("/health")
 async def health() -> JSONResponse:
-  return JSONResponse({"status": "ok"})
-
-
-if __name__ == "__main__":
-  import uvicorn
-
-  uvicorn.run(
-      "max_alerter.webhook:app",
-      host=os.environ.get("HOST", "0.0.0.0"),
-      port=int(os.environ.get("PORT", "9095")),
-      log_level="info",
-  )
+    configured = bool(WEBHOOK_TOKEN and MAX_CHAT_ID_RAW)
+    code = 200 if configured or ALLOW_INSECURE_WEBHOOK else 503
+    return JSONResponse({"status": "ok" if code == 200 else "misconfigured", "configured": configured}, status_code=code)

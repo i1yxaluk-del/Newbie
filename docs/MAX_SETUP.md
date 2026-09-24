@@ -1,284 +1,179 @@
-# Настройка MAX Alerter (pymax-based userbot)
+# MAX Alerter — каноническая настройка
 
-## 1. Что такое pymax и зачем он нужен
+## 1. Какая архитектура используется
 
-**pymax** — это неофициальная библиотека для работы с Telegram через MTProto (протокол, используемый самим Telegram). В отличие от официального Bot API:
+В production алерты доставляются через отдельный webhook-сервис `msp-max-alerter` и пользовательскую сессию MAX:
 
-| Официальный Bot API | pymax (MTProto) |
+```text
+Prometheus → Alertmanager → POST http://msp-max-alerter:9095/alert
+                              ↓
+                        pymax userbot
+                              ↓
+                           MAX chat
+```
+
+Авторизация выполняется вручную внутри контейнера:
+
+```bash
+sudo docker exec -it msp-max-alerter python -m max_alerter.auth --authorize
+```
+
+Это **не Telegram MTProto**, не `my.telegram.org`, не `@BotFather` и не официальный MAX Bot API. Старые инструкции с `API_ID`, `API_HASH`, `session.session` и портом `8080` удалены как ошибочные.
+
+## 2. Компоненты
+
+| Компонент | Назначение |
 |---|---|
-| Требует регистрации бота через @BotFather | Работает с любым аккаунтом Telegram |
-| IP-адрес сервера должен быть разрешён в Telegram | Нет привязки к IP |
-| Webhook требует HTTPS и публичного домена | Не требует webhooks — работает через сохранённую сессию |
-| Ограничения по количеству сообщений | Значительно более гибкие лимиты |
+| `services/max_alerter/webhook.py` | принимает Alertmanager webhook `/alert` |
+| `services/max_alerter/sender.py` | отправляет в MAX и уведомляет о сбое через резервные каналы |
+| `services/max_alerter/auth.py` | вручную создаёт `/session/max.db` |
+| `deploy/yandex/monitoring/alertmanager/alertmanager.yml.tmpl` | направляет P1 в `msp-max-alerter:9095` |
+| `deploy/yandex/monitoring/docker-compose.override.yml` | подставляет MAX-параметры из `.env`, не из Git |
 
-**Ключевое преимущество**: pymax сохраняет сессию авторизации в `session.session` файл. После первичной авторизации на хосте (один раз), сессия монтируется как volume в Docker, и контейнер работает без необходимости повторной авторизации.
+`backend/integrations/max.py` относится к отдельному боту лидов. Он не является каналом production-алертов и не должен быть получателем Alertmanager при включённом userbot-контуре.
 
-## 2. Архитектура
+## 3. Обязательные переменные
 
-```
-auth.py              →  sender.py            →  webhook.py         →  Docker
-(авторизация)          (отправка сообщений)     (HTTP-сервер)         (контейнеризация)
-```
-
-- **auth.py** — интерактивная авторизация на хосте (запрос номера телефона и кода)
-- **sender.py** — модуль отправки сообщений через сохранённую сессию
-- **webhook.py** — FastAPI/Flask сервер, принимающий Alertmanager webhook
-- **Docker** — сборка и запуск всего в контейнере с volume для session
-
-### Схема работы
-
-```mermaid
-flowchart LR
-    A[Prometheus + Alertmanager] -->|POST /alert| B[webhook.py :8080]
-    B --> C[sender.py]
-    C -->|MTProto| D[Telegram User Account]
-    E[(session.session)] --> C
-    F[.env] --> C
-```
-
-## 3. Настройка
-
-### Шаг 1: Получение API ID и API Hash
-
-1. Перейдите на https://my.telegram.org/apps
-2. Войдите в свой Telegram аккаунт
-3. Создайте приложение, если его нет
-4. Скопируйте `api_id` и `api_hash`
-
-### Шаг 2: Авторизация на хосте
-
-```bash
-# Клонируем репозиторий
-git clone https://github.com/ваш-username/ваш-репозиторий.git
-cd ваш-репозиторий
-
-# Устанавливаем зависимости
-pip install -r services/max_alerter/requirements.txt
-
-# Запускаем авторизацию
-cd services/max_alerter
-python auth.py
-```
-
-В процессе авторизации:
-- Введите номер телефона в международном формате (`+79001234567`)
-- Введите код подтверждения, присланный в Telegram
-- (Опционально) Введите пароль 2FA, если он включён
-
-После успешной авторизации будет создан файл `session.session`. Этот файл — ключ к вашему аккаунту, храните его в безопасности!
-
-### Шаг 3: Настройка .env
-
-Создайте файл `.env` рядом с `docker-compose.yml`:
+Создайте `deploy/yandex/monitoring/.env` с правами `600`:
 
 ```env
-API_ID=1234567
-API_HASH=ваш_api_hash
-SESSION_STRING= # оставить пустым — будет загружена из session.session
-CHAT_ID=@username_канала_или_чата
-TEMPLATE_FILE=/app/templates/alert_template.md
+MAX_PHONE=+7XXXXXXXXXX
+MAX_CHAT_ID=-00000000000000
+ALERTMANAGER_WEBHOOK_TOKEN=<случайная строка не короче 32 байт>
+MAX_FAILURE_COOLDOWN=300
+
+# Необязательный Telegram fallback
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_CHAT_ID=
+
+# Необязательное email-уведомление о поломке канала
+SMTP_HOST=
+SMTP_PORT=465
+SMTP_USER=
+SMTP_PASSWORD=
+SMTP_FROM=
+ALERT_EMAIL_TO=
 ```
 
-- `API_ID` и `API_HASH` — из личного кабинета my.telegram.org
-- `CHAT_ID` — ID чата или @username канала, куда будут приходить алерты
-- `TEMPLATE_FILE` — путь к шаблону форматирования сообщений
-
-### Шаг 4: Запуск в Docker
-
-```yaml
-# docker-compose.yml
-version: '3.8'
-
-services:
-  max-alerter:
-    build: ./services/max_alerter
-    container_name: max-alerter
-    restart: unless-stopped
-    ports:
-      - "8080:8080"
-    volumes:
-      - ./services/max_alerter/session.session:/app/session.session
-      - ./services/max_alerter/.env:/app/.env
-      - ./services/max_alerter/templates:/app/templates
-    environment:
-      - TZ=Europe/Moscow
-```
+Сгенерировать webhook token:
 
 ```bash
-docker-compose up -d --build
+openssl rand -hex 32
 ```
 
-### Шаг 5: Проверка
+Номер телефона, chat ID, токены и session database запрещено коммитить.
+
+## 4. Первый запуск
 
 ```bash
-# Проверяем логи
-docker logs -f max-alerter
+cd /opt/msp/Newbie/deploy/yandex/monitoring
+sudo chmod +x alertmanager/entrypoint.sh
+sudo docker compose config >/dev/null
+sudo docker compose up -d --build max-alerter alertmanager
+```
 
-# Отправляем тестовый алерт
-curl -X POST http://localhost:8080/alert \
+Проверьте, что контейнер работает, но сессии ещё нет:
+
+```bash
+sudo docker ps --filter name=msp-max-alerter
+sudo docker exec msp-max-alerter python -m max_alerter.auth
+```
+
+Код `2` до первой авторизации ожидаем.
+
+## 5. Ручная web/SMS-авторизация
+
+```bash
+sudo docker exec -it msp-max-alerter python -m max_alerter.auth --authorize
+```
+
+1. Скрипт берёт номер из `MAX_PHONE`.
+2. MAX отправляет код.
+3. Оператор вводит код в интерактивном терминале.
+4. Сессия сохраняется в `/session/max.db`.
+5. Каталог на хосте: `deploy/yandex/monitoring/max-session/`.
+
+Никогда не удаляйте рабочую сессию при обычном deploy. Повторная авторизация нужна только при утрате или отзыве сессии.
+
+## 6. Проверка
+
+```bash
+# Сессия существует
+sudo docker exec msp-max-alerter python -m max_alerter.auth
+
+# Webhook жив
+curl -fsS http://127.0.0.1:9095/health
+
+# Alertmanager жив
+curl -fsS http://127.0.0.1:9093/-/healthy
+
+# Тестовый webhook из monitoring network
+TOKEN=$(sudo awk -F= '$1=="ALERTMANAGER_WEBHOOK_TOKEN"{print $2}' .env)
+sudo docker run --rm --network msp-monitoring curlimages/curl:8.10.1 \
+  -fsS -X POST http://msp-max-alerter:9095/alert \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{
-    "status": "firing",
-    "alerts": [{
-      "labels": {"alertname": "TestAlert", "severity": "critical"},
-      "annotations": {"summary": "Тестовое сообщение", "description": "Проверка работы pymax"},
-      "startsAt": "2024-01-01T00:00:00Z"
-    }]
-  }'
+  -d '{"status":"firing","alerts":[{"labels":{"alertname":"ManualTest","severity":"P1","env":"test"},"annotations":{"summary":"Тест MAX","description":"Удалить после проверки"}}]}'
 ```
 
-## 4. Интеграция с Alertmanager
+Не публикуйте порт `9095` наружу. Он доступен только на `127.0.0.1` и в Docker network.
 
-### Конфигурация Alertmanager
-
-```yaml
-# alertmanager.yml
-route:
-  receiver: 'telegram-max'
-
-receivers:
-- name: 'telegram-max'
-  webhook_configs:
-  - url: 'http://ваш-сервер:8080/alert'
-    send_resolved: true
-```
-
-### Формат сообщений
-
-Шаблон сообщений (по умолчанию `templates/alert_template.md`):
-
-```jinja2
-{% if .Status == "firing" %}🔥 **FIRING**{% else %}✅ **RESOLVED**{% endif %}
-
-**Alert**: {{ (index .Alerts 0).Labels.alertname }}
-**Severity**: {{ (index .Alerts 0).Labels.severity }}
-
-**Description**:
-{{ (index .Alerts 0).Annotations.description }}
-
-**Summary**: {{ (index .Alerts 0).Annotations.summary }}
-**Started**: {{ (index .Alerts 0).StartsAt }}
-```
-
-## 5. Telegram Fallback
-
-Если основной аккаунт недоступен (например, сессия истекла или аккаунт заблокирован), система автоматически переключается на резервный механизм:
-
-1. **Первичный канал** — основной аккаунт через pymax (MTProto)
-2. **Fallback** — официальный Bot API (требуется настроить BOT_TOKEN)
-
-Для настройки fallback добавьте в `.env`:
-
-```env
-BOT_TOKEN=123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
-FALLBACK_ENABLED=true
-```
-
-Если `FALLBACK_ENABLED=true` и `BOT_TOKEN` задан, при ошибке отправки через pymax, сообщение будет отправлено через Bot API.
-
-## 6. Заметки по безопасности
-
-1. **session.session** — это полный доступ к вашему Telegram аккаунту.
-   - 🔒 Никогда не добавляйте его в Git (добавлен в `.gitignore`)
-   - 🔒 Используйте `.env` для чувствительных данных
-   - 🔒 Регулярно обновляйте `api_id`/`api_hash`, если подозреваете компрометацию
-
-2. **Ограничьте доступ к порту 8080**:
-   ```bash
-   # Разрешить только Alertmanager
-   sudo ufw allow from 10.0.0.0/8 to any port 8080
-   ```
-
-3. **Используйте reverse proxy** (рекомендуется для production):
-   ```nginx
-   # nginx.conf
-   server {
-       listen 443 ssl;
-       server_name alerts.example.com;
-
-       location /alert {
-           proxy_pass http://127.0.0.1:8080;
-           proxy_set_header Host $host;
-           proxy_set_header X-Real-IP $remote_addr;
-       }
-   }
-   ```
-
-4. **Мониторинг сессии**: файл `session.session` может "протухнуть" при длительном бездействии. Рекомендуется:
-   - Периодически отправлять тестовые сообщения (healthcheck)
-   - Включить автоматическое переподключение при ошибке сессии
-
-## 7. Troubleshooting
-
-### Проблема: "Could not connect to Telegram"
+## 7. Проверка после reboot/deploy
 
 ```bash
-# Проверьте интернет-соединение
-ping api.telegram.org
-
-# Проверьте, что MTProto порты не заблокированы
-# (443 TCP должен быть открыт)
-telnet api.telegram.org 443
+cd /opt/msp/Newbie/deploy/yandex/monitoring
+sudo docker compose up -d
+sudo docker exec msp-max-alerter python -m max_alerter.auth
+curl -fsS http://127.0.0.1:9095/health
+sudo docker logs msp-max-alerter --tail 100
 ```
 
-### Проблема: "Session expired"
-
-Удалите `session.session` и запустите `auth.py` заново:
+`docker compose restart` не перечитывает `.env`. После изменения переменных используйте:
 
 ```bash
-rm services/max_alerter/session.session
-cd services/max_alerter && python auth.py
+sudo docker compose up -d --force-recreate max-alerter alertmanager
 ```
 
-### Проблема: "Flood wait" (ограничение частоты)
+## 8. Перенос на новую VM
 
-pymax автоматически обрабатывает flood wait, но если сообщения не доходят:
+Переносить нужно каталог сессии отдельно от Git:
 
 ```bash
-# Проверьте логи
-docker logs max-alerter --tail 50
-
-# Увеличьте интервал между сообщениями в .env
-SEND_DELAY=5  # секунд между сообщениями
+sudo tar czf /root/max-session-backup.tar.gz \
+  -C /opt/msp/Newbie/deploy/yandex/monitoring max-session
 ```
 
-### Проблема: Docker не видит session.session
+На новой VM восстановить с правами только для root, затем выполнить проверку сессии. Если библиотека отвергает перенесённую сессию — удалить только нерабочий `max.db` и выполнить ручную авторизацию.
 
-```bash
-# Проверьте права на файл
-ls -la services/max_alerter/session.session
+## 9. Диагностика
 
-# Исправьте права
-chmod 644 services/max_alerter/session.session
-```
+| Симптом | Проверка |
+|---|---|
+| `manual authorization required` | выполнить команду из раздела 5 |
+| HTTP 401 | токены Alertmanager и max-alerter различаются |
+| health OK, сообщений нет | проверить `MAX_CHAT_ID` и логи контейнера |
+| MAX недоступен | проверить `failed_alerts.log`, Telegram/email fallback |
+| после deploy старая конфигурация | `up -d --force-recreate`, не `restart` |
+| контейнер не собирается | убедиться, что `services/max_alerter` включён в пакет переноса |
 
-### Проблема: Webhook не принимает алерты
+## 10. Безопасность
 
-```bash
-# Проверьте, что сервер запущен
-curl http://localhost:8080/health
+- `MAX_PHONE` и `MAX_CHAT_ID` только в ignored `.env`;
+- `/session/max.db` считать эквивалентом учётных данных;
+- webhook token обязателен в production;
+- порт 9095 не публиковать в интернет;
+- session backup хранить зашифрованно;
+- при подозрении на компрометацию отозвать сессию и авторизоваться заново.
 
-# Если нет ответа — проверьте конфигурацию порта
-docker ps | grep max-alerter
-```
+## 11. Что является legacy
 
-## 8. Структура проекта
+Следующие элементы не относятся к production MAX alerter:
 
-```
-services/max_alerter/
-├── auth.py              # Интерактивная авторизация
-├── sender.py            # Отправка сообщений через pymax
-├── webhook.py           # HTTP-сервер для Alertmanager
-├── requirements.txt     # Зависимости
-├── templates/
-│   └── alert_template.md  # Шаблон сообщения
-├── session.session      # Сессия (создаётся при авторизации)
-├── .env                 # Конфигурация
-└── Dockerfile           # Сборка образа
-```
+- `MAX_BOT_TOKEN` и `/api/max/webhook` — бот лидов;
+- `platform-api.max.ru` — бот лидов;
+- `API_ID`, `API_HASH`, Telethon, `my.telegram.org` — ошибочный Telegram-контент;
+- `session.session`, порт `8080`, контейнер `max-alerter` — устаревшие значения.
 
-## 9. Полезные ссылки
+## 12. Локальная разработка
 
-- [Документация Telethon (основа pymax)](https://docs.telethon.dev/)
-- [Настройка Alertmanager](https://prometheus.io/docs/alerting/latest/alertmanager/)
-- [Telegram API ID](https://my.telegram.org/apps)
+Без реальной MAX-сессии запускайте unit-тесты форматирования и webhook. Для end-to-end требуется тестовый MAX-аккаунт и ручная авторизация. Long polling в проекте не реализован.

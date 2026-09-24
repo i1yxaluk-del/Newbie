@@ -1,29 +1,5 @@
-# ═══════════════════════════════════════════════════════════════════
-# MSPShield — Стек мониторинга (Prometheus + Grafana + Alertmanager)
-# ═══════════════════════════════════════════════════════════════════
-#
-# КУДА: /opt/msp/Newbie/deploy/yandex/monitoring/docker-compose.yml на ВМ
-# ЗАПУСК: cd /opt/msp/Newbie/deploy/yandex/monitoring && docker compose up -d
-#
-# Сеть: msp-monitoring (172.20.0.0/24) — изолирована от msp_default
-# Порты: все привязаны к 127.0.0.1 — доступны ТОЛЬКО через SSH-туннель:
-#   ssh -L 3000:127.0.0.1:3000 -L 9090:127.0.0.1:9090 \
-#       -L 9093:127.0.0.1:9093 ubuntu@<IP>
-#
-# Дашборд: MSPShield Overview — light theme сайта msp-claude.online
-#   (cream #f7f4ee, forest #1b4d3e, amber #b45309, stone #78746a).
-#   Дашборд автоматически провижится из ./grafana/dashboards/*.json
-#
-# ВАЖНО (уроки из деплоя):
-#   - cAdvisor требует /var/lib/docker/ → /rootfs/var/lib/docker (не
-#     /var/lib/docker как в документации!). Иначе не видит контейнеры:
-#     "Failed to create existing container... open /rootfs/var/lib/docker/
-#     image/overlayfs/layerdb/mounts/...: no such file or directory"
-#   - cAdvisor --disable_metrics с длинным списком флагов ломает запуск
-#     (печатает help и exit). Оставляем минимум: percpu,sched,tcp,udp
-#   - Grafana пароль задаётся в .env (GRAFANA_ADMIN_PASSWORD)
-# ═══════════════════════════════════════════════════════════════════
-
+# MSPShield monitoring stack. Все секреты берутся из ignored .env.
+# Запуск: cd /opt/msp/Newbie/deploy/yandex/monitoring && docker compose up -d
 name: msp-monitoring
 
 networks:
@@ -31,77 +7,57 @@ networks:
     name: msp-monitoring
     driver: bridge
     ipam:
-      config:
-        - subnet: 172.20.0.0/24
+      config: [{ subnet: 172.20.0.0/24 }]
   msp_default:
     name: msp_default
     external: true
 
 volumes:
-  prometheus_data:
-    name: msp-prometheus-data
-  grafana_data:
-    name: msp-grafana-data
-  alertmanager_data:
-    name: msp-alertmanager-data
-  max-alerter-data:
-    name: msp-max-alerter-data
+  prometheus_data: { name: msp-prometheus-data }
+  grafana_data: { name: msp-grafana-data }
+  alertmanager_data: { name: msp-alertmanager-data }
+  max-alerter-data: { name: msp-max-alerter-data }
 
 services:
-
-  # ── Prometheus — сбор и хранение метрик ────────────────────────
-  # Scraping: сам себя, node-exporter, cadvisor, backend /metrics,
-  # blackbox (HTTP/SMTP пробы). Алёрты → Alertmanager :9093.
   prometheus:
     image: prom/prometheus:v2.51.0
     container_name: msp-prometheus
     restart: unless-stopped
     user: "65534:65534"
-    networks:
-      monitoring:
-        ipv4_address: 172.20.0.10
-      msp_default:
+    networks: [monitoring, msp_default]
     volumes:
       - prometheus_data:/prometheus
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./prometheus/rules:/etc/prometheus/rules:ro
     command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-      - "--storage.tsdb.path=/prometheus"
-      - "--storage.tsdb.retention.time=30d"
-      - "--storage.tsdb.retention.size=4GB"
-      - "--storage.tsdb.wal-compression"
-      - "--web.enable-lifecycle"
-      - "--web.enable-admin-api"
-      - "--web.external-url=http://127.0.0.1:9090"
-      - "--query.timeout=60s"
-    ports:
-      - "127.0.0.1:9090:9090"
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+      - --storage.tsdb.retention.size=4GB
+      - --storage.tsdb.wal-compression
+      - --web.enable-lifecycle
+      - --web.external-url=http://127.0.0.1:9090
+    ports: ["127.0.0.1:9090:9090"]
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
     deploy:
       resources:
-        limits:   { memory: 1G }
+        limits: { memory: 1G }
         reservations: { memory: 256M }
-    logging:
+    logging: &logging
       driver: json-file
       options: { max-size: "10m", max-file: "3" }
 
-  # ── Alertmanager — маршрутизация алёртов ───────────────────────
-  # Получает алёрты от Prometheus, отправляет в backend webhook
-  # (POST /api/alerts/alertmanager), который fan-out в MAX/Telegram.
-  # Bearer-токен = ALERTMANAGER_WEBHOOK_TOKEN из backend/.env.
   alertmanager:
     image: prom/alertmanager:v0.27.0
     container_name: msp-alertmanager
     restart: unless-stopped
     environment:
-      SMTP_AUTH_PASSWORD: ${SMTP_AUTH_PASSWORD:-}
-      ALERTMANAGER_WEBHOOK_TOKEN: ${ALERTMANAGER_WEBHOOK_TOKEN:-}
+      SMTP_AUTH_PASSWORD: "${SMTP_AUTH_PASSWORD:-}"
+      ALERTMANAGER_WEBHOOK_TOKEN: "${ALERTMANAGER_WEBHOOK_TOKEN:?ALERTMANAGER_WEBHOOK_TOKEN обязателен}"
     volumes:
       - alertmanager_data:/alertmanager
       - ./alertmanager/alertmanager.yml.tmpl:/etc/alertmanager/alertmanager.yml.tmpl:ro
@@ -109,17 +65,12 @@ services:
       - ./alertmanager/entrypoint.sh:/etc/alertmanager/entrypoint.sh:ro
     entrypoint: ["/etc/alertmanager/entrypoint.sh"]
     command:
-      - "--config.file=/etc/alertmanager/alertmanager.yml"
-      - "--storage.path=/alertmanager"
-      - "--web.external-url=http://127.0.0.1:9093"
-      # Отключаем cluster-режим (один инстанс, не HA)
-      - "--cluster.listen-address="
-    ports:
-      - "127.0.0.1:9093:9093"
-    networks:
-      monitoring:
-        ipv4_address: 172.20.0.11
-      msp_default:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+      - --web.external-url=http://127.0.0.1:9093
+      - --cluster.listen-address=
+    ports: ["127.0.0.1:9093:9093"]
+    networks: [monitoring, msp_default]
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:9093/-/healthy"]
       interval: 30s
@@ -127,21 +78,13 @@ services:
       retries: 3
     deploy:
       resources:
-        limits:   { memory: 256M }
+        limits: { memory: 256M }
         reservations: { memory: 64M }
-    logging:
-      driver: json-file
-      options: { max-size: "5m", max-file: "2" }
+    logging: *logging
 
-  # ── Grafana — визуализация метрик ──────────────────────────────
-  # Дашборд "MSPShield Overview" в light-палитре сайта msp-claude.online.
-  # Тема: cream #f7f4ee фон, forest #1b4d3e бренд, амбер #b45309 warning.
-  # Доступен ТОЛЬКО через SSH-туннель (127.0.0.1:3000).
   grafana:
     image: grafana/grafana:10.4.2
     container_name: msp-grafana
-    # Не задаём hostname доменом сайта: Docker DNS иначе направляет
-    # blackbox-проверки msp-claude.online в контейнер Grafana, а не наружу.
     restart: unless-stopped
     env_file: .env
     volumes:
@@ -151,59 +94,27 @@ services:
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
       - ./grafana/theme:/usr/share/grafana/public/build/mspshield:ro
     environment:
-      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-changeme}
+      GF_SECURITY_ADMIN_USER: "${GRAFANA_ADMIN_USER:-admin}"
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD обязателен}"
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_AUTH_ANONYMOUS_ENABLED: "false"
-      GF_SERVER_ROOT_URL: "http://127.0.0.1:3000"
+      GF_SERVER_ROOT_URL: http://127.0.0.1:3000
       GF_ANALYTICS_REPORTING_ENABLED: "false"
-      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
-      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
-      GF_SECURITY_DISABLE_GRAVATAR: "true"
-      # Алёрты Grafana отключены — используем Alertmanager
       GF_UNIFIED_ALERTING_ENABLED: "false"
       GF_ALERTING_ENABLED: "false"
-      # ── Тема MSPShield ────────────────────────────────────────
-      # Light theme — соответствует cream/forest стилю лендинга.
-      # Кастомный CSS-оверрайд лежит в ./grafana/theme/mspshield.css
-      # (монтируется в /usr/share/grafana/public/build/mspshield/).
-      GF_DEFAULT_THEME: "light"
-      GF_USERS_DEFAULT_THEME: "light"
-      GF_USERS_DEFAULT_LANGUAGE: "ru-RU"
-      GF_INSTALL_PLUGINS: "grafana-clock-panel,grafana-piechart-panel"
-      GF_LOG_LEVEL: "warn"
-      GF_SMTP_ENABLED: ${GF_SMTP_ENABLED:-false}
-      GF_SMTP_HOST: ${GF_SMTP_HOST:-stalwart:25}
-      GF_SMTP_FROM_ADDRESS: ${GF_SMTP_FROM_ADDRESS:-alert@msp-claude.online}
-      GF_SMTP_FROM_NAME: ${GF_SMTP_FROM_NAME:-MSPShield}
-      GF_SMTP_SKIP_VERIFY: ${GF_SMTP_SKIP_VERIFY:-true}
-      # ── Палитра MSPShield (используется в дашборде Overview) ──
-      # Cream #f7f4ee — фон страниц и карточек
-      # Forest #1b4d3e — основной бренд, UP-статусы, success
-      # Forest-lt #2d6b58 — hover, вторичные акценты
-      # Amber #b45309 — предупреждения, disk usage 70-90%
-      # Stone #78746a — вторичный текст
-      # Red #b91c1c — ошибки, DOWN-статусы
-      # Ink #1a1815 — основной текст
-    ports:
-      - "127.0.0.1:3000:3000"
-    networks:
-      monitoring:
-        ipv4_address: 172.20.0.12
-      msp_default:
+      GF_DEFAULT_THEME: light
+      GF_USERS_DEFAULT_LANGUAGE: ru-RU
+      GF_LOG_LEVEL: warn
+    ports: ["127.0.0.1:3000:3000"]
+    networks: [monitoring, msp_default]
     depends_on:
-      prometheus:
-        condition: service_healthy
+      prometheus: { condition: service_healthy }
     deploy:
       resources:
-        limits:   { memory: 512M }
+        limits: { memory: 512M }
         reservations: { memory: 128M }
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "3" }
+    logging: *logging
 
-  # ── Node Exporter — метрики ОС (CPU, RAM, disk, network) ──────
-  # pid: host — чтобы видеть PID хоста, а не контейнера
   node-exporter:
     image: prom/node-exporter:v1.7.0
     container_name: msp-node-exporter
@@ -215,41 +126,20 @@ services:
       - /:/rootfs:ro
       - /var/lib/node_exporter/textfile_collector:/var/lib/node_exporter/textfile_collector:ro
     command:
-      - "--path.procfs=/host/proc"
-      - "--path.sysfs=/host/sys"
-      - "--path.rootfs=/rootfs"
-      - "--collector.textfile.directory=/var/lib/node_exporter/textfile_collector"
-      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
-      - "--no-collector.ipvs"
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/rootfs
+      - --collector.textfile.directory=/var/lib/node_exporter/textfile_collector
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+      - --no-collector.ipvs
     networks: [monitoring]
-    deploy:
-      resources:
-        limits:   { memory: 128M }
-        reservations: { memory: 32M }
 
-  # ── cAdvisor — метрики Docker-контейнеров ────────────────────
-  # ВАЖНО (уроки из деплоя):
-  #   1. /var/lib/docker/ → /rootfs/var/lib/docker (НЕ /var/lib/docker!)
-  #      cAdvisor ищет Docker layerdb по пути
-  #      /rootfs/var/lib/docker/image/overlayfs/layerdb/mounts/...
-  #   2. НО Docker 29+ с overlayfs driver НЕ создаёт layerdb/mounts/ —
-  #      структура хранения изменилась. Поэтому ОБЯЗАТЕЛЬНО монтировать
-  #      docker.sock — cAdvisor будет читать метрики через Docker API,
-  #      а не через filesystem layerdb.
-  #   3. Версия v0.49.1 НЕ поддерживает overlayfs driver из Docker 29+.
-  #      Обновлено до v0.51.0 — поддерживает новый overlayfs storage.
-  #   4. --disable_metrics с длинным списком флагов ломает запуск
-  #      (cAdvisor печатает help и exit). Оставляем минимум.
-  #   5. --docker_only=true — не собирать метрики systemd slice.
-  #   6. privileged: true + docker.sock — cAdvisor должен иметь
-  #      доступ к Docker API для чтения container stats.
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.51.0
     container_name: msp-cadvisor
     restart: unless-stopped
     privileged: true
-    devices:
-      - /dev/kmsg:/dev/kmsg
+    devices: [/dev/kmsg:/dev/kmsg]
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
@@ -257,53 +147,32 @@ services:
       - /var/lib/docker/:/rootfs/var/lib/docker:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /dev/disk:/dev/disk:ro
-    command:
-      - "--housekeeping_interval=30s"
-      - "--docker_only=true"
-      - "--docker_env_metadata_whitelist="
-      - "--disable_metrics=percpu,sched,tcp,udp"
+    command: ["--housekeeping_interval=30s", "--docker_only=true", "--disable_metrics=percpu,sched,tcp,udp"]
     networks: [monitoring]
-    deploy:
-      resources:
-        limits:   { memory: 256M }
-        reservations: { memory: 64M }
 
-  # ── Blackbox Exporter — HTTP/DNS/SMTP пробы сайтов ────────────
-  # Prometheus использует blackbox для проверки доступности
-  # сайта (HTTP 200, SSL, SMTP порты) через relabel_configs.
   blackbox-exporter:
     image: prom/blackbox-exporter:v0.24.0
     container_name: msp-blackbox
     restart: unless-stopped
-    volumes:
-      - ./prometheus/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
-    command:
-      - "--config.file=/etc/blackbox_exporter/config.yml"
-    ports:
-      - "127.0.0.1:9115:9115"
+    volumes: ["./prometheus/blackbox.yml:/etc/blackbox_exporter/config.yml:ro"]
+    command: ["--config.file=/etc/blackbox_exporter/config.yml"]
+    ports: ["127.0.0.1:9115:9115"]
     networks: [monitoring, msp_default]
-    deploy:
-      resources:
-        limits:   { memory: 64M }
-        reservations: { memory: 16M }
 
-  # ── MAX Alerter — pymax userbot, sends P1 alerts to MAX group ─
-  # Receives webhooks from Alertmanager, delivers to MAX chat via pymax.
-  # Session file pre-created on host by auth.py, mounted as volume.
-  # Fallback: Telegram Bot API if MAX is unreachable.
+  # Канонический MAX-контур: Alertmanager webhook → ручная pymax session.
   max-alerter:
-    build: /opt/msp/Newbie/services/max_alerter
+    build: ../../../services/max_alerter
     container_name: msp-max-alerter
     restart: unless-stopped
     volumes:
-      - /opt/msp/Newbie/deploy/yandex/monitoring/max-session:/session
+      - ./max-session:/session
       - max-alerter-data:/data
     environment:
-      MAX_PHONE: "+79990703823"
-      MAX_SESSION_DIR: "/session"
-      MAX_SESSION_NAME: "max.db"
-      MAX_CHAT_ID: "-75564902295619"
-      WEBHOOK_TOKEN: "${ALERTMANAGER_WEBHOOK_TOKEN:-}"
+      MAX_PHONE: "${MAX_PHONE:?MAX_PHONE обязателен}"
+      MAX_SESSION_DIR: /session
+      MAX_SESSION_NAME: max.db
+      MAX_CHAT_ID: "${MAX_CHAT_ID:?MAX_CHAT_ID обязателен}"
+      WEBHOOK_TOKEN: "${ALERTMANAGER_WEBHOOK_TOKEN:?ALERTMANAGER_WEBHOOK_TOKEN обязателен}"
       TG_BOT_TOKEN: "${TELEGRAM_BOT_TOKEN:-}"
       TG_CHAT_ID: "${TELEGRAM_CHAT_ID:-}"
       SMTP_HOST: "${SMTP_HOST:-}"
@@ -313,38 +182,16 @@ services:
       SMTP_FROM: "${SMTP_FROM:-}"
       ALERT_EMAIL_TO: "${ALERT_EMAIL_TO:-}"
       MAX_FAILURE_COOLDOWN: "${MAX_FAILURE_COOLDOWN:-300}"
-      HOST: "0.0.0.0"
-      PORT: "9095"
-    ports:
-      - "127.0.0.1:9095:9095"
+    ports: ["127.0.0.1:9095:9095"]
     networks: [monitoring]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9095/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     deploy:
       resources:
-        limits:   { memory: 128M }
+        limits: { memory: 128M }
         reservations: { memory: 32M }
-    logging:
-      driver: json-file
-      options: { max-size: "5m", max-file: "2" }
-
-  # ── Telegram Webhook Proxy ──────────────────────────────────────
-  # Alertmanager → webhook → this proxy → Telegram Bot API.
-  # Converts AM JSON to Telegram HTML messages with severity emojis.
-  # Chat: MSPShield Alerts group; Bot: @Alertmsp_bot
-  telegram-webhook:
-    image: python:3.12-slim
-    container_name: msp-telegram-webhook
-    restart: unless-stopped
-    volumes:
-      - ./telegram-webhook:/app:ro
-    working_dir: /app
-    environment:
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
-    command: ["python", "-u", "telegram_webhook.py"]
-    ports:
-      - "127.0.0.1:9119:9119"
-    networks: [monitoring]
-    deploy:
-      resources:
-        limits:   { memory: 64M }
-        reservations: { memory: 16M }
+    logging: *logging

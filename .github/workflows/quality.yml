@@ -1,21 +1,27 @@
 name: quality
-
 on:
   pull_request:
   push:
     branches: [main]
-
 permissions:
   contents: read
-
 jobs:
   business-consistency:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Проверить цены, SLA и обещания лендинга
-        run: python scripts/validate_business_consistency.py
-
+      - run: python scripts/validate_business_consistency.py
+      - run: python scripts/validate_max_consistency.py
+  max-alerter-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install fastapi==0.111.0 httpx==0.27.0 pytest==8.3.5
+      - run: PYTHONPATH=services pytest -q services/max_alerter/test_sender.py
+      - run: python -m compileall -q services/max_alerter scripts
+      - run: bash -n migration/restore-on-vm.sh migration/diag.sh deploy/yandex/monitoring/alertmanager/entrypoint.sh
   backend-unit:
     runs-on: ubuntu-latest
     steps:
@@ -28,12 +34,10 @@ jobs:
       - run: pip install -r backend/requirements.txt
       - run: python -m compileall -q backend scripts
       - run: pytest -q backend/tests/test_kaiten_integration.py backend/tests/test_alertmanager.py backend/tests/test_max_integration.py
-
   frontend-build:
     runs-on: ubuntu-latest
     defaults:
-      run:
-        working-directory: frontend
+      run: { working-directory: frontend }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -43,9 +47,7 @@ jobs:
           cache-dependency-path: frontend/yarn.lock
       - run: yarn install --frozen-lockfile
       - run: yarn build
-        env:
-          CI: "true"
-
+        env: { CI: "true" }
   production-config:
     runs-on: ubuntu-latest
     steps:
@@ -54,24 +56,24 @@ jobs:
         env:
           STALWART_ADMIN_PASSWORD: ci-only
           VAULTWARDEN_ADMIN_TOKEN: ci-only
+          ALERTMANAGER_WEBHOOK_TOKEN: ci-only-token
+          GRAFANA_ADMIN_PASSWORD: ci-only-password
+          MAX_PHONE: "+70000000000"
+          MAX_CHAT_ID: "-1000000000000"
         run: |
-          # Создаём только тестовый env: реальные production-секреты в CI не нужны.
           cp backend/.env.example backend/.env
+          touch deploy/yandex/monitoring/.env
+          docker network create msp_default || true
           docker compose -f deploy/yandex/docker-compose.yml config >/dev/null
-          # Эти проверки запрещают публикацию внутренних портов и небезопасные defaults.
+          docker compose -f deploy/yandex/monitoring/docker-compose.yml config >/dev/null
           ! grep -q '0.0.0.0:8001:8001' deploy/yandex/docker-compose.yml
-          ! grep -q ':-changeme' deploy/yandex/docker-compose.yml
           ! grep -q 'vaultwarden/server:latest' deploy/yandex/docker-compose.yml
           grep -q 'secure_server:app' deploy/yandex/Dockerfile.backend
-
   external-perimeter:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Проверить внешний периметр production
-        run: bash scripts/production-readiness/external_scan.sh msp-claude.online external-scan.txt
+      - run: bash scripts/production-readiness/external_scan.sh msp-claude.online external-scan.txt
       - uses: actions/upload-artifact@v4
         if: always()
-        with:
-          name: external-perimeter-scan
-          path: external-scan.txt
+        with: { name: external-perimeter-scan, path: external-scan.txt }

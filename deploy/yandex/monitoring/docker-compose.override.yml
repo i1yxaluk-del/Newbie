@@ -1,0 +1,18 @@
+# Автоматически объединяется с docker-compose.yml.
+# Убирает персональные значения MAX из runtime-конфигурации и требует .env.
+services:
+  max-alerter:
+    environment:
+      MAX_PHONE: "${MAX_PHONE:?MAX_PHONE обязателен для ручной авторизации MAX}"
+      MAX_CHAT_ID: "${MAX_CHAT_ID:?MAX_CHAT_ID обязателен для доставки MAX}"
+      WEBHOOK_TOKEN: "${ALERTMANAGER_WEBHOOK_TOKEN:?ALERTMANAGER_WEBHOOK_TOKEN обязателен}"
+      MAX_SESSION_DIR: "/session"
+      MAX_SESSION_NAME: "max.db"
+      TG_BOT_TOKEN: "${TELEGRAM_BOT_TOKEN:-}"
+      TG_CHAT_ID: "${TELEGRAM_CHAT_ID:-}"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9095/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

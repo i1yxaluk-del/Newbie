@@ -5,10 +5,12 @@
 | Шаг | Документ / инструмент |
 |---:|---|
 | 1 | [`local_dev.md`](local_dev.md) — локальная проверка приложения |
+| 2 | [DEPLOY_RUNBOOK.md](DEPLOY_RUNBOOK.md) — пошаговое развёртывание VM с нуля |
 | 2 | [`../../deploy/yandex/README.md`](../../deploy/yandex/README.md) — одна production VM |
 | 3 | [`../../scripts/deployment/preflight.sh`](../../scripts/deployment/preflight.sh) — env/Compose/security gate |
 | 4 | [`DEPLOYMENT_LESSONS.md`](DEPLOYMENT_LESSONS.md) — уроки, превращённые в controls |
 | 5 | [`../../migration/README.md`](../../migration/README.md) — перенос VM |
+| 5 | [MIGRATION_RUNBOOK.md](MIGRATION_RUNBOOK.md) — пошаговая миграция на новую VM |
 | 6 | [`disaster_recovery.md`](disaster_recovery.md) — восстановление |
 | 7 | [`troubleshooting.md`](troubleshooting.md) — диагностика |
 

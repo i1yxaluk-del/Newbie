@@ -1,6 +1,12 @@
-# Автоматически объединяется с docker-compose.yml.
-# Убирает персональные значения MAX из runtime-конфигурации и требует .env.
+# Локальные production-инварианты. Compose автоматически объединяет этот файл с docker-compose.yml.
+# Секреты берутся только из ignored monitoring/.env; реальные значения в Git запрещены.
 services:
+  alertmanager:
+    environment:
+      SMTP_AUTH_USER: "${SMTP_AUTH_USER:?SMTP_AUTH_USER обязателен для Postbox}"
+      SMTP_AUTH_PASSWORD: "${SMTP_AUTH_PASSWORD:?SMTP_AUTH_PASSWORD обязателен для Postbox}"
+      ALERTMANAGER_WEBHOOK_TOKEN: "${ALERTMANAGER_WEBHOOK_TOKEN:?ALERTMANAGER_WEBHOOK_TOKEN обязателен}"
+
   max-alerter:
     environment:
       MAX_PHONE: "${MAX_PHONE:?MAX_PHONE обязателен для ручной авторизации MAX}"
@@ -10,9 +16,3 @@ services:
       MAX_SESSION_NAME: "max.db"
       TG_BOT_TOKEN: "${TELEGRAM_BOT_TOKEN:-}"
       TG_CHAT_ID: "${TELEGRAM_CHAT_ID:-}"
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9095/health', timeout=3)"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s

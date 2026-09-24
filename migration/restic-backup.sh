@@ -1,156 +1,104 @@
-#!/bin/bash
-set -euo pipefail
+#!/usr/bin/env bash
+# Назначение: создать согласованные backup-артефакты и отправить их в restic/S3.
+# Где запускать: production VM от root через systemd timer.
+# Побочные эффекты: Vaultwarden/Stalwart/MAX кратко останавливаются для snapshot.
+# Проверка успеха: метрика restic_backup_success=1 и `restic snapshots --latest 1`.
+# Откат: сервисы автоматически запускаются в trap даже при ошибке.
+set -Eeuo pipefail
 
-LOG="/var/log/restic-backup.log"
-METRICS_DIR="/var/lib/node_exporter/textfile_collector"
-METRICS_FILE="${METRICS_DIR}/restic_backup.prom"
+DEPLOY_DIR="${DEPLOY_DIR:-/opt/msp/Newbie/deploy/yandex}"
+MONITORING_DIR="$DEPLOY_DIR/monitoring"
+STAGING="${BACKUP_STAGING:-/opt/msp-backups/current}"
+METRICS_FILE="/var/lib/node_exporter/textfile_collector/restic_backup.prom"
 EXCLUDE_FILE="/opt/restic-scripts/excludes.txt"
-HOSTNAME="node-01"
-# REPO — только ЛЕЙБЛ для метрик Prometheus (name соответствует новому бакету
-# mspshield-backups-new). Сам репозиторий restic берётся из RESTIC_REPOSITORY
-# в /etc/restic/env.sh (source ниже) — REPO в команды restic НЕ передаётся.
-REPO="mspshield-backups-new"
-TIMESTAMP=$(date +%s)
-STATUS=0
-BYTES=0
-MONGO_DUMP_DIR="/opt/msp-backups/mongodump"
+LOG="/var/log/restic-backup.log"
+HOST_LABEL="${BACKUP_HOST_LABEL:-node-01}"
+REPO_LABEL="${BACKUP_REPO_LABEL:-mspshield-backups-new}"
+STARTED_AT="$(date +%s)"
+RESTART_MAIN=()
+RESTART_MONITORING=()
 
-# УРОК миграции 2: имя Mongo-контейнера не стабильно (msp-mongo-1 → др.).
-# Получаем ID через docker compose ps -q mongo; фолбэк — поиск по имени.
-MONGO_COMPOSE_FILE="/opt/msp/Newbie/deploy/yandex/docker-compose.yml"
-MONGO_CONTAINER=""
-if [ -f "$MONGO_COMPOSE_FILE" ]; then
-    MONGO_CONTAINER=$(docker compose -f "$MONGO_COMPOSE_FILE" ps -q mongo 2>/dev/null | head -1)
-fi
-if [ -z "$MONGO_CONTAINER" ]; then
-    MONGO_CONTAINER=$(docker ps --filter "name=mongo" --format '{{.Names}}' | head -1)
-fi
+log() { echo "[$(date -Iseconds)] $*" | tee -a "$LOG"; }
+write_metrics() {
+  mkdir -p "$(dirname "$METRICS_FILE")"
+  cat > "${METRICS_FILE}.tmp" <<EOF
+# HELP restic_backup_success Last backup result: 1=success, 0=failure, 2=running
+# TYPE restic_backup_success gauge
+restic_backup_success{host="$HOST_LABEL",repo="$REPO_LABEL"} $1
+# HELP restic_backup_timestamp_seconds Unix timestamp of backup start
+# TYPE restic_backup_timestamp_seconds gauge
+restic_backup_timestamp_seconds{host="$HOST_LABEL",repo="$REPO_LABEL"} $2
+# HELP restic_backup_size_bytes Bytes processed by the last successful backup
+# TYPE restic_backup_size_bytes gauge
+restic_backup_size_bytes{host="$HOST_LABEL",repo="$REPO_LABEL"} $3
+EOF
+  mv "${METRICS_FILE}.tmp" "$METRICS_FILE"
+}
+restart_services() {
+  if ((${#RESTART_MAIN[@]})); then (cd "$DEPLOY_DIR" && docker compose --profile mail start "${RESTART_MAIN[@]}") || true; fi
+  if ((${#RESTART_MONITORING[@]})); then (cd "$MONITORING_DIR" && docker compose start "${RESTART_MONITORING[@]}") || true; fi
+}
+trap restart_services EXIT
 
 source /etc/restic/env.sh
+: "${RESTIC_REPOSITORY:?RESTIC_REPOSITORY не задан}"
+: "${RESTIC_PASSWORD:?RESTIC_PASSWORD не задан}"
+command -v restic >/dev/null
+command -v docker >/dev/null
+write_metrics 2 "$STARTED_AT" 0
+rm -rf "$STAGING"
+mkdir -p "$STAGING/volumes"
 
-log() {
-    local msg="[$(date '+%Y-%m-%d %H:%M:%S')] $*"
-    echo "$msg"
-    echo "$msg" >> "$LOG"
-}
+log "Создаём обязательный согласованный mongodump"
+MONGO_ID="$(docker compose -f "$DEPLOY_DIR/docker-compose.yml" ps -q mongo)"
+[[ -n "$MONGO_ID" ]] || { log "ERROR: Mongo container не найден"; exit 1; }
+docker exec "$MONGO_ID" mongodump --archive --gzip --quiet > "$STAGING/mongodump.archive.gz"
+[[ -s "$STAGING/mongodump.archive.gz" ]] || { log "ERROR: mongodump пуст"; exit 1; }
 
-write_metrics() {
-    local status=$1
-    local timestamp=$2
-    local bytes=$3
-    mkdir -p "$METRICS_DIR"
-    local tmp="${METRICS_FILE}.tmp"
-    cat > "$tmp" << EOF
-# HELP restic_backup_success Last restic backup result (1=ok, 0=fail, 2=in-progress)
-# TYPE restic_backup_success gauge
-restic_backup_success{host="${HOSTNAME}",repo="${REPO}"} ${status}
-# HELP restic_backup_timestamp_seconds Unix time of last restic backup
-# TYPE restic_backup_timestamp_seconds gauge
-restic_backup_timestamp_seconds{host="${HOSTNAME}",repo="${REPO}"} ${timestamp}
-# HELP restic_backup_size_bytes Size of last restic backup in bytes
-# TYPE restic_backup_size_bytes gauge
-restic_backup_size_bytes{host="${HOSTNAME}",repo="${REPO}"} ${bytes}
-EOF
-    mv "$tmp" "$METRICS_FILE"
-}
-
-write_metrics 2 "$TIMESTAMP" 0
-
-log "=== START BACKUP host=${HOSTNAME} repo=${REPO} ==="
-
-# ── mongodump: consistent logical backup of MongoDB ──────────────
-# Файловый бэкап Volume (WiredTiger) даёт неконсистентный срез —
-# mongodump подключается к работающему mongod и снимает согласованный
-# дамп всех баз. Дамп сохраняется в /opt/msp-backups/mongodump/,
-# затем restic упаковывает его в S3 вместе с остальными файлами.
-log "Running mongodump..."
-mkdir -p "$MONGO_DUMP_DIR"
-rm -rf "${MONGO_DUMP_DIR:?}"/*
-
-if [ -n "$MONGO_CONTAINER" ] && docker exec "$MONGO_CONTAINER" mongodump \
-    --out /tmp/mongodump \
-    --quiet 2>&1 | tee -a "$LOG"; then
-
-    docker cp "${MONGO_CONTAINER}:/tmp/mongodump/." "$MONGO_DUMP_DIR/"
-    docker exec "$MONGO_CONTAINER" rm -rf /tmp/mongodump
-    log "mongodump SUCCESS → ${MONGO_DUMP_DIR}"
-else
-    log "mongodump SKIPPED/FAILED (container='${MONGO_CONTAINER:-not found}') — continuing with restic (mongo dump may be stale)"
-fi
-
-# ── restic: file backup to S3 ───────────────────────────────────
-# ВНИМАНИЕ: /var/lib/docker/volumes НЕ включён — MongoDB бэкапится
-# через mongodump выше (консистентный логический дамп).
-# Docker volumes остальных сервисов (caddy, grafana и т.д.) бэкапятся
-# отдельно через их собственные конфиги/дампы при необходимости.
-BACKUP_PATHS=(
-    "/etc"
-    "/home"
-    "/root"
-    "/opt"
-    "/var/www"
-    "/var/lib/caddy"
-    "$MONGO_DUMP_DIR"
-    "/var/lib/docker/volumes"
-)
-
-EXISTING_PATHS=()
-for p in "${BACKUP_PATHS[@]}"; do
-    if [[ -d "$p" ]]; then
-        EXISTING_PATHS+=("$p")
-    fi
+# Файловые Docker volumes архивируются только при остановленном writer.
+for service in vaultwarden stalwart; do
+  if docker compose -f "$DEPLOY_DIR/docker-compose.yml" --profile mail ps -q "$service" | grep -q .; then
+    RESTART_MAIN+=("$service")
+    (cd "$DEPLOY_DIR" && docker compose --profile mail stop "$service")
+  fi
 done
-
-if [[ ${#EXISTING_PATHS[@]} -eq 0 ]]; then
-    log "ERROR: no directories to backup"
-    write_metrics 0 "$TIMESTAMP" 0
-    exit 1
+if docker compose -f "$MONITORING_DIR/docker-compose.yml" ps -q max-alerter | grep -q .; then
+  RESTART_MONITORING+=("max-alerter")
+  (cd "$MONITORING_DIR" && docker compose stop max-alerter)
 fi
 
-log "Paths: ${EXISTING_PATHS[*]}"
+archive_volume() {
+  local volume="$1" output="$2"
+  if docker volume inspect "$volume" >/dev/null 2>&1; then
+    docker run --rm -v "$volume:/source:ro" -v "$STAGING/volumes:/backup" alpine:3.20 \
+      tar czf "/backup/$output" -C /source .
+  else
+    log "INFO: volume $volume отсутствует, пропускаем"
+  fi
+}
+archive_volume msp_vaultwarden-data vaultwarden-data.tar.gz
+archive_volume msp_stalwart-etc stalwart-etc.tar.gz
+archive_volume msp_stalwart-data stalwart-data.tar.gz
+if [[ -d "$MONITORING_DIR/max-session" ]]; then
+  tar czf "$STAGING/volumes/max-session.tar.gz" -C "$MONITORING_DIR" max-session
+fi
+restart_services
+RESTART_MAIN=()
+RESTART_MONITORING=()
 
-# УРОК миграции 1: restic из Ubuntu 22.04 НЕ поддерживает --compression auto
-# (флаг появился в 0.17+ / только в новых версиях). Флаг убран — используем
-# дефолтную политику сжатия репозитория.
-if restic backup \
-    "${EXISTING_PATHS[@]}" \
-    --exclude-file="$EXCLUDE_FILE" \
-    --tag "auto" \
-    --tag "$HOSTNAME" \
-    --json 2>&1 | tee -a "$LOG"; then
-    STATUS=1
-    BYTES=$(grep -E '^\{"message_type":"summary"' "$LOG" | tail -1 \
-        | grep -oE '"total_bytes_processed":[0-9]+' \
-        | cut -d: -f2 || echo "0")
-    BYTES="${BYTES:-0}"
-    log "BACKUP SUCCESS bytes=${BYTES}"
+# Не бэкапим /var/lib/docker/volumes напрямую: live-copy БД неконсистентна и дублирует данные.
+PATHS=(/etc /home /root /opt /var/www /var/lib/caddy "$STAGING")
+EXISTING=()
+for path in "${PATHS[@]}"; do [[ -e "$path" ]] && EXISTING+=("$path"); done
+log "Запускаем restic: ${EXISTING[*]}"
+OUTPUT="$STAGING/restic-result.json"
+if restic backup "${EXISTING[@]}" --exclude-file="$EXCLUDE_FILE" --tag auto --tag "$HOST_LABEL" --json | tee "$OUTPUT" >> "$LOG"; then
+  BYTES="$(grep -E '"message_type":"summary"' "$OUTPUT" | tail -1 | grep -oE '"total_bytes_processed":[0-9]+' | cut -d: -f2 || true)"
+  write_metrics 1 "$STARTED_AT" "${BYTES:-0}"
 else
-    STATUS=0
-    BYTES=0
-    log "BACKUP FAILED"
+  write_metrics 0 "$STARTED_AT" 0
+  exit 1
 fi
-
-log "Applying retention policy..."
-restic forget \
-    --tag "$HOSTNAME" \
-    --keep-daily 7 \
-    --keep-weekly 4 \
-    --keep-monthly 6 \
-    --keep-yearly 1 \
-    --prune \
-    --compact 2>&1 | tee -a "$LOG" | grep -E "^(Applying|removed|stats:)" || true
-
-if [[ $(date +%u) -eq 7 ]]; then
-    log "Sunday: repository integrity check..."
-    if restic check 2>&1 | tee -a "$LOG"; then
-        log "CHECK OK"
-    else
-        log "CHECK FAILED"
-    fi
-fi
-
-write_metrics "$STATUS" "$TIMESTAMP" "$BYTES"
-
-log "=== END BACKUP status=${STATUS} bytes=${BYTES} ==="
-
-exit $(( 1 - STATUS ))
+restic forget --tag "$HOST_LABEL" --keep-daily 7 --keep-weekly 4 --keep-monthly 6 --keep-yearly 1 --prune
+if [[ "$(date +%u)" == "7" ]]; then restic check; fi
+log "Backup завершён успешно"

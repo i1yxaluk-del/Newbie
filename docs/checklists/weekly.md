@@ -1,41 +1,20 @@
-# Weekly checklist
+# Еженедельная проверка
 
-> Выполняется каждый понедельник 09:00–11:00 МСК.
-> Время: ~2 часа на 5 клиентов.
+## По каждому клиенту
 
----
+- [ ] targets/dashboard без необъяснённых gaps;
+- [ ] последний backup успешен, возраст и размер разумны;
+- [ ] alert delivery MAX/email проверена по истории;
+- [ ] P1/P2 закрыты либо имеют owner/status update;
+- [ ] certificates и critical patches просмотрены;
+- [ ] Kaiten tickets имеют next action и due date;
+- [ ] доступы/секреты не появились в comments или Git.
 
-## Per-client (на каждого)
+## MSP
 
-- [ ] Grafana dashboard overview — нет ли аномалий.
-- [ ] Backup-status: последний успешный snapshot, размер ≈ как обычно.
-- [ ] SSL: все сертификаты ≥ 30 дней валидности.
-- [ ] Updates pending: есть ли критические security patches.
-- [ ] Kaiten: все P3/P4 тикеты за неделю обработаны.
-- [ ] Weekly-sync встреча состоялась (или rescheduled).
-- [ ] Нет незакрытых P1/P2 инцидентов.
-- [ ] Логи Loki: нет аномальных паттернов (много errors, много 500-х).
+- [ ] monitoring VM, Postbox, MAX session и restic timer healthy;
+- [ ] failed_alerts.log и backup metrics проверены;
+- [ ] неоплаченные счета и перегруз команды вынесены owner;
+- [ ] weekly journal содержит risks и capacity, не только выполненные задачи.
 
----
-
-## Общее (MSP-level)
-
-- [ ] Bastion/bastions: load OK, WireGuard peers all active.
-- [ ] Personal Kaiten-доска: 0 «на этой неделе просрочено».
-- [ ] Sales funnel: все leads в стадиях 1-5 имеют next-action с deadline.
-- [ ] Блог: если запланирована публикация этой недели — она готова или движется.
-- [ ] Финансы: все invoices за прошлый месяц оплачены? Если нет — какие reminders.
-- [ ] Время на себя: запланированы ли часы «не-работы» на эту неделю.
-
----
-
-## Записать в weekly journal
-
-- Что было самого «больного» на прошлой неделе.
-- Что планирую сделать на этой (по каждому клиенту + MSP-общие).
-- Где застрял / что не получилось и почему.
-- 3 benefit'а: что сделал хорошо.
-
----
-
-*Обновлено: v4.1 · 2026-04*
+Каждая отметка ссылается на dashboard, ticket или snapshot ID.

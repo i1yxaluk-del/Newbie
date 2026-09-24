@@ -1,7 +1,7 @@
-"""Доставка webhook-алертов в MAX с независимым fallback.
+"""Доставка Alertmanager webhook в MAX с Telegram/email fallback.
 
-Junior: модуль не авторизует аккаунт сам. Если `/session/max.db` отсутствует,
-нужно вызвать ручную команду из docs/MAX_SETUP.md.
+Модуль никогда не запрашивает SMS самостоятельно. Сессию создаёт оператор
+командой из docs/MAX_SETUP.md и хранит её в `/session/max.db`.
 """
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ _max_retry_after: Optional[datetime] = None
 
 
 async def get_client():
-    """Возвращает pymax Client только при наличии ручной session database."""
+    """Возвращает pymax Client только при наличии persisted session."""
     global _client
     async with _client_lock:
         if _client is not None:
@@ -66,7 +66,7 @@ async def get_client():
 
 
 async def send_to_max(chat_id: int, text: str) -> bool:
-    """Отправляет в MAX и включает cooldown после ошибки."""
+    """Отправляет в MAX; cooldown защищает от retry storm."""
     global _max_retry_after
     try:
         now = datetime.now(timezone.utc)
@@ -130,7 +130,7 @@ def _write_failed_log(chat_id: int | str, text: str, error: str) -> None:
 
 
 async def deliver_max(chat_id: int, text: str) -> bool:
-    """Основной канал MAX; Telegram/email вызываются только при отказе."""
+    """Основной MAX-канал; fallback вызывается только после отказа."""
     if await send_to_max(chat_id, text):
         return True
     _write_failed_log(chat_id, text, "send_to_max failed")

@@ -1,65 +1,60 @@
 # MSPShield / «МСП Облако»
 
-Управляемый IT-сервис для малого и среднего бизнеса в РФ: мониторинг, резервное копирование, защищённый доступ и реакция в согласованное рабочее окно.
+Управляемый IT-сервис для малого и среднего бизнеса: monitoring, backup, защищённый доступ и реакция в договорное окно.
 
-> «Мониторинг 24/7» означает круглосуточную автоматику, а не круглосуточное дежурство инженера. Gold и гарантированное 24/7-реагирование закрыты до отдельного operational gate.
+> **Начинайте не с поиска файлов, а с нужного маршрута ниже.** Полная карта: [`docs/NAVIGATION.md`](docs/NAVIGATION.md).
 
-## Быстрый маршрут по репозиторию
+## Маршруты работы
 
-| Я хочу… | Начать здесь | Затем |
+| Что нужно сделать | Точка входа | Дальше по маршруту |
 |---|---|---|
-| понять проект и ограничения | [`docs/README.md`](docs/README.md) | [`docs/PROJECT_8_OF_10.md`](docs/PROJECT_8_OF_10.md) |
-| развернуть production | [`docs/deployment/README.md`](docs/deployment/README.md) | [`docs/deployment/DEPLOYMENT_LESSONS.md`](docs/deployment/DEPLOYMENT_LESSONS.md) |
-| перенести VM | [`migration/README.md`](migration/README.md) | [`migration/restore-on-vm.sh`](migration/restore-on-vm.sh) |
-| проверить backup/restore | [`docs/deployment/disaster_recovery.md`](docs/deployment/disaster_recovery.md) | [`technical/0_Common/scripts/dr_drill.sh`](technical/0_Common/scripts/dr_drill.sh) |
-| настроить MAX | [`docs/MAX_SETUP.md`](docs/MAX_SETUP.md) | [`services/max_alerter/README.md`](services/max_alerter/README.md) |
-| принять нового клиента | [`docs/operations/CLIENT_LIFECYCLE.md`](docs/operations/CLIENT_LIFECYCLE.md) | [`docs/onboarding/README.md`](docs/onboarding/README.md) |
-| обучить Junior | [`docs/training/README.md`](docs/training/README.md) | [`docs/training/DEPLOYMENT_MIGRATION_LABS.md`](docs/training/DEPLOYMENT_MIGRATION_LABS.md) |
-| нанять инженера | [`docs/hiring/test_task.md`](docs/hiring/test_task.md) | [`docs/hiring/technical_interview.md`](docs/hiring/technical_interview.md) |
-| работать с тарифами | [`technical/README.md`](technical/README.md) | [`docs/PRICING_SOURCE_OF_TRUTH.md`](docs/PRICING_SOURCE_OF_TRUTH.md) |
-| подготовить договор | [`contracts/README.md`](contracts/README.md) | [`contracts/canonical/`](contracts/canonical/) |
+| Продать услугу | [`commercial/README.md`](commercial/README.md) | цена → квалификация → discovery → КП → договор |
+| Подготовить договор | [`contracts/README.md`](contracts/README.md) | единый MSA → Order Form → DOCX |
+| Развернуть production | [`docs/deployment/README.md`](docs/deployment/README.md) | preflight → deploy → health → alert → restore evidence |
+| Перенести VM | [`migration/README.md`](migration/README.md) | backup → restore → gates → DNS switch |
+| Подключить клиента | [`docs/operations/README.md`](docs/operations/README.md) | Won → onboarding → steady state → offboarding |
+| Разобрать инцидент | [`docs/runbooks/README.md`](docs/runbooks/README.md) | severity → runbook → evidence → postmortem |
+| Настроить MAX | [`docs/MAX_SETUP.md`](docs/MAX_SETUP.md) | webhook → ручная авторизация → test alert |
+| Обучить Junior | [`docs/training/README.md`](docs/training/README.md) | guide → weeks → labs → допуск |
+| Разрабатывать приложение | [`docs/NAVIGATION.md#разработка`](docs/NAVIGATION.md#разработка) | backend/frontend → tests → PR |
+| Понять готовность | [`docs/PROJECT_8_OF_10.md`](docs/PROJECT_8_OF_10.md) | gates → evidence → ограничения |
 
-## Структура верхнего уровня
+## По ролям
 
-| Каталог | Что в нём | Не хранить |
+- **Owner / инженер:** [`docs/deployment/README.md`](docs/deployment/README.md) → [`docs/operations/README.md`](docs/operations/README.md).
+- **Product / Service Manager:** [`commercial/README.md`](commercial/README.md) → [`docs/operations/CLIENT_LIFECYCLE.md`](docs/operations/CLIENT_LIFECYCLE.md).
+- **Junior Engineer:** [`docs/training/README.md`](docs/training/README.md) → [`docs/runbooks/README.md`](docs/runbooks/README.md).
+- **Разработчик:** [`docs/NAVIGATION.md#разработка`](docs/NAVIGATION.md#разработка).
+
+## Структура без путаницы
+
+| Каталог | Что внутри | Читать или выполнять |
 |---|---|---|
-| `backend/`, `frontend/` | приложение и тесты | реальные `.env` |
-| `deploy/`, `infra/` | production compose, IaC, установка | state, cloud IDs и ключи |
-| `migration/` | перенос данных и проверка новой VM | архивы и credentials |
-| `services/` | MAX alerter, VM watcher | session database и токены |
-| `technical/` | роли, playbook, тарифные реализации | клиентские секреты |
-| `docs/` | процессы, обучение, runbook, продажи | неподтверждённые обещания |
-| `contracts/` | канонические шаблоны договоров | подписанные клиентские копии |
-| `scripts/` | проверки и bootstrap | некомментированные destructive scripts |
+| [`commercial/`](commercial/README.md) | прайс, воронка, scripts, объявления, КП | читать и копировать в сделку |
+| [`contracts/`](contracts/README.md) | один договор и DOCX builder | заполнять после КП |
+| [`docs/`](docs/README.md) | оглавления, runbooks, обучение, процессы | начинать с index-файлов |
+| [`deploy/`](deploy/README.md) | Compose/Docker/Nginx production-код | выполнять только через deploy runbook |
+| [`migration/`](migration/README.md) | backup/restore/migration scripts | выполнять только по migration gate |
+| [`services/`](services/README.md) | MAX alerter и VM watcher | код сервисов и их README |
+| [`scripts/`](scripts/README.md) | preflight и validators | инструменты, не бизнес-документация |
+| [`technical/`](technical/README.md) | технический состав тарифов | reference после прайса |
+| [`infra/`](infra/README.md) | Terraform/IaC альтернативного контура | не основной pilot path |
+| `backend/`, `frontend/` | приложение и тесты | разработка |
+| `analysis/`, `marketing/`, `docs/sales/` | исторические материалы/redirects | не источник истины |
 
-## Канонический production flow
+## Приоритет при конфликте
 
-```text
-Изменение → preflight → backup/rollback → deploy → health checks
-→ тестовый alert → restore evidence → change record → наблюдение
-```
+1. код и CI-инварианты;
+2. канонический документ из [`docs/README.md`](docs/README.md);
+3. профильный index/README;
+4. исторические audit, analysis и postmortem.
+
+Gold On Demand доступен только после capacity gate. Monitoring 24/7 не означает 24/7 реакцию, если это отдельно не активировано в Gold Order Form.
+
+## Проверка ссылок
 
 ```bash
-bash scripts/deployment/preflight.sh
+python scripts/validate_markdown_links.py
 ```
 
-## Безопасные правила
-
-- Не коммитить `.env`, `.deploy-state.json`, session DB, токены, ключи и backup credentials.
-- Не копировать старые `.env` на новую VM: создать новые и проверить обязательные ключи.
-- Не использовать `StrictHostKeyChecking=no`; изменение host key проверять через консоль провайдера.
-- Не считать snapshot backup успешным без test restore и evidence.
-- Junior не меняет production вне уровня допуска и change record.
-- Каждый operational script должен иметь русскую шапку: назначение, место запуска, входы, побочные эффекты, проверка и откат.
-
-## Локальный запуск
-
-```bash
-git clone https://github.com/i1yxaluk-del/Newbie.git
-cd Newbie
-cp backend/.env.example backend/.env
-docker compose -f deploy/docker-compose.yml up -d mongo
-cd backend && pip install -r requirements.txt && uvicorn server:app --reload --port 8001
-```
-
-Production запускает `secure_server:app`; порт backend доступен только через reverse proxy.
+CI не позволит слить изменение с тупиковой ссылкой в основных оглавлениях.

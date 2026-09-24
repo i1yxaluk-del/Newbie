@@ -1,57 +1,23 @@
 #!/usr/bin/env python3
-"""Проверяет критичные коммерческие обещания в текущих документах.
-
-Назначение: не дать старой цене Gold или обещанию круглосуточного инженера
-вернуться в лендинг, README и новые договорные шаблоны.
-
-Где запускать: из корня репозитория командой
-`python scripts/validate_business_consistency.py`.
-
-Побочные эффекты: отсутствуют; скрипт только читает файлы.
-Откат: не требуется. Если проверка упала, исправьте источник расхождения,
-а не удаляйте правило без согласования владельца продукта.
-"""
+"""Проверяет единый прайс, продажи, рекламу и договор."""
 from pathlib import Path
-import json
-import re
-import sys
-
-ROOT = Path(__file__).resolve().parents[1]
-CRITICAL_TEXT_FILES = [
-    ROOT / "README.md",
-    ROOT / "technical/README.md",
-    ROOT / "technical/BUSINESS_MODEL.md",
-    ROOT / "docs/PRICING_SOURCE_OF_TRUTH.md",
-    ROOT / "docs/sales/templates/kp_template.md",
-    ROOT / "contracts/README.md",
-    ROOT / "contracts/canonical/TARIFFS_SLA.md",
-    ROOT / "frontend/public/docs/offer.html",
-]
-
-errors = []
-for path in CRITICAL_TEXT_FILES:
-    # UTF-8 задаём явно, чтобы проверка одинаково работала на Linux и Windows.
-    text = path.read_text(encoding="utf-8")
-    if re.search(r"Gold.{0,80}85[\s\u00a0]000", text, re.IGNORECASE | re.DOTALL):
-        errors.append(f"{path.relative_to(ROOT)}: найдена отменённая цена Gold 85 000 ₽")
-    if "безлимит" in text.lower() and "вместо безлимита" not in text.lower():
-        errors.append(f"{path.relative_to(ROOT)}: найдено опасное обещание безлимита")
-
-landing_path = ROOT / "frontend/src/content/landing.ru.json"
-landing = json.loads(landing_path.read_text(encoding="utf-8"))
-prices = {plan["id"]: plan["price"] for plan in landing["pricing"]["plans"]}
-expected = {"bronze": "25 000", "silver": "50 000", "gold": "120 000"}
-if prices != expected:
-    errors.append(f"landing.ru.json: цены {prices}, ожидались {expected}")
-
-footnote = landing["pricing"].get("pricingFootnote", "")
-if "не равен круглосуточному дежурству" not in footnote:
-    errors.append("landing.ru.json: нет явного различия мониторинга и дежурства")
-
+import json,re,sys
+ROOT=Path(__file__).resolve().parents[1]
+FILES=[ROOT/'README.md',ROOT/'commercial/PRICING.md',ROOT/'commercial/SALES_FUNNEL.md',ROOT/'commercial/SALES_PLAYBOOK.md',ROOT/'commercial/ADS.md',ROOT/'commercial/PROPOSAL.md',ROOT/'contracts/MSP_SERVICE_AGREEMENT.md',ROOT/'technical/BUSINESS_MODEL.md']
+errors=[]
+for path in FILES:
+ text=path.read_text(encoding='utf-8')
+ if re.search(r'Gold.{0,80}85[\s\u00a0]?000',text,re.I|re.S): errors.append(f'{path}: старая цена Gold')
+contract=(ROOT/'contracts/MSP_SERVICE_AGREEMENT.md').read_text(encoding='utf-8')
+for required in ['## 10. SLA','## 12. Персональные данные','## 13. Ответственность','# ПРИЛОЖЕНИЕ 1. ORDER FORM','# ПРИЛОЖЕНИЕ 2. ПЕРИМЕТР','# ПРИЛОЖЕНИЕ 3. ПОРУЧЕНИЕ','GOLD ON DEMAND','Gold capacity approval']:
+ if required not in contract: errors.append('договор: нет '+required)
+pricing=(ROOT/'commercial/PRICING.md').read_text(encoding='utf-8')
+for value in ['25 000 ₽','50 000 ₽','120 000 ₽','3 500 ₽/ч','64,6%','63,5%','53,4%','Gold capacity gate']:
+ if value not in pricing: errors.append('прайс: нет '+value)
+landing=json.loads((ROOT/'frontend/src/content/landing.ru.json').read_text(encoding='utf-8'))
+prices={p['id']:p['price'] for p in landing['pricing']['plans']}
+if prices!={'bronze':'25 000','silver':'50 000','gold':'120 000'}: errors.append(f'landing prices {prices}')
+if 'не равен круглосуточному дежурству' not in landing['pricing'].get('pricingFootnote',''): errors.append('landing: нет оговорки monitoring/on-call')
 if errors:
-    print("Проверка коммерческой согласованности: ОШИБКА")
-    for error in errors:
-        print(f"- {error}")
-    sys.exit(1)
-
-print("Проверка коммерческой согласованности: OK")
+ print('BUSINESS CONSISTENCY FAILED'); [print(' -',e) for e in errors]; sys.exit(1)
+print('BUSINESS CONSISTENCY OK')

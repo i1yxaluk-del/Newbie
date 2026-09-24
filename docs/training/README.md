@@ -1,54 +1,33 @@
 # Программа допуска Junior MSP Engineer
 
-Цель программы — не «прочитать 12 недель», а доказать безопасное выполнение операций. Junior никогда не получает production-доступ только по сроку работы.
+Допуск основан на evidence, а не на сроке работы.
 
-## Уровни допуска
+## Уровни
 
 | Уровень | Разрешено | Запрещено |
 |---|---|---|
-| L0 Observe | читать логи, смотреть dashboard, вести документацию | любые изменения |
-| L1 Assisted | выполнять типовой runbook при демонстрации экрана | самостоятельный production |
-| L2 Supervised | выполнять одобренное изменение с peer review | P1 commander, firewall/backup policy без owner |
-| L3 Independent | Bronze P2/P3 и регулярные операции | Gold/on-call без отдельного допуска |
+| L0 Observe | dashboards, read-only logs, документация | изменения |
+| L1 Assisted | runbook при screen sharing | самостоятельный production |
+| L2 Supervised | одобренный change с reviewer | firewall/backup policy/P1 commander |
+| L3 Independent | Bronze P2/P3 и регулярные операции | Gold/on-call без отдельного gate |
 
-## Общий алгоритм любой операции
+## Маршрут
 
-1. Назови tenant и целевой hostname вслух.
-2. Проверь тикет, периметр и окно изменения.
-3. Сделай backup/снимок, если изменение обратимо таким способом.
-4. Запиши команду и ожидаемый результат до запуска.
-5. Подготовь rollback.
-6. Выполни на test/staging.
-7. Получи необходимое подтверждение.
-8. Выполни production и сохрани evidence.
-9. Проверь сервис глазами клиента.
-10. Обнови тикет и документацию.
+1. [`JUNIOR_OPERATIONS_GUIDE.md`](JUNIOR_OPERATIONS_GUIDE.md) — как читать scripts/runbooks.
+2. `week_01.md`…`week_12.md` — теория и базовая практика.
+3. [`DEPLOYMENT_MIGRATION_LABS.md`](DEPLOYMENT_MIGRATION_LABS.md) — реальные уроки deployment.
+4. [`../runbooks/README.md`](../runbooks/README.md) — incident response.
+5. Итоговый Bronze exam.
 
-## 12 недель
+## Обязательные навыки L2
 
-| Неделя | Тема | Практический результат |
-|---:|---|---|
-| 1 | Доступы, секреты, коммуникация | вход с MFA, корректный handover |
-| 2 | Linux baseline | безопасная диагностика без изменений |
-| 3 | Prometheus/Grafana | объяснить алерт и проверить источник |
-| 4 | Restic/DR | restore в чистую test-среду и JSON evidence |
-| 5 | Сети/VPN | диагностировать tunnel без отключения клиента |
-| 6 | Hardening/ПДн | finding с риском и rollback, без ложного compliance |
-| 7 | AD/GPO | стендовый restore GPO и peer-reviewed change |
-| 8 | 1С/PostgreSQL | диагностика read-only; изменение только с владельцем 1С |
-| 9 | Ansible/IaC | идемпотентный playbook и check mode |
-| 10 | Incident response | tabletop P1 и корректная эскалация |
-| 11 | Клиентская коммуникация | status update без неподтверждённых обещаний |
-| 12 | Экзамен | полный Bronze-сценарий на стенде |
+- preflight и чтение Compose config без вывода секретов;
+- backup Mongo и stateful services с корректным writer handling;
+- clean-room restore и RTO/RPO evidence;
+- MAX session transfer без автоматической SMS;
+- диагностика Postbox SMTP 535;
+- TCP/443 VM health вместо вывода по одному ICMP;
+- SSH host-key verification;
+- change/rollback/client update.
 
-## Экзамен L2
-
-- развернуть test tenant;
-- вызвать контролируемый алерт;
-- диагностировать причину;
-- восстановить файл из backup;
-- оформить change, evidence и клиентский отчёт;
-- объяснить разницу между monitoring 24/7 и engineer on-call;
-- не использовать реальные секреты или production ПДн.
-
-Провал любого security-критерия означает повтор упражнения, а не доступ «под ответственность».
+Провал security-критерия означает повтор упражнения.

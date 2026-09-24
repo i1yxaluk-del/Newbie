@@ -19,6 +19,7 @@
 - [`landing_production.md`](landing_production.md) — Terraform/Ansible вариант; использовать только после отдельного решения перейти с single-VM pilot.
 - [`tenant_onboarding.md`](tenant_onboarding.md) — подключение клиентского tenant после подписанного scope.
 - [`secrets_management.md`](secrets_management.md) — секреты и ротация.
+- [VAULTWARDEN_ORG_RUNBOOK.md](VAULTWARDEN_ORG_RUNBOOK.md) — организация, коллекции и импорт секретов Vaultwarden
 
 ## Не смешивать
 

@@ -37,3 +37,21 @@ sudo docker exec msp-max-alerter python -m max_alerter.auth
 ```
 
 Затем отправить контролируемый P1, проверить MAX и email, создать новый backup и выполнить test restore в чистом окружении.
+
+
+## Уроки миграции 28.09.2026 (проверено на реальном переезде)
+
+| Тема | Симптом | Системный контроль | Проверка |
+|---|---|---|---|
+| Новый публичный IP недостижим из целевого региона | сайт «не работает» (TCP timeout), ICMP ок | smoke-тест TCP из РФ до DNS switch; иначе пересоздать адрес в другом пуле | `curl`/`nc` с российской машины |
+| Одиночная ВМ + bastion | лишняя ВМ и путаница | bastion — временный; удалять сразу после прямого доступа | `yc compute instance list` = 1 |
+| Caddy-placeholder от cloud-init | 503 «provisioning» | сверять `/etc/caddy/Caddyfile` с репозиторием при деплое | `curl -I https://<domain>` |
+| Caddyfile без `MSP_DOMAIN` | caddy не стартует: «server block without any key» | env/systemd override для юнита Caddy | `caddy validate` |
+| restore-on-vm и раскладка артефактов | тома молча не восстановлены | класть артефакты плоско в `MIGRATION_DIR`; копировать через `sudo sh -c 'cp …'` | `ls /tmp/migration`; `du -sh` томов |
+| Пустой `stalwart-data` | Stalwart в bootstrap-режиме (нет ящиков) | восстанавливать ОБА тома; конфиг хранится в RocksDB | grep «bootstrap» в логе; ящики на месте |
+| restic: ключи привязаны к аккаунту/бакету | `SignatureDoesNotMatch` на новом бакете | новый access key + `restic init` при переезде аккаунта | `restic snapshots` |
+| Postbox: ключ + DKIM заново | `550 identity not verified`; отправка не идёт | пересоздать API-ключ; переопубликовать DKIM TXT; дождаться verified | тестовое письмо через SMTP |
+| Amnezia PPA после переноса | apt «is not signed» | ключ в `/etc/apt/trusted.gpg.d/`, без `signed-by` в list | `apt-get update` exit 0 |
+| AWG: SG/ufw без UDP/443 | рукопожатие не проходит | gate: UDP 443 на SG + ufw allow; SSH-from-VPN правило | `awg show latest-handshakes` |
+| cloud-init: IPv6-зеркала, битый NodeSource, нет unzip | apt/распаковка падают | ForceIPv4; чистить лишние apt-репозитории; доустановка утилит | `apt-get update`, `unzip -v` |
+| `key.json` невалиден | yc CLI не работает | проверка JSON до автоматизации | `yc config list` |

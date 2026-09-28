@@ -4,7 +4,7 @@ Windows-служба, которая мониторит VM на Yandex Cloud и 
 
 ## Как работает
 
-1. Каждые 5 минут пингует публичный IP VM (`158.160.47.130`)
+1. Каждые 5 минут пингует публичный IP VM (`130.193.49.21`)
 2. Если 5 пингов подряд не прошли — проверяет статус VM через `yc compute instance get`
 3. Если VM **stopped** — отправляет `yc compute instance start` и уведомление в Telegram
 4. Если VM **running** но не отвечает — уведомление «проблема сети»
@@ -66,7 +66,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File uninstall.ps1
 
 ```
 [2026-06-05 23:56:58] === VM Watcher started ===
-[2026-06-05 23:56:58] Target=158.160.47.130 Interval=300s Threshold=5 VM=fhmedri2e4gitkd90l1i
+[2026-06-05 23:56:58] Target=130.193.49.21 Interval=300s Threshold=5 VM=fhmf07j3ta72u1osflap
 [2026-06-05 23:56:59] PING OK
 [2026-06-06 00:01:59] PING OK
 [2026-06-06 00:06:59] PING FAIL (1/5)
@@ -84,10 +84,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File uninstall.ps1
 
 | Параметр | По умолчанию | Описание |
 |----------|-------------|----------|
-| `$Target` | `158.160.47.130` | Публичный IP VM |
+| `$Target` | `130.193.49.21` | Публичный IP VM |
 | `$IntervalSeconds` | `300` | Интервал проверки (секунды) |
 | `$FailThreshold` | `5` | Кол-во ошибок для срабатывания |
-| `$VmId` | `fhmedri2e4gitkd90l1i` | ID инстанса Yandex Cloud |
+| `$VmId` | `fhmf07j3ta72u1osflap` | ID инстанса Yandex Cloud |
 
 ## Мульти-пользователь
 

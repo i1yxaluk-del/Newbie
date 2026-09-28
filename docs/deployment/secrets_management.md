@@ -4,7 +4,7 @@
 
 ## Архитектура
 
-Все сервисы работают на одной Yandex Cloud VM (static IP: `158.160.47.130`). Доступ — только через AmneziaWG туннель (`10.9.0.1`, UDP/443). SSH: `ssh -i ~/.ssh/id_ed25519_yc_new ubuntu@10.9.0.1`.
+Все сервисы работают на одной Yandex Cloud VM (static IP: `130.193.49.21`). Доступ — только через AmneziaWG туннель (`10.9.0.1`, UDP/443). SSH: `ssh -i ~/.ssh/id_ed25519_yc_new ubuntu@10.9.0.1`.
 
 Два Docker-стека:
 - **Приложение**: `/opt/msp/Newbie/deploy/yandex/` (сеть `msp_default`) — MongoDB, backend, Stalwart, Vaultwarden
@@ -135,7 +135,7 @@ DNS управляется через Namecheap (НЕ Yandex Cloud DNS — пл�
 
 | Запись | Тип | Значение |
 |--------|-----|----------|
-| `msp-claude.online` | A | `158.160.47.130` |
+| `msp-claude.online` | A | `130.193.49.21` |
 | `vault.msp-claude.online` | CNAME | `msp-claude.online` |
 | `mail.msp-claude.online` | CNAME | `msp-claude.online` |
 | `mon.msp-claude.online` | CNAME | `msp-claude.online` |

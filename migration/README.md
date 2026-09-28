@@ -50,3 +50,21 @@ sudo docker exec -it msp-max-alerter python -m max_alerter.auth --authorize
 ```
 
 Старую VM держать выключенной до завершения периода наблюдения; удалять после подтверждённого backup новой среды.
+
+
+## Журнал выполнения (28.09.2026)
+
+- Перенесено успешно: Mongo (`mongorestore --drop`), `vaultwarden-data`, `stalwart-etc` + `stalwart-data`, `max-session`.
+- Подтверждено на практике: `restore-on-vm.sh` требует **плоскую раскладку** файлов в `MIGRATION_DIR`:
+
+  ```text
+  /tmp/migration/mongodump.archive.gz
+  /tmp/migration/vaultwarden-data.tar.gz
+  /tmp/migration/stalwart-etc.tar.gz
+  /tmp/migration/stalwart-data.tar.gz
+  /tmp/migration/max-session.tar.gz
+  ```
+
+  В полном ките бэкапа файлы лежат в `opt/msp-backups/current/` и `.../volumes/` — перед запуском скопировать плоско (из root-only каталогов — только `sudo sh -c 'cp ...'`: glob в пользовательском шелле не раскроется).
+- Напоминание: пустой том `stalwart-data` = Stalwart в bootstrap-режиме (конфиг хранится внутри RocksDB); восстанавливать оба тома.
+- После восстановления: `sudo docker compose --profile mail up -d stalwart` и проверка отсутствия «bootstrap mode» в логе.

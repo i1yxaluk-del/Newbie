@@ -42,6 +42,10 @@ MAX_CHAT_ID=-00000000000000
 ALERTMANAGER_WEBHOOK_TOKEN=<случайная строка не короче 32 байт>
 MAX_FAILURE_COOLDOWN=300
 
+# Необязательно: неинтерактивная авторизация (удалить значения после использования!)
+# MAX_SMS_CODE=
+# MAX_PASSWORD=
+
 # Необязательный Telegram fallback
 TELEGRAM_BOT_TOKEN=
 TELEGRAM_CHAT_ID=
@@ -81,7 +85,7 @@ sudo docker exec msp-max-alerter python -m max_alerter.auth
 
 Код `2` до первой авторизации ожидаем.
 
-## 5. Ручная web/SMS-авторизация
+## 5. Ручная авторизация (SMS + пароль 2FA)
 
 ```bash
 sudo docker exec -it msp-max-alerter python -m max_alerter.auth --authorize
@@ -90,8 +94,14 @@ sudo docker exec -it msp-max-alerter python -m max_alerter.auth --authorize
 1. Скрипт берёт номер из `MAX_PHONE`.
 2. MAX отправляет код.
 3. Оператор вводит код в интерактивном терминале.
-4. Сессия сохраняется в `/session/max.db`.
-5. Каталог на хосте: `deploy/yandex/monitoring/max-session/`.
+4. Если у аккаунта включён пароль 2FA — MAX запрашивает пароль; скрипт спросит его скрытым вводом (`getpass`, символы не отображаются).
+5. Сессия сохраняется в `/session/max.db`.
+6. Каталог на хосте: `deploy/yandex/monitoring/max-session/`.
+
+Для неинтерактивных прогонов (удалённый запуск без TTY) можно передать значения через окружение:
+`MAX_SMS_CODE` и/или `MAX_PASSWORD` в `monitoring/.env` — тогда соответствующий запрос в консоли
+пропускается. После использования — удалить значения из `.env` и пересоздать контейнер
+(`sudo docker compose up -d --force-recreate max-alerter`).
 
 Никогда не удаляйте рабочую сессию при обычном deploy. Повторная авторизация нужна только при утрате или отзыве сессии.
 

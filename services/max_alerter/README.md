@@ -10,6 +10,9 @@ sudo docker compose up -d --build max-alerter alertmanager
 sudo docker exec -it msp-max-alerter python -m max_alerter.auth --authorize
 ```
 
+Скрипт спросит SMS-код, а при включённом 2FA — и пароль MAX (ввод скрыт, `getpass`).
+Для неинтерактивных прогонов: `MAX_SMS_CODE` / `MAX_PASSWORD` в окружении (см. `docs/MAX_SETUP.md` §5).
+
 Сессия: `/session/max.db`, на хосте — `deploy/yandex/monitoring/max-session/max.db`. Авторизация всегда ручная; сервис не должен сам инициировать SMS.
 
 ## Проверка

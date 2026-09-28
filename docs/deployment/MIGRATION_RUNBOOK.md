@@ -49,7 +49,8 @@ sudo MIGRATION_DIR=/tmp/migration bash migration/restore-on-vm.sh
 
 ```bash
 sudo docker exec -it msp-max-alerter python -m max_alerter.auth --authorize
-# SMS на +79990703823 → ввести код
+# 1) ввести SMS-код; 2) если включён 2FA — ввести пароль MAX (ввод скрыт)
+# неинтерактивно: MAX_SMS_CODE / MAX_PASSWORD в monitoring/.env (после использования — удалить)
 ```
 
 Проверка без SMS: `sudo docker exec msp-max-alerter python -m max_alerter.auth` (exit 0 = сессия есть).

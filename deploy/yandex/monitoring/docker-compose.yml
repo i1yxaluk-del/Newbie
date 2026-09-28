@@ -171,6 +171,8 @@ services:
       MAX_PHONE: "${MAX_PHONE:?MAX_PHONE обязателен}"
       MAX_SESSION_DIR: /session
       MAX_SESSION_NAME: max.db
+      MAX_SMS_CODE: "${MAX_SMS_CODE:-}"
+      MAX_PASSWORD: "${MAX_PASSWORD:-}"
       MAX_CHAT_ID: "${MAX_CHAT_ID:?MAX_CHAT_ID обязателен}"
       WEBHOOK_TOKEN: "${ALERTMANAGER_WEBHOOK_TOKEN:?ALERTMANAGER_WEBHOOK_TOKEN обязателен}"
       TG_BOT_TOKEN: "${TELEGRAM_BOT_TOKEN:-}"

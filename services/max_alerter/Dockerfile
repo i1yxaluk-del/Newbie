@@ -9,6 +9,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . /app/max_alerter/
 VOLUME ["/session", "/data"]
 ENV MAX_PHONE="" MAX_SESSION_DIR="/session" MAX_SESSION_NAME="max.db" \
+    MAX_SMS_CODE="" MAX_PASSWORD="" \
     WEBHOOK_TOKEN="" MAX_CHAT_ID="" TG_BOT_TOKEN="" TG_CHAT_ID="" \
     FAILED_LOG="/data/failed_alerts.log" HOST="0.0.0.0" PORT="9095"
 EXPOSE 9095

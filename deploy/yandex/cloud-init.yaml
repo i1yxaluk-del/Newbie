@@ -127,6 +127,7 @@ runcmd:
   #
   #    UDP/443 — AmneziaWG (для bastion-функции на этой же VM).
   #    Не конфликтует с TCP/443 у Caddy — разные протоколы.
+  #    Харденинг: после проверки AWG закрыть публичный SSH (DEPLOY_RUNBOOK §13).
   #    См. docs/runbooks/R-08.md и technical/0_Common/amneziawg/.
   - ufw default deny incoming
   - ufw default allow outgoing

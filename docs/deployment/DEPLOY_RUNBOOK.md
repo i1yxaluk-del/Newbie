@@ -137,3 +137,29 @@ powershell -File C:\Users\<user>\vm_watcher\install.ps1
 - Публичный IP доступен по TCP из целевой сети (см. §8).
 - Stalwart не в bootstrap: `docker logs msp-stalwart-1 | grep -c 'bootstrap mode'` → `0` (актуально при миграции).
 - При восстановлении из бэкапа `du -sh` томов ≈ размеру бэкапа (см. MIGRATION_RUNBOOK §9.4).
+
+## 13. Харденинг SSH (после того как AWG-туннель проверен)
+
+По умолчанию публичный SSH открыт с 0.0.0.0/0 — иначе нельзя развернуть ВМ до поднятия AWG.
+После проверки туннеля закрываем публичный вход: остаётся только `10.9.0.0/24`:
+
+```bash
+# на ВМ: оставить SSH только из VPN-подсети
+sudo ufw delete allow 22/tcp          # удалит и v4, и v6 «Anywhere»
+sudo ufw status numbered | grep 22    # должен остаться только "22/tcp ALLOW IN 10.9.0.0/24"
+
+# на рабочей станции (yc):
+yc vpc security-group update-rules --id <sg-id> --delete-rule-id <ssh-rule-id>
+```
+
+Проверка: `nc -vz <IP> 22` снаружи → таймаут; `ssh ubuntu@10.9.0.1` через туннель → работает.
+
+**Аварийный возврат доступа** (если туннель сломался, а зайти нужно):
+
+```bash
+yc vpc security-group update-rules --id <sg-id> \
+  --add-rule "direction=ingress,protocol=tcp,port=22,v4-cidrs=0.0.0.0/0"
+# на ВМ: sudo ufw allow 22/tcp  — и после ремонта снова закрыть
+```
+
+Применено на production 28.09.2026: публичный 22 закрыт на уровнях SG и ufw.

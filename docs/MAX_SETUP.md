@@ -144,6 +144,11 @@ sudo docker logs msp-max-alerter --tail 100
 sudo docker compose up -d --force-recreate max-alerter alertmanager
 ```
 
+Сессия переживает перезагрузку ВМ и контейнера: `max.db` — bind-mount на хосте
+(`deploy/yandex/monitoring/max-session/max.db`), контейнер стартует автоматически
+(`restart: unless-stopped`), повторная авторизация не требуется. Она нужна только
+если MAX отзовёт сессию (logout на всех устройствах, смена пароля и т.п.).
+
 ## 8. Перенос на новую VM
 
 Переносить нужно каталог сессии отдельно от Git:

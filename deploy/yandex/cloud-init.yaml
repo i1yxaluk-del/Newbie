@@ -28,6 +28,7 @@ packages:
   - python3-pip
   - python3-venv
   - openssl
+  - unzip
 
 # Файлы, которые нужны до первого запуска runcmd
 write_files:
@@ -64,6 +65,14 @@ write_files:
     owner: root:root
     permissions: '0644'
 
+  # APT: форсируем IPv4 (урок миграции 28.09): IPv6-зеркала на части сетей YC
+  # недоступны и ломают apt уже на этапе package_update.
+  - path: /etc/apt/apt.conf.d/99force-ipv4
+    content: |
+      Acquire::ForceIPv4 "true";
+    owner: root:root
+    permissions: '0644'
+
 # Запуск установки. Каждая команда логируется в /var/log/cloud-init-output.log.
 runcmd:
   # 1. Docker repo + Docker Engine + Compose v2 plugin
@@ -73,7 +82,7 @@ runcmd:
   # $VERSION_CODENAME пустая → docker.list содержит пустое имя
   # дистрибутива → apt-get update падает. Фикс: хардкод jammy.
   - install -m 0755 -d /etc/apt/keyrings
-  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+  - curl -4fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
   - chmod a+r /etc/apt/keyrings/docker.asc
   - |
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
@@ -82,15 +91,15 @@ runcmd:
 
   # 2. Caddy official repo (автоматический SSL через Let's Encrypt)
   - |
-    curl -fsSL https://dl.cloudsmith.io/public/caddy/stable/gpg.key \
+    curl -4fsSL https://dl.cloudsmith.io/public/caddy/stable/gpg.key \
     | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
   - |
-    curl -fsSL https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt \
+    curl -4fsSL https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt \
     > /etc/apt/sources.list.d/caddy-stable.list
 
   # 3. NodeSource Node.js 20 LTS (для yarn build фронта)
   - |
-    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
+    curl -4fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
     | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
   - |
     echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] \
@@ -130,6 +139,7 @@ runcmd:
   - ufw allow 143/tcp    comment 'Stalwart IMAP STARTTLS'
   - ufw allow 993/tcp    comment 'Stalwart IMAPS (TLS)'
   - ufw allow 4190/tcp   comment 'Stalwart ManageSieve'
+  - ufw allow from 10.9.0.0/24 to any port 22 proto tcp comment 'SSH via AmneziaWG VPN'
   - ufw --force enable
 
   # 7. Создание директории приложения (PowerShell-скрипт зальёт сюда репо)
@@ -162,10 +172,25 @@ runcmd:
   - sysctl -w net.ipv4.ip_forward=1
   - echo 'net.ipv4.ip_forward=1' > /etc/sysctl.d/99-awg.conf
 
-  # 10. Маркер готовности базового образа.
-  #     deploy.ps1 опрашивает наличие этого файла перед загрузкой кода.
-  - touch /var/log/msp-deploy.base-ready
-  - date -u +"%Y-%m-%dT%H:%M:%SZ base provisioning done" >> /var/log/msp-deploy.log
+  # 11. Базовая валидация (урок миграции 28.09): маркер готовности пишем только если
+  #     docker/caddy/node/unzip реально на месте — иначе deploy.ps1 лучше явно
+  #     дождётся таймаута, чем продолжит на полусобранной ВМ.
+  - |
+    miss=""
+    for b in docker caddy node curl git jq unzip python3; do
+      command -v "$b" >/dev/null 2>&1 || miss="$miss $b"
+    done
+    if [ -n "$miss" ]; then
+      echo "BASE-VALIDATION FAILED: missing:$miss" >> /var/log/msp-deploy.log
+      exit 1
+    fi
+    case "$(node -v)" in
+      v20*) ;;
+      *) echo "BASE-VALIDATION WARN: node $(node -v) — ожидался v20" >> /var/log/msp-deploy.log ;;
+    esac
+    echo "BASE-VALIDATION OK: node=$(node -v), docker=$(docker --version)" >> /var/log/msp-deploy.log
+    touch /var/log/msp-deploy.base-ready
+    date -u +"%Y-%m-%dT%H:%M:%SZ base provisioning done" >> /var/log/msp-deploy.log
 
 # Финальный шаг — если что-то упало, отметить ошибку явно.
 final_message: |

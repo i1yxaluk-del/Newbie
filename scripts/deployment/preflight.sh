@@ -54,6 +54,19 @@ ENTRY="$ROOT/deploy/yandex/monitoring/alertmanager/entrypoint.sh"
 if [[ ! -x "$ENTRY" ]]; then
   $FIX && chmod +x "$ENTRY" || { echo "ERROR: $ENTRY не executable; повторите с --fix" >&2; exit 1; }
 fi
+
+# Контур сайта (урок миграции 28.09): заглушка cloud-init даёт 503,
+# неразрешённый {$MSP_DOMAIN} не даёт Caddy стартовать. Проверяем оба состояния —
+# жёстко на ВМ (если Caddyfile существует), мягко в CI (папки /etc/caddy нет).
+[[ -f "$ROOT/deploy/yandex/Caddyfile" ]] || { echo "ERROR: нет deploy/yandex/Caddyfile" >&2; exit 1; }
+if [[ -f /etc/caddy/Caddyfile ]]; then
+  if grep -q 'provisioning in progress' /etc/caddy/Caddyfile; then
+    echo "WARN: /etc/caddy/Caddyfile — заглушка cloud-init (сайт будет 503). Запустите setup-on-vm.sh (см. MIGRATION_RUNBOOK §9.3)." >&2
+  fi
+  if grep -q '{\$MSP_DOMAIN}' /etc/caddy/Caddyfile; then
+    echo "WARN: в /etc/caddy/Caddyfile не подставлен MSP_DOMAIN — Caddy не стартует (см. setup-on-vm.sh)." >&2
+  fi
+fi
 (cd "$ROOT/deploy/yandex" && docker compose config >/dev/null)
 (cd "$ROOT/deploy/yandex/monitoring" && docker compose config >/dev/null)
 grep -q 'secure_server:app' "$ROOT/deploy/yandex/Dockerfile.backend"

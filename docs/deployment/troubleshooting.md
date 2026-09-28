@@ -309,6 +309,43 @@ curl http://10.20.10.11:9100/metrics
 
 Частая ошибка: `chat_id` с минусом для каналов/групп, без минуса для лички. Проверить.
 
+## Миграция и развёртывание VM (уроки 28.09)
+
+### Сайт недоступен: TCP timeout, ICMP проходит
+IP/маршрут заблокирован в конкретной сети (типично для российских). Один адрес из YC-пула может быть недостижим, другой — работать.
+
+```bash
+# Проверить из двух разных сетей:
+nc -vz <IP> 443; ping <IP>
+```
+Решение: пересоздать зарезервированный адрес в другом пуле, переключить NAT, обновить DNS. См. `MIGRATION_RUNBOOK.md` §9.2.
+
+### Caddy отдаёт 503 «provisioning in progress»
+Осталась заглушка cloud-init (setup-on-vm.sh не выполнялся).
+
+```bash
+grep -c provisioning /etc/caddy/Caddyfile   # должно быть 0
+sudo install -m 0644 /opt/msp/Newbie/deploy/yandex/Caddyfile /etc/caddy/Caddyfile
+sudo sed -i "s/{\$MSP_DOMAIN}/msp-claude.online/g" /etc/caddy/Caddyfile
+sudo systemctl restart caddy
+```
+
+### Stalwart в «bootstrap mode» (нет ящиков/маршрутов)
+Пустой том `stalwart-data` — конфиг хранится в RocksDB внутри тома.
+
+```bash
+sudo docker logs msp-stalwart-1 | grep -i bootstrap
+# Восстановить оба тома из бэкапа (stalwart-etc + stalwart-data), затем:
+sudo docker restart msp-stalwart-1
+```
+См. `MIGRATION_RUNBOOK.md` §9.4.
+
+### restic: `SignatureDoesNotMatch` на новом бакете
+S3-ключи привязаны к аккаунту: при переезде выпустить новый статический ключ SA, обновить `/etc/restic/env.sh`, `restic init`.
+
+### Postbox отклоняет почту: `550 identity not verified`
+Домен не подтверждён: проверить DKIM TXT (`postbox._domainkey`) и SPF/DMARC. См. §9.5.
+
 ## Общее: «не знаю что сломано»
 
 Универсальный health-check:

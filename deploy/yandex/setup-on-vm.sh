@@ -41,6 +41,12 @@ if [ ! -d "$REPO_DIR" ]; then
   exit 1
 fi
 
+# Урок миграции 28.09: без проверки ВМ стартовала с node v12 и без unzip.
+for b in docker node yarn unzip curl git; do
+  command -v "$b" >/dev/null 2>&1 || { log "ERROR: нет $b — проверьте cloud-init (см. MIGRATION_RUNBOOK §9.1)"; exit 1; }
+done
+case "$(node -v)" in v20*) ;; *) log "WARN: node $(node -v) — ожидался v20 (см. MIGRATION_RUNBOOK §9.1)" ;; esac
+
 # Ждём пока cloud-init закончит (если ещё не закончил)
 while [ ! -f /var/log/msp-deploy.base-ready ]; do
   log "Жду base provisioning (cloud-init)..."
@@ -208,6 +214,8 @@ sudo mkdir -p "$WEB_ROOT"
 sudo rm -rf "$WEB_ROOT"/*
 sudo cp -r build/* "$WEB_ROOT/"
 sudo chown -R caddy:caddy "$WEB_ROOT"
+# Урок миграции 28.09: пустой webroot за прокси = 503/пустая страница.
+[ -s "$WEB_ROOT/index.html" ] || { log "ERROR: webroot пуст после сборки ($WEB_ROOT/index.html нет)"; exit 1; }
 log "  Фронт залит в $WEB_ROOT ($(du -sh "$WEB_ROOT" | cut -f1))"
 
 # ─── 4. Caddyfile ──────────────────────────────────────────────────

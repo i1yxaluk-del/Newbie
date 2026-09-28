@@ -32,6 +32,8 @@ sudo mkdir -p /opt/msp/Newbie && sudo chown ubuntu /opt/msp/Newbie
 git clone https://github.com/i1yxaluk-del/Newbie.git /opt/msp/Newbie
 ```
 
+> На чистой ВМ `unzip` должен быть установлен (его ставит `cloud-init.yaml`); иначе распаковка архива кода упадёт: `sudo apt-get install -y unzip`.
+
 ## 3. Env-файлы (3 шт.)
 
 | Файл | Обязательно |
@@ -64,6 +66,14 @@ sudo systemctl enable --now caddy
 
 Caddyfile уже в репозитории (`deploy/yandex/Caddyfile`): домены + Let's Encrypt.
 
+**Автоматика**: `deploy/yandex/setup-on-vm.sh` сам ставит Caddyfile, подставляет `MSP_DOMAIN`
+(sed + systemd override в `/etc/systemd/system/caddy.service.d/override.conf`) и прогоняет `caddy validate`.
+
+**Внимание (урок миграции 28.09)**: сразу после cloud-init в `/etc/caddy/Caddyfile` лежит заглушка
+`respond "provisioning in progress..." 503`. Пока она на месте — сайт отдаёт 503.
+Проверка после деплоя: `grep -c provisioning /etc/caddy/Caddyfile` → `0`.
+Если Caddy не стартует с «server block without any key» — не подставлен `MSP_DOMAIN` (см. выше).
+
 ## 7. Stalwart (если нужна почта)
 
 1. SSH-tunnel: `ssh -L 8080:127.0.0.1:8080 ubuntu@<IP>` → `http://localhost:8080/admin`.
@@ -87,6 +97,11 @@ TXT   _dmarc                   v=DMARC1; p=quarantine; rua=mailto:admin@<domain>
 CNAME <selector>._domainkey    (ключ DKIM Stalwart или Postbox)
 ```
 
+**Перед переключением DNS (урок миграции 28.09)**: проверь TCP-доступность публичного IP ВМ
+**из сети целевого региона** (из РФ): `nc -vz <IP> 22 && curl -sS --connect-timeout 5 -o /dev/null -w '%{http_code}' http://<IP>/`.
+Если ICMP проходит, а TCP — нет, адрес/маршрут заблокирован: пересоздай зарезервированный адрес
+в другом пуле и только потом меняй DNS A-записи.
+
 ## 9. Alertmanager
 
 Entrypoint сам подставит `SMTP_AUTH_USER/PASSWORD` и `ALERTMANAGER_WEBHOOK_TOKEN`. Проверка:
@@ -108,6 +123,10 @@ powershell -File C:\Users\<user>\vm_watcher\install.ps1
 `/etc/restic/env.sh` (RESTIC_REPOSITORY/PASSWORD, S3-ключи), таймер `restic-backup.timer`.
 Тест: `sudo bash /opt/restic-scripts/backup.sh` → `restic_backup_success=1` в Grafana.
 
+**При переезде ВМ в новый аккаунт (урок 28.09)**: S3-ключи старого аккаунта не подходят к новому
+бакету (`SignatureDoesNotMatch`) — выпусти новый статический ключ SA (`yc iam access-key create --service-account-name restic-backup`),
+обнови `/etc/restic/env.sh` и выполни `restic init` в новом бакете.
+
 ## 12. Верификация
 
 - `https://msp-claude.online` → 200, `/api/health` → ok.
@@ -115,3 +134,6 @@ powershell -File C:\Users\<user>\vm_watcher\install.ps1
 - Тестовое письмо: наружу (не в спам) и внутрь (`alert@`).
 - Тестовый P1-алерт → MAX/email.
 - `sudo bash scripts/deployment/preflight.sh` → PRE-FLIGHT OK.
+- Публичный IP доступен по TCP из целевой сети (см. §8).
+- Stalwart не в bootstrap: `docker logs msp-stalwart-1 | grep -c 'bootstrap mode'` → `0` (актуально при миграции).
+- При восстановлении из бэкапа `du -sh` томов ≈ размеру бэкапа (см. MIGRATION_RUNBOOK §9.4).

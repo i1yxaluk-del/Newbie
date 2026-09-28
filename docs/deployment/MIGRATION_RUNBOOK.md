@@ -18,6 +18,8 @@ sudo bash -c 'source /etc/restic/env.sh && restic snapshots --latest 1'
 
 Скрипт сам останавливает vaultwarden/stalwart/max-alerter на время копии томов и поднимает их обратно.
 
+> Урок 28.09: артефакты удобно сразу складывать плоско — `restore-on-vm.sh` умеет искать и в `volumes/`, но плоская раскладка исключает сюрпризы (см. §9.4).
+
 ## 2. Доставить артефакты на новую VM
 
 ```bash
@@ -28,6 +30,8 @@ sudo cp -r /tmp/restore/opt/msp-backups/current/* /tmp/migration/
 sudo ls -la /tmp/migration /tmp/migration/volumes
 ```
 
+> Копирование из root-only каталогов — только `sudo sh -c 'cp ...'` (glob раскрывается в пользовательском шелле до sudo и молча не находит файлы — урок 28.09, §9.4).
+
 ## 3. Новая VM — восстановить
 
 ```bash
@@ -36,6 +40,10 @@ sudo MIGRATION_DIR=/tmp/migration bash migration/restore-on-vm.sh
 ```
 
 Скрипт: mongo → `mongorestore --drop` → тома (`msp_vaultwarden-data`, `msp_stalwart-etc`, `msp_stalwart-data`) → `max-session` → стек → healthcheck (backend/AM/max-alerter).
+
+> Скрипт сам ищет артефакты во всех типовых раскладках и падает, если том пустой после восстановления; после рестарта проверяет, что Stalwart не в bootstrap (урок 28.09, §9.4). Если что-то пропущено — в логе будет `ИТОГ: пропущено …` и `WARN`/`ERROR`.
+>
+> Контроль самостоятельно: `docker logs msp-stalwart-1 | grep -c 'bootstrap mode'` → `0`; `du -sh /var/lib/docker/volumes/msp_*` ≈ размер бэкапа.
 
 ## 4. MAX (если сессия протухла)
 
@@ -53,7 +61,9 @@ sudo docker exec -it msp-max-alerter python -m max_alerter.auth --authorize
 
 ## 6. DNS switch
 
-У регистратора: `A` (@/mail/mon) → новый IP. SPF/DKIM/DMARC — проверить значения (SPF с `include:postbox.cloud.yandex.net`).
+У регистратора: `A` (@/mail/mon) → новый IP. SPF/DKIM/DMARC — проверить значения (SPF с `include:postbox.cloud.yandex.net`; для Postbox — TXT `postbox._domainkey`, иначе отправка получит `550 identity not verified`, §9.5).
+
+**Сначала проверь TCP-доступность нового IP из целевой сети (из РФ)** — `nc -vz <IP> 22`; если TCP не проходит, а ICMP ок, меняй зарезервированный адрес, не переключай DNS (урок 28.09, §9.2).
 
 ## 7. Верификация
 

@@ -343,6 +343,18 @@ sudo docker restart msp-stalwart-1
 ### restic: `SignatureDoesNotMatch` на новом бакете
 S3-ключи привязаны к аккаунту: при переезде выпустить новый статический ключ SA, обновить `/etc/restic/env.sh`, `restic init`.
 
+### MAX: `client.unsupported-version` («Приложение устарело, обновитесь»)
+Сервер MAX требует более новую версию приложения, чем зашита в библиотеке.
+
+```bash
+# Обновить maxapi-python в services/max_alerter/requirements.txt (история: 2.1.2 → 2.4.1),
+# затем пересобрать:
+cd /opt/msp/Newbie/deploy/yandex/monitoring
+sudo docker compose up -d --build max-alerter
+# Проверить версию клиента, которую шлёт библиотека:
+sudo docker exec msp-max-alerter python -c "from pymax.versions.catalog import VersionCatalog; print(VersionCatalog.recommended())"
+```
+
 ### Postbox отклоняет почту: `550 identity not verified`
 Домен не подтверждён: проверить DKIM TXT (`postbox._domainkey`) и SPF/DMARC. См. §9.5.
 

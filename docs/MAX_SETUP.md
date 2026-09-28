@@ -160,6 +160,7 @@ sudo tar czf /root/max-session-backup.tar.gz \
 | Симптом | Проверка |
 |---|---|
 | `manual authorization required` | выполнить команду из раздела 5 |
+| `client.unsupported-version` / «Приложение устарело» | обновить `maxapi-python` в `services/max_alerter/requirements.txt` и пересобрать `max-alerter` (см. troubleshooting) |
 | HTTP 401 | токены Alertmanager и max-alerter различаются |
 | health OK, сообщений нет | проверить `MAX_CHAT_ID` и логи контейнера |
 | MAX недоступен | проверить `failed_alerts.log`, Telegram/email fallback |

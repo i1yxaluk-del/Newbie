@@ -1,5 +1,7 @@
 # MAX userbot. Версия закреплена: обновлять только после теста авторизации и отправки.
-maxapi-python==2.1.2
+# 2.4.1 — фикс "client.unsupported-version": сервер MAX отклонял версию клиента
+# из 2.1.2 (26.14.1); 2.4.1 отправляет 26.25.0+ и APK-fingerprint.
+maxapi-python==2.4.1
 fastapi==0.111.0
 uvicorn[standard]==0.29.0
 httpx==0.27.0

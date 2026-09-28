@@ -50,7 +50,8 @@ sudo docker exec msp-max-alerter python -m max_alerter.auth
 | restore-on-vm и раскладка артефактов | тома молча не восстановлены | класть артефакты плоско в `MIGRATION_DIR`; копировать через `sudo sh -c 'cp …'` | `ls /tmp/migration`; `du -sh` томов |
 | Пустой `stalwart-data` | Stalwart в bootstrap-режиме (нет ящиков) | восстанавливать ОБА тома; конфиг хранится в RocksDB | grep «bootstrap» в логе; ящики на месте |
 | restic: ключи привязаны к аккаунту/бакету | `SignatureDoesNotMatch` на новом бакете | новый access key + `restic init` при переезде аккаунта | `restic snapshots` |
-| Postbox: ключ + DKIM заново | `550 identity not verified`; отправка не идёт | пересоздать API-ключ; переопубликовать DKIM TXT; дождаться verified | тестовое письмо через SMTP |
+| Postbox: ключ + DKIM заново | `550 identity not verified`; отправка не идёт | пересоздать API-ключ; DKIM — CNAME из консоли (→ `<selector>.dkim.pstbx.ru`), дождаться verified | тестовое письмо через SMTP |
+| Stalwart-релей: креды маршрута не обновляются из .env | письма копятся молча; в очереди `535 Authentication failed` | обновить `x:MtaRoute/set` + **рестарт** Stalwart (MIGRATION_RUNBOOK §9.9) | письмо на `check-auth@verifier.port25.com` |
 | Amnezia PPA после переноса | apt «is not signed» | ключ в `/etc/apt/trusted.gpg.d/`, без `signed-by` в list | `apt-get update` exit 0 |
 | AWG: SG/ufw без UDP/443 | рукопожатие не проходит | gate: UDP 443 на SG + ufw allow; SSH-from-VPN правило | `awg show latest-handshakes` |
 | cloud-init: IPv6-зеркала, битый NodeSource, нет unzip | apt/распаковка падают | ForceIPv4; чистить лишние apt-репозитории; доустановка утилит | `apt-get update`, `unzip -v` |

@@ -82,7 +82,7 @@ Caddyfile уже в репозитории (`deploy/yandex/Caddyfile`): доме
 4. Маршрут: `postbox-outbound` → `postbox.cloud.yandex.net:465` implicit TLS, auth = ключ Postbox.
 5. **MTA → Outbound → Strategy → Routing**: `IF is_local_domain(rcpt_domain) THEN 'local' ELSE 'postbox-outbound'`.
 6. **Перезапустить контейнер Stalwart** (стратегия применяется после рестарта).
-7. DKIM: сгенерировать ключ → TXT-запись `v1-*._domainkey` у регистратора.
+7. DKIM: подпись делает Postbox — опубликовать CNAME `<selector>._domainkey → <selector>.dkim.pstbx.ru` из консоли Postbox (собственный ключ Stalwart не нужен).
 8. TLS: импортировать сертификаты Caddy для `mail.<domain>` (авто-ACME Stalwart недоступен — 443 занят Caddy).
 
 ## 8. DNS (у регистратора)

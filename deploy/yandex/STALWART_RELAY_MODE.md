@@ -190,7 +190,7 @@ STALWART_ROUTES_POSTBOX_OUTBOUND_TLS_IMPLICIT: "true"
 ```
 A     mail.<domain>       <yc-vm-public-ip>
 TXT   <domain>            v=spf1 a ip4:<yc-vm-public-ip> include:_spf.yandex.net -all
-TXT   default._domainkey  v=DKIM1; k=rsa; p=<сгенерированный Stalwart открытый ключ>
+CNAME <selector>._domainkey → <selector>.dkim.pstbx.ru   (в проде DKIM-подпись делает Postbox; собственный ключ Stalwart не используется)
 TXT   _dmarc.<domain>     v=DMARC1; p=quarantine; rua=mailto:admin@<domain>
 ```
 
@@ -201,6 +201,8 @@ TXT в шаге 1). После подтверждения Postbox автомат
 DKIM-ключ генерируется в Stalwart admin UI:
 `Settings → Domains → <domain> → Generate DKIM key`.
 Скопируйте TXT и положите в DNS у регистратора.
+
+> **Актуализация 28.09.2026**: в production подпись DKIM делает **Postbox** — публикуются CNAME-записи из консоли Postbox (`<selector>._domainkey → <selector>.dkim.pstbx.ru`). Собственный DKIM-ключ Stalwart не используется.
 
 > SPF **обязан** включать `include:_spf.yandex.net` — Postbox отправляет
 > от нашего имени через свои IP. Без этого SPF-провал у получателей.

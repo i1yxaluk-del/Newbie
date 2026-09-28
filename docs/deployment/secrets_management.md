@@ -142,7 +142,7 @@ DNS управляется через Namecheap (НЕ Yandex Cloud DNS — пл�
 | `MX` | MX | `10 mail.msp-claude.online` |
 | `_dmarc.msp-claude.online` | TXT | `v=DMARC1; p=none; rua=mailto:alert@msp-claude.online` |
 | `msp-claude.online` | TXT | SPF (через Postbox include) |
-| `stalwart._domainkey` | TXT | DKIM public key |
+| `<selector>-1/-2._domainkey.msp-claude.online` | CNAME | `<selector>-1/-2.dkim.pstbx.ru` (Postbox DKIM) |
 
 **TODO**: Обновить DMARC `p=none` → `p=quarantine` (DKIM alignment стабилен).
 

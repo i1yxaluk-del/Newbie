@@ -62,7 +62,7 @@ sudo docker exec -it msp-max-alerter python -m max_alerter.auth --authorize
 
 ## 6. DNS switch
 
-У регистратора: `A` (@/mail/mon) → новый IP. SPF/DKIM/DMARC — проверить значения (SPF с `include:postbox.cloud.yandex.net`; для Postbox — TXT `postbox._domainkey`, иначе отправка получит `550 identity not verified`, §9.5).
+У регистратора: `A` (@/mail/mon) → новый IP. SPF/DKIM/DMARC — проверить значения (SPF с `include:postbox.cloud.yandex.net`; для Postbox — CNAME `<selector>._domainkey → <selector>.dkim.pstbx.ru` из консоли, иначе отправка получит `550 identity not verified`, §9.5).
 
 **Сначала проверь TCP-доступность нового IP из целевой сети (из РФ)** — `nc -vz <IP> 22`; если TCP не проходит, а ICMP ок, меняй зарезервированный адрес, не переключай DNS (урок 28.09, §9.2).
 
@@ -136,7 +136,7 @@ sudo docker exec -it msp-max-alerter python -m max_alerter.auth --authorize
 - [ ] `du -sh` восстановленных томов ≈ размер до бэкапа; Stalwart не в bootstrap;
 - [ ] `curl https://<domain>/api/health` — ok (локально, до DNS);
 - [ ] `restic snapshots` в новом бакете — ok; cron/timer на месте;
-- [ ] DKIM TXT опубликован, домен в Postbox «verified» (иначе письма не уйдут).
+- [ ] DKIM опубликован (CNAME `dkim.pstbx.ru`), домен в Postbox «verified» (иначе письма не уйдут).
 
 ### 9.9 Очередь Stalwart: письма копятся, наружу не уходят (535 Authentication failed)
 

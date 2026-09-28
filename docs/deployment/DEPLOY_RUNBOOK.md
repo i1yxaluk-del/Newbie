@@ -94,7 +94,7 @@ A     mon.<domain>             <IP>   (Grafana)
 MX    msp-claude.online        mail.<domain> (10)
 TXT   msp-claude.online        v=spf1 a ip4:<IP> include:postbox.cloud.yandex.net ~all
 TXT   _dmarc                   v=DMARC1; p=quarantine; rua=mailto:admin@<domain>
-CNAME <selector>._domainkey    (ключ DKIM Stalwart или Postbox)
+CNAME <selector>._domainkey    → <selector>.dkim.pstbx.ru   (Postbox; точные имена из консоли)
 ```
 
 **Перед переключением DNS (урок миграции 28.09)**: проверь TCP-доступность публичного IP ВМ

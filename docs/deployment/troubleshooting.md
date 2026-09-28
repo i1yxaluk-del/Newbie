@@ -356,7 +356,10 @@ sudo docker exec msp-max-alerter python -c "from pymax.versions.catalog import V
 ```
 
 ### Postbox отклоняет почту: `550 identity not verified`
-Домен не подтверждён: проверить DKIM TXT (`postbox._domainkey`) и SPF/DMARC. См. §9.5.
+Домен не подтверждён: проверить CNAME-записи DKIM из консоли Postbox (страница адреса → «Email signature configuration (DKIM)»; вид `<selector>._domainkey → <selector>.dkim.pstbx.ru`), SPF/DMARC. См. `MIGRATION_RUNBOOK.md` §9.5.
+
+### Письма наружу копятся, docker-логи Stalwart пусты (`535 Authentication failed`)
+После смены Postbox-ключей маршрут `postbox-outbound` в Stalwart остаётся со старыми кредами — письма молча уходят в очередь. Диагностика: JMAP `x:QueuedMessage/get` (учётка `admin` + `STALWART_ADMIN_PASSWORD`); лечение: `x:MtaRoute/set` + **рестарт** `msp-stalwart-1`. Полный рецепт — `MIGRATION_RUNBOOK.md` §9.9.
 
 ## Общее: «не знаю что сломано»
 

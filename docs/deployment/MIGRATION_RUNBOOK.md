@@ -113,8 +113,10 @@ sudo docker exec -it msp-max-alerter python -m max_alerter.auth --authorize
 ### 9.5 Почта / Postbox
 
 - **При смене аккаунта Postbox ключи и домен не переносятся**: старый API-ключ не работает, идентичность требует повторной верификации. Заново: создать API-ключ (`yc iam api-key create … --scope yc.postbox.send`), обновить `POSTBOX_API_KEY_*` в deploy `.env` и `SMTP_AUTH_*` / `SMTP_*` / `GF_SMTP_*` в monitoring `.env`, перезапустить Stalwart / Alertmanager / Grafana.
-- **DKIM-запись нужно опубликовать заново** (селектор `postbox`, TXT `postbox._domainkey`). Пока домен не verified — Postbox отклоняет отправку: `550 "identity not verified"`.
-- Быстрая проверка ключей до верификации домена: python-smtplib login на `postbox.cloud.yandex.net:465` (без отправки письма).
+- **DKIM у Postbox — через CNAME-делегирование, не TXT** (проверено 28.09): в консоли Postbox (страница адреса → «Email signature configuration (DKIM)») публикуются записи вида `egtn...-1._domainkey.<домен> → egtn...-1.dkim.pstbx.ru` (и `-2`). TXT `postbox._domainkey` у нового Postbox нет — не искать его (частая ошибка диагностики).
+- Пока домен не verified — Postbox отклоняет отправку: `550 "identity not verified"`.
+- **Маршрут Stalwart `postbox-outbound` не обновляется при смене `deploy/.env`** — после восстановления БД из бэкапа в нём остаются креды СТАРОГО аккаунта; письма молча копятся в очереди с `535 Authentication failed`. Диагностика и лечение — §9.9.
+- Быстрая проверка ключей: python-smtplib login на `postbox.cloud.yandex.net:465` (без отправки письма).
 
 ### 9.6 Бэкапы / restic
 
@@ -135,3 +137,33 @@ sudo docker exec -it msp-max-alerter python -m max_alerter.auth --authorize
 - [ ] `curl https://<domain>/api/health` — ok (локально, до DNS);
 - [ ] `restic snapshots` в новом бакете — ok; cron/timer на месте;
 - [ ] DKIM TXT опубликован, домен в Postbox «verified» (иначе письма не уйдут).
+
+### 9.9 Очередь Stalwart: письма копятся, наружу не уходят (535 Authentication failed)
+
+Симптом: письма из ящиков (`admin@`/`sales@`) не доходят; `docker logs msp-stalwart-1` пуст (в этом конфиге логирование в stdout выключено). Реальная причина видна только в очереди: Postbox отвечает `535 Authentication failed` — маршрут с устаревшими кредами.
+
+Управляющая учётка Stalwart — **`admin` (без домена!)**, пароль — `STALWART_ADMIN_PASSWORD` из `deploy/yandex/.env`. Логин `admin@<домен>` — обычный ящик; на `x:*-методах` он получает `forbidden`.
+
+```bash
+PW=$(grep '^STALWART_ADMIN_PASSWORD=' /opt/msp/Newbie/deploy/yandex/.env | cut -d= -f2-)
+
+# 1) Очередь — по каждому получателю видна последняя ошибка:
+curl -s -u "admin:$PW" -H 'Content-Type: application/json' \
+  -d '{"using":["urn:ietf:params:jmap:core","urn:stalwart:jmap"],"methodCalls":[["x:QueuedMessage/get",{},"0"]]}' \
+  http://127.0.0.1:8080/jmap/
+
+# 2) Маршрут — найти id у name=postbox-outbound:
+curl -s -u "admin:$PW" -H 'Content-Type: application/json' \
+  -d '{"using":["urn:ietf:params:jmap:core","urn:stalwart:jmap"],"methodCalls":[["x:MtaRoute/get",{},"0"]]}' \
+  http://127.0.0.1:8080/jmap/
+
+# 3) Обновить креды маршрута на актуальный Postbox-ключ (POSTBOX_API_KEY_ID/SECRET из deploy/.env):
+curl -s -u "admin:$PW" -H 'Content-Type: application/json' \
+  -d '{"using":["urn:ietf:params:jmap:core","urn:stalwart:jmap"],"methodCalls":[["x:MtaRoute/set",{"update":{"<ROUTE_ID>":{"authUsername":"<KEY_ID>","authSecret":{"@type":"Value","secret":"<SECRET>"}}}},"0"]]}' \
+  http://127.0.0.1:8080/jmap/
+
+# 4) ОБЯЗАТЕЛЬНО перезапустить Stalwart — маршрут применяется только после рестарта:
+sudo docker restart msp-stalwart-1
+```
+
+Проверка: письмо с `admin@` на `check-auth@verifier.port25.com`; через пару минут в ящик `admin@` вернётся автоотчёт с результатами SPF/DKIM/DMARC. Зависшие ранее письма до-отправятся на ближайших retry.

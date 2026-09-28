@@ -164,6 +164,8 @@ curl -s -u admin:<password> http://127.0.0.1:8080/jmap/ \
 -d '{"using":["urn:ietf:params:jmap:core","urn:stalwart:jmap"],"methodCalls":[["x:MtaRoute/set",{"update":{"isa3jzsgaaqa":{"address":"postbox.cloud.yandex.net","port":465,"implicitTls":true,"authUsername":"<API_KEY_ID>","authSecret":{"@type":"Value","secret":"<API_KEY_SECRET>"}}}},"0"]]}'
 ```
 
+> **Проверено 28.09.2026** (перенос в новый YC-аккаунт): управляющая учётка — `admin` (без домена; пароль — `STALWART_ADMIN_PASSWORD` в `deploy/yandex/.env`); логин `admin@<домен>` на `x:*-методах` получает `forbidden`. После `x:MtaRoute/set` **обязателен `docker restart msp-stalwart-1`** — маршрут применяется только после рестарта. Застрявшие письма и их ошибки видны в `x:QueuedMessage/get` (напр. `535 Authentication failed`).
+
 > **Баг Stalwart v0.16**: `Principal/set` JMAP всегда возвращает `notRequest`.
 > Создание/изменение аккаунтов (пароли) — только через Admin WebUI.
 

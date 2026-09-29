@@ -16,52 +16,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Download archive from temporary public page
+      - name: Download and verify book
         env:
-          NOTION_PAGE_ID: 40c37e2e2ead4f3895c4f932fc156410
+          BOOK_URL: "https://prod-files-secure-apne1.s3.ap-northeast-1.amazonaws.com/58aa5f3f-d1c2-81d3-85bd-000368aa0c95/edb1fe4a-6327-4983-8c37-cd07214f4292/MSPShield_Academy_MD_complete.zip?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=ASIAZI2LB4664VA3GPWT%2F20260929%2Fap-northeast-1%2Fs3%2Faws4_request&X-Amz-Date=20260929T053738Z&X-Amz-Expires=3600&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEH0aDmFwLW5vcnRoZWFzdC0xIkcwRQIgGsXV45E%2FXpN3S9PILatHlYIr0tknlAjkSPgW63b51MkCIQD5OxoXzExR66NkW6OBPMACQxFTAWSkGVzibkVWSzZjySqGBAhGEAAaDDYzNzQyMzE4MzgwNSIMfRftqo4Fn0%2Bag4SbKuMDsJ0ntLRDri0Ru%2FMuczjlmKTah%2FYaUUQuw6oeMN60AdNU9Idf%2FSaqXnZoum04Pl4wzDNtPFy2QWZTrHVh5hi3lJ3mnsJkWcMtT1xATVw%2B2CYElW%2BN12lWdhV5q8pKevsJyJD8UNI2r7jQT0BHxINpd6c%2Bne1fu2MUbUkEocYkg%2F7GAbwICvIhQRqFSTBwH3NzsqGUed7QUFsK2NuzKeKjhBo3G8UIXPd%2Bg0PROLCupvQZ3K9o7%2FdiHoTmLqAnFHbVu9fPeiRrEKChWUHUFIz4V6%2BRTyOIx6C7nxIiOD9FGP8yGf%2FkH47SH4%2Bz7C6P3%2FJSEeKXyB9AsqlCVCVa%2F%2BmuNPyvYLALh%2BdCfwO%2FRtayVEhdKRim0PquGvrYOiCwKHHvAO9c1nsUhp%2Bi77jivvhzYQ%2BQrCjE%2FjIa67Ny%2BSzO8fp0%2BRjJtwGf2If%2FmZQbxJPsHgI5Tk1ta%2FmZ6R9ldrr5jSlYTbkI7zNm8bSW8tBm30utTJx5UuKuulzhyYEb9%2FzjtROb3jSv%2BXOldEsBJuOTPV0yz4GNLVKZgK5WCt%2By8NA6K2Pk3fMlHkV6%2B3lNVhymgc13TPbia08YaAsGT42fCYQxhceUQ%2FycLkR76oX8FdVhp1SC4fVDK96XhhG%2BFXqaCpeSMJ6C7dUGOqUBOZPu0OQQeqq17nDXYL1mlMLFBwBCM069MYR0PFfGKxHl8wsXpQlRvHfVlHoKWswsWjyLGMgsSX%2B47ahfofDPkfSev4Udj9PobE7WgA%2F7QnPLpvgfgmiNA9mx1xJyXPI%2F%2B20B6hbJwDy1TZLOiyxDnQGsuiMpJ0H9sSSHVKXXiKIPYvS22kUyU8P5D1bqacTlQe1kMk%2FKLaFAZ42zEbDXZUK6s9Mc&X-Amz-Signature=9f50b53b69b4a88b318ae75d554bee467e41d13cc090f1925c0ca02b7ab6f572&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject"
         shell: bash
         run: |
           set -Eeuo pipefail
-          python3 - <<'PY'
-          import json, os, pathlib, urllib.request
-          page=os.environ['NOTION_PAGE_ID']
-          base='https:'+'//'+'www.notion.so'+'/api/v3/'
-          def post(path,data):
-              req=urllib.request.Request(base+path,data=json.dumps(data).encode(),headers={'Content-Type':'application/json','User-Agent':'Mozilla/5.0'})
-              return json.load(urllib.request.urlopen(req,timeout=60))
-          data=post('loadCachedPageChunk',{'page':{'id':page},'limit':50,'cursor':{'stack':[]},'chunkNumber':0,'verticalColumns':False})
-          blocks=data.get('recordMap',{}).get('block',{})
-          for bid,rec in blocks.items():
-              val=rec.get('value') or {}
-              found=[]
-              def walk(x):
-                  if isinstance(x,str) and (x.startswith('attachment:') or (x.startswith('http') and 'zip' in x.lower())): found.append(x)
-                  elif isinstance(x,dict):
-                      for v in x.values(): walk(v)
-                  elif isinstance(x,list):
-                      for v in x: walk(v)
-              walk(val)
-              for url in found:
-                  if url.startswith('http'):
-                      signed=url
-                  else:
-                      perm={'table':'block','id':bid}
-                      if val.get('space_id'): perm['spaceId']=val['space_id']
-                      rsp=post('getSignedFileUrls',{'urls':[{'url':url,'permissionRecord':perm}]})
-                      signed=(rsp.get('signedUrls') or [None])[0]
-                  if not signed: continue
-                  try:
-                      req=urllib.request.Request(signed,headers={'User-Agent':'Mozilla/5.0'})
-                      raw=urllib.request.urlopen(req,timeout=120).read()
-                  except Exception as exc:
-                      print('candidate failed',type(exc).__name__); continue
-                  if raw[:4]==b'PK\x03\x04':
-                      pathlib.Path('/tmp/book.zip').write_bytes(raw)
-                      print('downloaded',len(raw))
-                      raise SystemExit(0)
-          raise SystemExit('ZIP attachment not found')
-          PY
+          curl --fail --location --retry 3 --output /tmp/book.zip "$BOOK_URL"
           unzip -t /tmp/book.zip
           rm -rf book /tmp/book-unpacked
           mkdir -p book /tmp/book-unpacked
@@ -71,7 +32,6 @@ jobs:
           test -f book/BOOK.md
           test "$(find book/chapters -maxdepth 1 -type f -name '*.md' | wc -l)" -eq 38
           python3 book/verify_full.py
-
       - name: Commit complete book
         shell: bash
         run: |

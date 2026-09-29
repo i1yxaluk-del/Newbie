@@ -33,6 +33,7 @@ docs/deployment/README.md
 - [Оглавление deployment](deployment/README.md)
 - [Что является кодом deployment](../deploy/README.md)
 - [Уроки deployment](deployment/DEPLOYMENT_LESSONS.md)
+- [Ревизия свежести всего репозитория](audit/repository_deployment_freshness_2026-09.md)
 
 ## Миграция и восстановление
 

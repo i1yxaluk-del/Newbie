@@ -33,7 +33,8 @@ Prometheus rule и Alertmanager notification — разные состояния
 ## Разобранный пример
 
 ```bash
-sudo docker exec msp-max-alerter python -m max_alerter.auth
+sudo docker exec msp-max-alerter python -m max_alerter.auth  # check, SMS не отправляет
+sudo docker exec -it msp-max-alerter python -m max_alerter.auth --authorize  # только ручная авторизация
 curl -fsS http://127.0.0.1:9095/health
 sudo docker logs msp-max-alerter --tail 100
 ```

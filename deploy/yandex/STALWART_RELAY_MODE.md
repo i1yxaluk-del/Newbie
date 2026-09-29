@@ -1,9 +1,7 @@
-> ⚠️ **УСТАРЕЛО (deprecated since v4.3).** Этот документ описывает Stalwart
-> Mail в submit-only режиме как relay через smarthost. **В проде Stalwart
-> больше не используется** — outbound mail идёт напрямую через **Yandex
-> Cloud Postbox (MSA :465, implicit TLS)**, см. CHANGELOG v4.3 и v5.4.
-> Файл сохранён для истории и на случай отката. Актуальный мейл-стек:
-> [`deploy/yandex/README.md`](README.md) → раздел "Postbox".
+> **Статус: условный production-компонент.** Backend, Alertmanager, Grafana и
+> Vaultwarden отправляют напрямую через Postbox `:465` implicit TLS. Stalwart
+> запускается только профилем `mail`, если нужны локальные ящики/IMAP. После
+> restore его route credentials остаются в RocksDB: `.env` их не обновляет.
 
 ---
 
@@ -198,11 +196,9 @@ MX-запись управляется Yandex Cloud Postbox (подтвержд�
 TXT в шаге 1). После подтверждения Postbox автоматически направляет MX
 на свои серверы.
 
-DKIM-ключ генерируется в Stalwart admin UI:
-`Settings → Domains → <domain> → Generate DKIM key`.
-Скопируйте TXT и положите в DNS у регистратора.
-
-> **Актуализация 28.09.2026**: в production подпись DKIM делает **Postbox** — публикуются CNAME-записи из консоли Postbox (`<selector>._domainkey → <selector>.dkim.pstbx.ru`). Собственный DKIM-ключ Stalwart не используется.
+В production DKIM подписывает **Postbox**. Публикуйте CNAME из его консоли:
+`<selector>._domainkey → <selector>.dkim.pstbx.ru`. Собственный DKIM TXT
+Stalwart для этого контура не создаётся.
 
 > SPF **обязан** включать `include:_spf.yandex.net` — Postbox отправляет
 > от нашего имени через свои IP. Без этого SPF-провал у получателей.

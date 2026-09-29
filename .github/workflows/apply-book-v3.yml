@@ -11,6 +11,7 @@ jobs:
       - uses: actions/checkout@v4
         with: {ref: book/full-readable-rewrite-v3}
       - run: python .github/rewrite_book_v3.py
+      - run: find book/chapters -type f -name '*.md' -print0 | xargs -0 sed -i 's/развёртываниеment/deployment/g'
       - run: |
           python book/verify_readability.py
           python book/verify_readability.py --yandex

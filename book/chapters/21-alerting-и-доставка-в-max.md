@@ -75,7 +75,7 @@ sudo docker logs msp-max-alerter --tail 100
 - [services/max_alerter/README.md](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/services/max_alerter/README.md)
 - [deploy/yandex/monitoring/docker-compose.yml](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/deploy/yandex/monitoring/docker-compose.yml)
 
-- [Русскоязычный видеопоиск: Alerting и доставка в MAX](https://www.youtube.com/results?search_query=Alerting+%D0%B8+%D0%B4%D0%BE%D1%81%D1%82%D0%B0%D0%B2%D0%BA%D0%B0+%D0%B2+MAX+%D0%BD%D0%B0+%D1%80%D1%83%D1%81%D1%81%D0%BA%D0%BE%D0%BC)
+- [Кураторская видеотека и порядок практики](../VIDEO_GUIDE.md)
 
 ## Условие перехода
 

@@ -39,7 +39,7 @@ Won → pre-onboarding gate → technical onboarding
 
 ### Как читать пример
 
-- `Won → pre-onboarding gate → technical onboarding` — None
+- `Won → pre-onboarding gate → technical onboarding` — Стрелка показывает направление зависимости; подпись на стрелке задаёт протокол или тип передачи.
 - `→ acceptance → operation/review → renewal или offboarding` — Разделите строку на программу/оператор, options и operands; затем по документации установите side effect и exit semantics.
 
 ## Практикум
@@ -72,7 +72,7 @@ Won → pre-onboarding gate → technical onboarding
 - [docs/operations/CLIENT_LIFECYCLE.md](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/docs/operations/CLIENT_LIFECYCLE.md)
 - [docs/onboarding/README.md](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/docs/onboarding/README.md)
 
-- [Русскоязычный видеопоиск: Onboarding, steady state и offboarding](https://www.youtube.com/results?search_query=Onboarding%2C+steady+state+%D0%B8+offboarding+%D0%BD%D0%B0+%D1%80%D1%83%D1%81%D1%81%D0%BA%D0%BE%D0%BC)
+- [Кураторская видеотека и порядок практики](../VIDEO_GUIDE.md)
 
 ## Условие перехода
 

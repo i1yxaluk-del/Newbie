@@ -78,7 +78,7 @@ curl -i -X POST http://127.0.0.1:8001/api/leads -H 'Content-Type: application/js
 - [frontend/](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/frontend/)
 - [backend/secure_server.py](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/backend/secure_server.py)
 
-- [Русскоязычный видеопоиск: Frontend и форма как недоверенный клиент](https://www.youtube.com/results?search_query=Frontend+%D0%B8+%D1%84%D0%BE%D1%80%D0%BC%D0%B0+%D0%BA%D0%B0%D0%BA+%D0%BD%D0%B5%D0%B4%D0%BE%D0%B2%D0%B5%D1%80%D0%B5%D0%BD%D0%BD%D1%8B%D0%B9+%D0%BA%D0%BB%D0%B8%D0%B5%D0%BD%D1%82+%D0%BD%D0%B0+%D1%80%D1%83%D1%81%D1%81%D0%BA%D0%BE%D0%BC)
+- [Кураторская видеотека и порядок практики](../VIDEO_GUIDE.md)
 
 ## Условие перехода
 

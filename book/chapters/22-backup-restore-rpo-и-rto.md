@@ -78,7 +78,7 @@ restic restore latest --target /tmp/restore-test
 - [migration/restic-backup.sh](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/migration/restic-backup.sh)
 - [docs/deployment/disaster_recovery.md](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/docs/deployment/disaster_recovery.md)
 
-- [Русскоязычный видеопоиск: Backup, restore, RPO и RTO](https://www.youtube.com/results?search_query=Backup%2C+restore%2C+RPO+%D0%B8+RTO+%D0%BD%D0%B0+%D1%80%D1%83%D1%81%D1%81%D0%BA%D0%BE%D0%BC)
+- [Кураторская видеотека и порядок практики](../VIDEO_GUIDE.md)
 
 ## Условие перехода
 

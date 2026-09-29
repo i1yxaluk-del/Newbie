@@ -73,7 +73,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 - [scripts/deployment/preflight.sh](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/scripts/deployment/preflight.sh)
 
-- [Русскоязычный видеопоиск: Shell без магии](https://www.youtube.com/results?search_query=Shell+%D0%B1%D0%B5%D0%B7+%D0%BC%D0%B0%D0%B3%D0%B8%D0%B8+%D0%BD%D0%B0+%D1%80%D1%83%D1%81%D1%81%D0%BA%D0%BE%D0%BC)
+- [Кураторская видеотека и порядок практики](../VIDEO_GUIDE.md)
 
 ## Условие перехода
 

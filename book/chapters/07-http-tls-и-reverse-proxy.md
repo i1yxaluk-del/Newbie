@@ -43,9 +43,9 @@ Kernel-объект endpoint. Listening TCP socket определяется addr
 ### Как читать пример
 
 - `{$MSP_DOMAIN} {` — Разделите строку на программу/оператор, options и operands; затем по документации установите side effect и exit semantics.
-- `handle /api/* { reverse_proxy 127.0.0.1:8001 }` — None
-- `root * /var/www/landing` — None
-- `file_server` — None
+- `handle /api/* { reverse_proxy 127.0.0.1:8001 }` — Стрелка показывает направление зависимости; подпись на стрелке задаёт протокол или тип передачи.
+- `root * /var/www/landing` — Стрелка показывает направление зависимости; подпись на стрелке задаёт протокол или тип передачи.
+- `file_server` — Стрелка показывает направление зависимости; подпись на стрелке задаёт протокол или тип передачи.
 - `}` — Разделите строку на программу/оператор, options и operands; затем по документации установите side effect и exit semantics.
 
 ## Практикум
@@ -78,7 +78,7 @@ Kernel-объект endpoint. Listening TCP socket определяется addr
 - [deploy/yandex/Caddyfile](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/deploy/yandex/Caddyfile)
 - [docs/deployment/DEPLOY_RUNBOOK.md](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/docs/deployment/DEPLOY_RUNBOOK.md)
 
-- [Русскоязычный видеопоиск: HTTP, TLS и reverse proxy](https://www.youtube.com/results?search_query=HTTP%2C+TLS+%D0%B8+reverse+proxy+%D0%BD%D0%B0+%D1%80%D1%83%D1%81%D1%81%D0%BA%D0%BE%D0%BC)
+- [Кураторская видеотека и порядок практики](../VIDEO_GUIDE.md)
 
 ## Условие перехода
 

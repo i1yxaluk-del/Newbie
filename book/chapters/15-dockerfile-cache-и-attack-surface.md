@@ -43,12 +43,12 @@ CMD ["uvicorn", "secure_server:app", "--host", "0.0.0.0", "--port", "8001"]
 
 ### Как читать пример
 
-- `FROM python:3.12-slim` — None
-- `WORKDIR /app` — None
-- `COPY requirements.txt .` — None
-- `RUN pip install --no-cache-dir -r requirements.txt` — None
-- `COPY . .` — None
-- `CMD ["uvicorn", "secure_server:app", "--host", "0.0.0.0", "--port", "8001"]` — None
+- `FROM python:3.12-slim` — Стрелка показывает направление зависимости; подпись на стрелке задаёт протокол или тип передачи.
+- `WORKDIR /app` — Стрелка показывает направление зависимости; подпись на стрелке задаёт протокол или тип передачи.
+- `COPY requirements.txt .` — Стрелка показывает направление зависимости; подпись на стрелке задаёт протокол или тип передачи.
+- `RUN pip install --no-cache-dir -r requirements.txt` — Стрелка показывает направление зависимости; подпись на стрелке задаёт протокол или тип передачи.
+- `COPY . .` — Стрелка показывает направление зависимости; подпись на стрелке задаёт протокол или тип передачи.
+- `CMD ["uvicorn", "secure_server:app", "--host", "0.0.0.0", "--port", "8001"]` — Стрелка показывает направление зависимости; подпись на стрелке задаёт протокол или тип передачи.
 
 ## Практикум
 
@@ -80,7 +80,7 @@ CMD ["uvicorn", "secure_server:app", "--host", "0.0.0.0", "--port", "8001"]
 - [deploy/yandex/Dockerfile.backend](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/deploy/yandex/Dockerfile.backend)
 - [backend/secure_server.py](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/backend/secure_server.py)
 
-- [Русскоязычный видеопоиск: Dockerfile, cache и attack surface](https://www.youtube.com/results?search_query=Dockerfile%2C+cache+%D0%B8+attack+surface+%D0%BD%D0%B0+%D1%80%D1%83%D1%81%D1%81%D0%BA%D0%BE%D0%BC)
+- [Кураторская видеотека и порядок практики](../VIDEO_GUIDE.md)
 
 ## Условие перехода
 

@@ -43,9 +43,9 @@ backend:
 
 ### Как читать пример
 
-- `backend:` — None
+- `backend:` — Стрелка показывает направление зависимости; подпись на стрелке задаёт протокол или тип передачи.
 - `depends_on:` — Разделите строку на программу/оператор, options и operands; затем по документации установите side effect и exit semantics.
-- `mongo:` — None
+- `mongo:` — Стрелка показывает направление зависимости; подпись на стрелке задаёт протокол или тип передачи.
 - `condition: service_healthy` — Разделите строку на программу/оператор, options и operands; затем по документации установите side effect и exit semantics.
 - `ports:` — Разделите строку на программу/оператор, options и operands; затем по документации установите side effect и exit semantics.
 - `- "127.0.0.1:8001:8001"` — Эта строка является частью конфигурации или формулы; смысл определяется родительским блоком и отступом.
@@ -80,7 +80,7 @@ backend:
 - [deploy/yandex/docker-compose.yml](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/deploy/yandex/docker-compose.yml)
 - [deploy/yandex/monitoring/docker-compose.yml](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/deploy/yandex/monitoring/docker-compose.yml)
 
-- [Русскоязычный видеопоиск: Compose как граф зависимостей](https://www.youtube.com/results?search_query=Compose+%D0%BA%D0%B0%D0%BA+%D0%B3%D1%80%D0%B0%D1%84+%D0%B7%D0%B0%D0%B2%D0%B8%D1%81%D0%B8%D0%BC%D0%BE%D1%81%D1%82%D0%B5%D0%B9+%D0%BD%D0%B0+%D1%80%D1%83%D1%81%D1%81%D0%BA%D0%BE%D0%BC)
+- [Кураторская видеотека и порядок практики](../VIDEO_GUIDE.md)
 
 ## Условие перехода
 

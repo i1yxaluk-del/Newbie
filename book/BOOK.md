@@ -73,6 +73,14 @@
 37. [Owner dashboard и управленческие решения](chapters/37-owner-dashboard-и-управленческие-решения.md)
 38. [Финальный бизнес-capstone](chapters/38-финальный-бизнес-capstone.md)
 
+## Практические руководства по стеку
+
+- [GitHub для Owner: ветки, PR, review, CI и откат](guides/GITHUB_OWNER_WORKFLOW.md)
+- [Yandex Cloud: IAM, сеть, VM, deploy и расходы](guides/YANDEX_CLOUD_OWNER.md)
+- [Kaiten для двухчленной MSP-команды](guides/KAITEN_OPERATIONS.md)
+- [Стек продаж: qualification, discovery, pricing и handoff](guides/SALES_STACK.md)
+- [Кураторская видеотека: конкретные материалы и практикумы](VIDEO_GUIDE.md)
+
 ## Приложения
 
 - [Стандарт написания и контроль фактов](00_AUTHORING_STANDARD.md)

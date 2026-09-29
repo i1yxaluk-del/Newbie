@@ -78,7 +78,7 @@ Incident lead управляет приоритетом и коммуникац�
 - [docs/runbooks/README.md](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/docs/runbooks/README.md)
 - [docs/post_mortem_template.md](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/docs/post_mortem_template.md)
 
-- [Русскоязычный видеопоиск: Incident, problem, change и service review](https://www.youtube.com/results?search_query=Incident%2C+problem%2C+change+%D0%B8+service+review+%D0%BD%D0%B0+%D1%80%D1%83%D1%81%D1%81%D0%BA%D0%BE%D0%BC)
+- [Кураторская видеотека и порядок практики](../VIDEO_GUIDE.md)
 
 ## Условие перехода
 

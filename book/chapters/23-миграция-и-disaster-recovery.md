@@ -74,7 +74,7 @@ docker logs msp-stalwart-1 | grep -c 'bootstrap mode'
 - [docs/deployment/MIGRATION_RUNBOOK.md](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/docs/deployment/MIGRATION_RUNBOOK.md)
 - [migration/restore-on-vm.sh](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/migration/restore-on-vm.sh)
 
-- [Русскоязычный видеопоиск: Миграция и Disaster Recovery](https://www.youtube.com/results?search_query=%D0%9C%D0%B8%D0%B3%D1%80%D0%B0%D1%86%D0%B8%D1%8F+%D0%B8+Disaster+Recovery+%D0%BD%D0%B0+%D1%80%D1%83%D1%81%D1%81%D0%BA%D0%BE%D0%BC)
+- [Кураторская видеотека и порядок практики](../VIDEO_GUIDE.md)
 
 ## Условие перехода
 

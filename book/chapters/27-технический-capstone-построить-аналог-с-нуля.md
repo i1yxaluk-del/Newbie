@@ -39,7 +39,7 @@ Definition of done включает clean restore и handover другому ч�
 
 ### Как читать пример
 
-- `Пустая VM → hardening baseline → app/data → TLS → metrics/alerts` — None
+- `Пустая VM → hardening baseline → app/data → TLS → metrics/alerts` — Стрелка показывает направление зависимости; подпись на стрелке задаёт протокол или тип передачи.
 - `→ backup → destructive test → clean restore → handover` — Разделите строку на программу/оператор, options и operands; затем по документации установите side effect и exit semantics.
 
 ## Практикум
@@ -72,7 +72,7 @@ Definition of done включает clean restore и handover другому ч�
 - [docs/deployment/DEPLOY_RUNBOOK.md](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/docs/deployment/DEPLOY_RUNBOOK.md)
 - [docs/training/DEPLOYMENT_MIGRATION_LABS.md](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/docs/training/DEPLOYMENT_MIGRATION_LABS.md)
 
-- [Русскоязычный видеопоиск: Технический capstone: построить аналог с нуля](https://www.youtube.com/results?search_query=%D0%A2%D0%B5%D1%85%D0%BD%D0%B8%D1%87%D0%B5%D1%81%D0%BA%D0%B8%D0%B9+capstone%3A+%D0%BF%D0%BE%D1%81%D1%82%D1%80%D0%BE%D0%B8%D1%82%D1%8C+%D0%B0%D0%BD%D0%B0%D0%BB%D0%BE%D0%B3+%D1%81+%D0%BD%D1%83%D0%BB%D1%8F+%D0%BD%D0%B0+%D1%80%D1%83%D1%81%D1%81%D0%BA%D0%BE%D0%BC)
+- [Кураторская видеотека и порядок практики](../VIDEO_GUIDE.md)
 
 ## Условие перехода
 

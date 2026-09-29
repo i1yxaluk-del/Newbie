@@ -79,7 +79,7 @@ if scope["method"] == "POST" and scope["path"] == "/api/leads":
 - [backend/server.py](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/backend/server.py)
 - [backend/tests/](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/backend/tests/)
 
-- [Русскоязычный видеопоиск: Python-путь запроса: от socket до функции](https://www.youtube.com/results?search_query=Python-%D0%BF%D1%83%D1%82%D1%8C+%D0%B7%D0%B0%D0%BF%D1%80%D0%BE%D1%81%D0%B0%3A+%D0%BE%D1%82+socket+%D0%B4%D0%BE+%D1%84%D1%83%D0%BD%D0%BA%D1%86%D0%B8%D0%B8+%D0%BD%D0%B0+%D1%80%D1%83%D1%81%D1%81%D0%BA%D0%BE%D0%BC)
+- [Кураторская видеотека и порядок практики](../VIDEO_GUIDE.md)
 
 ## Условие перехода
 

@@ -78,7 +78,7 @@ curl -fsS http://127.0.0.1:8001/api/health
 - [docs/deployment/DEPLOY_RUNBOOK.md](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/docs/deployment/DEPLOY_RUNBOOK.md)
 - [scripts/deployment/preflight.sh](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/scripts/deployment/preflight.sh)
 
-- [Русскоязычный видеопоиск: Полный deploy MSPShield](https://www.youtube.com/results?search_query=%D0%9F%D0%BE%D0%BB%D0%BD%D1%8B%D0%B9+deploy+MSPShield+%D0%BD%D0%B0+%D1%80%D1%83%D1%81%D1%81%D0%BA%D0%BE%D0%BC)
+- [Кураторская видеотека и порядок практики](../VIDEO_GUIDE.md)
 
 ## Условие перехода
 

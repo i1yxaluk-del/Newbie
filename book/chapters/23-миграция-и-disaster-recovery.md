@@ -37,7 +37,7 @@ docker logs msp-stalwart-1 | grep -c 'bootstrap mode'
 
 ## Источники проекта
 
-- [docs/развёртываниеment/MIGRATION_RUNBOOK.md](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/docs/развёртываниеment/MIGRATION_RUNBOOK.md)
+- [docs/deployment/MIGRATION_RUNBOOK.md](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/docs/deployment/MIGRATION_RUNBOOK.md)
 - [migration/восстановление-on-vm.sh](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/migration/восстановление-on-vm.sh)
 
 - [Кураторская видеотека и порядок практики](../VIDEO_GUIDE.md)

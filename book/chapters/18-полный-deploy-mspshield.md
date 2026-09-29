@@ -18,7 +18,7 @@ Preflight уменьшает вероятность частичного раз�
 
 ```bash
 cd /opt/msp/Newbie
-sudo bash scripts/развёртываниеment/preflight.sh --fix
+sudo bash scripts/deployment/preflight.sh --fix
 cd развёртывание/yandex && docker compose up -d
 cd monitoring && docker compose up -d
 curl -fsS http://127.0.0.1:8001/api/health
@@ -39,8 +39,8 @@ curl -fsS http://127.0.0.1:8001/api/health
 
 ## Источники проекта
 
-- [docs/развёртываниеment/DEPLOY_RUNBOOK.md](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/docs/развёртываниеment/DEPLOY_RUNBOOK.md)
-- [scripts/развёртываниеment/preflight.sh](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/scripts/развёртываниеment/preflight.sh)
+- [docs/deployment/DEPLOY_RUNBOOK.md](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/docs/deployment/DEPLOY_RUNBOOK.md)
+- [scripts/deployment/preflight.sh](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/scripts/deployment/preflight.sh)
 
 - [Кураторская видеотека и порядок практики](../VIDEO_GUIDE.md)
 

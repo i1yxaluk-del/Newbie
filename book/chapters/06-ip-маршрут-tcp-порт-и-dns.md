@@ -39,8 +39,8 @@ curl -v --connect-timeout 5 https://example.org/health
 
 ## Источники проекта
 
-- [docs/развёртываниеment/DEPLOY_RUNBOOK.md](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/docs/развёртываниеment/DEPLOY_RUNBOOK.md)
-- [docs/развёртываниеment/MIGRATION_RUNBOOK.md](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/docs/развёртываниеment/MIGRATION_RUNBOOK.md)
+- [docs/deployment/DEPLOY_RUNBOOK.md](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/docs/deployment/DEPLOY_RUNBOOK.md)
+- [docs/deployment/MIGRATION_RUNBOOK.md](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/docs/deployment/MIGRATION_RUNBOOK.md)
 
 - [Кураторская видеотека и порядок практики](../VIDEO_GUIDE.md)
 

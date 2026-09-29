@@ -40,7 +40,7 @@ restic восстановление latest --target /tmp/восстановле�
 ## Источники проекта
 
 - [migration/restic-резервная копия.sh](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/migration/restic-резервная копия.sh)
-- [docs/развёртываниеment/disaster_recovery.md](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/docs/развёртываниеment/disaster_recovery.md)
+- [docs/deployment/disaster_recovery.md](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/docs/deployment/disaster_recovery.md)
 
 - [Кураторская видеотека и порядок практики](../VIDEO_GUIDE.md)
 

@@ -4,7 +4,7 @@
 
 ## Главное
 
-Secret даёт возможность действовать от имени identity. Его lifecycle: создать, передать, использовать, ротировать, отозвать, уничтожить.
+Secret даёт возможность действовать от имени identity. Его жизненный цикл: создать, передать, использовать, ротировать, отозвать, уничтожить.
 
 Vaultwarden хранит значения и sharing; Kaiten хранит задачу и факт выдачи, но не пароль. Git содержит `.env.example`, а не `.env`.
 
@@ -38,8 +38,8 @@ git status --ignored --short
 
 ## Источники проекта
 
-- [docs/развёртываниеment/secrets_management.md](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/docs/развёртываниеment/secrets_management.md)
-- [docs/развёртываниеment/VAULTWARDEN_ORG_RUNBOOK.md](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/docs/развёртываниеment/VAULTWARDEN_ORG_RUNBOOK.md)
+- [docs/deployment/secrets_management.md](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/docs/deployment/secrets_management.md)
+- [docs/deployment/VAULTWARDEN_ORG_RUNBOOK.md](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/docs/deployment/VAULTWARDEN_ORG_RUNBOOK.md)
 
 - [Кураторская видеотека и порядок практики](../VIDEO_GUIDE.md)
 

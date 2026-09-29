@@ -6,7 +6,7 @@
 
 Mongo хранит BSON documents в collection. `_id` уникален; прикладной `id` требует собственного unique подготовленная область, если по нему предотвращаются дубли.
 
-Container writable layer связан с конкретным container. Named volume имеет отдельный lifecycle и монтируется в `/data/db`.
+Container writable layer связан с конкретным container. Named volume имеет отдельный жизненный цикл и монтируется в `/data/db`.
 
 Dump — логическое представление базы; tar volume — файловое. Для работающей БД без coordination файловая копия может быть несогласованной.
 

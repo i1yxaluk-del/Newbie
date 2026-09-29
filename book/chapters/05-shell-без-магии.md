@@ -37,7 +37,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 ## Источники проекта
 
-- [scripts/развёртываниеment/preflight.sh](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/scripts/развёртываниеment/preflight.sh)
+- [scripts/deployment/preflight.sh](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/scripts/deployment/preflight.sh)
 
 - [Кураторская видеотека и порядок практики](../VIDEO_GUIDE.md)
 

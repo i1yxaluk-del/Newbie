@@ -102,6 +102,7 @@ sudo docker exec -it msp-max-alerter python -m max_alerter.auth --authorize
 - **Caddy от cloud-init стоял с заглушкой** (`:80 → respond 503 "provisioning"`) → сайт 503. Решение: боевой `deploy/yandex/Caddyfile`.
 - **Caddyfile не стартовал без `MSP_DOMAIN`** (`server block without any key`) — для systemd-юнита нет env из compose. Решение: override `Environment=MSP_DOMAIN=msp-claude.online` (`/etc/systemd/system/caddy.service.d/override.conf`).
 - **Фронтенд не был собран** (пустой webroot). Решение: `yarn install --frozen-lockfile && yarn build`, выкладка в `/var/www/landing`.
+- **Интеграции backend выключены, если пусты переменные**: email-уведомления лидов требуют `SMTP_*` + `LEAD_EMAIL_TO`, карточки — `KAITEN_*` (+ `KAITEN_DOMAIN/API_TOKEN/BOARD_ID/COLUMN_ID`). В ките бэкапа их не было — `is_enabled()` возвращает false, и доставка молча пропускается (лид остаётся только в Mongo). Проверка: `curl 127.0.0.1:8001/api/integrations/status` + тестовая заявка.
 
 ### 9.4 Данные (главная ловушка)
 

@@ -1,0 +1,25 @@
+name: Apply natural book rewrite
+on:
+  push:
+    branches: [book/natural-coherent-edition]
+permissions: {contents: write}
+jobs:
+  rewrite:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: book/natural-coherent-edition}
+      - run: python .github/book_natural_rewrite.py
+      - run: |
+          ! grep -R -n -E 'Давайте погрузимся|Раскройте свой потенциал|Это сужает область поиска' book --include='*.md'
+          grep -q 'git rev-parse HEAD' book/chapters/02-исследование-незнакомой-системы-без-угадывания.md
+          grep -q 'Карта связности' book/CONTINUITY.md
+          python scripts/validate_markdown_links.py
+      - run: |
+          rm .github/book_natural_rewrite.py
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m 'docs(book): rewrite in natural Russian with continuity map'
+          git push origin HEAD:book/natural-coherent-edition

@@ -1,8 +1,11 @@
 name: Apply repository freshness audit
-on: {workflow_dispatch: {}}
+on:
+  push:
+    branches: [audit/repo-wide-deployment-freshness]
 permissions: {contents: write}
 jobs:
   apply:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

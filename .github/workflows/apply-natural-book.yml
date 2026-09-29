@@ -10,16 +10,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: {ref: book/natural-coherent-edition}
-      - run: python .github/book_natural_rewrite.py
+      - run: python .github/book_cleanup.py
       - run: |
-          ! grep -R -n -E 'Давайте погрузимся|Раскройте свой потенциал|Это сужает область поиска' book --include='*.md'
-          grep -q 'git rev-parse HEAD' book/chapters/02-исследование-незнакомой-системы-без-угадывания.md
-          grep -q 'Карта связности' book/CONTINUITY.md
+          ! grep -R -n -E 'Это сужает область поиска|Git-команда читает или изменяет|Разделите строку на программу' book/chapters --include='*.md'
+          grep -q 'Команда ничего не изменяет' book/chapters/02-исследование-незнакомой-системы-без-угадывания.md
+          grep -q 'Выручка, а не прибыль' book/chapters/28-деньги-и-время-язык-модели.md
           python scripts/validate_markdown_links.py
       - run: |
-          rm .github/book_natural_rewrite.py
+          rm .github/book_cleanup.py
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add -A
-          git commit -m 'docs(book): rewrite in natural Russian with continuity map'
+          git commit -m 'docs(book): remove template prose and explain core topics plainly'
           git push origin HEAD:book/natural-coherent-edition

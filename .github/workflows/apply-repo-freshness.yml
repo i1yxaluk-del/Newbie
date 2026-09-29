@@ -2,16 +2,19 @@ name: Apply repository freshness audit
 on:
   push:
     branches: [audit/repo-wide-deployment-freshness]
-  pull_request:
-    branches: [main]
 permissions: {contents: write}
+concurrency:
+  group: repository-freshness-migration
+  cancel-in-progress: true
 jobs:
   apply:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with: {ref: audit/repo-wide-deployment-freshness}
+        with:
+          ref: audit/repo-wide-deployment-freshness
+          fetch-depth: 0
       - run: python .github/repo_freshness_patch.py
       - run: |
           python scripts/validate_deployment_freshness.py
@@ -24,5 +27,6 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add -A
+          git status --short
           git commit -m 'docs(deploy): synchronize repository with migration lessons'
-          git push origin HEAD:audit/repo-wide-deployment-freshness
+          git push --force-with-lease origin HEAD:audit/repo-wide-deployment-freshness

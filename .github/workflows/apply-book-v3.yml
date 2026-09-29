@@ -1,4 +1,4 @@
-name: Apply book v3
+name: Apply complete book rewrite
 on:
   push:
     branches: [book/full-readable-rewrite-v3]
@@ -10,15 +10,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: {ref: book/full-readable-rewrite-v3}
-      - run: python .github/rewrite_book_v3.py
-      - run: find book/chapters -type f -name '*.md' -print0 | xargs -0 sed -i 's/развёртываниеment/deployment/g'
+      - run: python .github/rewrite_book_complete.py
+      - run: python book/verify_readability.py
+      - run: python scripts/validate_markdown_links.py
       - run: |
-          python book/verify_readability.py
-          python book/verify_readability.py --yandex
-      - run: |
-          rm .github/rewrite_book_v3.py
+          rm .github/rewrite_book_complete.py .github/workflows/apply-book-v3.yml
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add -A
-          git commit -m 'docs(book): explain Yandex Cloud and audit every chapter'
+          git commit -m 'docs(book): replace old book with coherent owner textbook'
           git push origin HEAD:book/full-readable-rewrite-v3

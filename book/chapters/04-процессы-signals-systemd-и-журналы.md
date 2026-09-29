@@ -2,9 +2,7 @@
 
 > **Учебная ситуация.** Caddy установлен, но после reboot сайт не поднялся.
 
-Предыдущая глава: [глава 3](./03-файлы-каталоги-пользователи-и-права.md).
-
-## Модель, которую нужно построить
+## Главное
 
 Процесс — выполняющийся экземпляр программы с PID, окружением и открытыми descriptors. Exit code относится к завершившемуся процессу.
 
@@ -12,11 +10,11 @@ Signal просит процесс выполнить действие; SIGTERM 
 
 systemd хранит желаемое состояние unit и зависимости. `restart` запускает старое определение; после изменения unit нужен `daemon-reload`.
 
-## Термины в рабочем смысле
+## Слова, которые встретятся дальше
 
-### process
+### процесс
 
-Запущенный экземпляр программы: address space, PID, credentials, environment и file descriptors. Service может породить несколько процессов.
+Запущенный экземпляр программы: address space, PID, секрет доступаs, environment и file descriptors. Service может породить несколько процессов.
 
 ### signal
 
@@ -26,11 +24,11 @@ systemd хранит желаемое состояние unit и зависим�
 
 Декларация systemd о том, как создать и контролировать ресурс. Active unit не доказывает, что внешний пользователь получает корректный ответ.
 
-## Что происходит внутри
+## Как это работает
 
-systemd создаёт process по ExecStart, наблюдает его exit и применяет Restart. Environment service формируется unit-файлом, EnvironmentFile и manager environment, а не вашим `.bashrc`. Journal объединяет stdout/stderr и metadata unit; фильтр `-b` ограничивает текущей загрузкой.
+systemd создаёт процесс по ExecStart, наблюдает его exit и применяет Restart. Environment service формируется unit-файлом, EnvironmentFile и manager environment, а не вашим `.bashrc`. Journal объединяет stdout/stderr и metadata unit; фильтр `-b` ограничивает текущей загрузкой.
 
-## Разобранный пример
+## Пример
 
 ```bash
 systemctl status caddy --no-pager
@@ -39,12 +37,12 @@ journalctl -u caddy -b --no-pager -n 100
 systemctl show caddy -p Environment -p ExecStart
 ```
 
-### Как читать пример
+### Что здесь происходит
 
-- `systemctl status caddy --no-pager` — `systemctl` обращается к systemd manager; `status` показывает unit state и последние сообщения, но не внешний user path.
-- `systemctl cat caddy` — `systemctl` обращается к systemd manager; `status` показывает unit state и последние сообщения, но не внешний user path.
+- `systemctl status caddy --no-pager` — `systemctl` обращается к systemd manager; `status` показывает unit сохранённые данные и последние сообщения, но не внешний user path.
+- `systemctl cat caddy` — `systemctl` обращается к systemd manager; `status` показывает unit сохранённые данные и последние сообщения, но не внешний user path.
 - `journalctl -u caddy -b --no-pager -n 100` — `journalctl` читает structured journal; `-u` фильтрует unit, `-b` — boot, `-n` — последние записи.
-- `systemctl show caddy -p Environment -p ExecStart` — `systemctl` обращается к systemd manager; `status` показывает unit state и последние сообщения, но не внешний user path.
+- `systemctl show caddy -p Environment -p ExecStart` — `systemctl` обращается к systemd manager; `status` показывает unit сохранённые данные и последние сообщения, но не внешний user path.
 
 ## Практикум
 
@@ -52,20 +50,17 @@ systemctl show caddy -p Environment -p ExecStart
 2. Сломайте путь ExecStart и найдите код завершения.
 3. Исправьте unit, выполните daemon-reload и enable.
 
-## Если результат не совпал с ожиданием
+## Если что-то не работает
 
 | Наблюдение | Что это означает | Следующая проверка |
 |---|---|---|
-| Unit active, сайт недоступен | Это сужает область поиска, но не доказывает единственную причину | проверить socket и firewall. |
-| Переменная есть в shell, но нет в service | Это сужает область поиска, но не доказывает единственную причину | systemd не наследует интерактивное окружение. |
+| Unit active, сайт недоступен | проверить сетевое подключение и firewall. |
+| Переменная есть в shell, но нет в service | systemd не наследует интерактивное окружение. |
 
-## Самостоятельная работа
 
-Решите изменённый вариант исходной ситуации: **Caddy установлен, но после reboot сайт не поднялся.** Измените один существенный параметр — host, port, credential, dataset, пакет или ограничение клиента — и сначала письменно предскажите результат. Затем выполните проверку на безопасном стенде. В отчёте оставьте исходное предположение, фактическое наблюдение, причину расхождения и способ восстановления.
+## Проверьте себя
 
-## Проверка понимания
-
-1. Объясните `process` через механизм и приведите пример из этой главы, а не словарную формулировку.
+1. Объясните `процесс` через механизм и приведите пример из этой главы, а не словарную формулировку.
 1. Объясните `signal` через механизм и приведите пример из этой главы, а не словарную формулировку.
 1. Объясните `unit` через механизм и приведите пример из этой главы, а не словарную формулировку.
 1. Почему симптом «Unit active, сайт недоступен» ещё не доказывает единственную причину?
@@ -73,11 +68,8 @@ systemctl show caddy -p Environment -p ExecStart
 
 ## Источники проекта
 
-- [deploy/yandex/setup-on-vm.sh](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/deploy/yandex/setup-on-vm.sh)
-- [docs/deployment/DEPLOY_RUNBOOK.md](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/docs/deployment/DEPLOY_RUNBOOK.md)
+- [развёртывание/yandex/setup-on-vm.sh](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/развёртывание/yandex/setup-on-vm.sh)
+- [docs/развёртываниеment/DEPLOY_RUNBOOK.md](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/docs/развёртываниеment/DEPLOY_RUNBOOK.md)
 
 - [Кураторская видеотека и порядок практики](../VIDEO_GUIDE.md)
 
-## Условие перехода
-
-Глава завершена, если вы можете связно объяснить `process`, `signal`, `unit`, выполнить практикум без копирования команд и восстановить систему после описанного отказа. Запишите в `learning-log.md`, что осталось непонятным; неизвестность не заменяйте догадкой.

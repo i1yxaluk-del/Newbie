@@ -26,33 +26,40 @@ jobs:
           python3 - <<'PY'
           import json, os, pathlib, urllib.request
           page=os.environ['NOTION_PAGE_ID']
+          base='https:'+'//'+'www.notion.so'+'/api/v3/'
           def post(path,data):
-              req=urllib.request.Request('https://www.notion.so/api/v3/'+path,data=json.dumps(data).encode(),headers={'Content-Type':'application/json','User-Agent':'Mozilla/5.0'})
+              req=urllib.request.Request(base+path,data=json.dumps(data).encode(),headers={'Content-Type':'application/json','User-Agent':'Mozilla/5.0'})
               return json.load(urllib.request.urlopen(req,timeout=60))
           data=post('loadCachedPageChunk',{'page':{'id':page},'limit':50,'cursor':{'stack':[]},'chunkNumber':0,'verticalColumns':False})
           blocks=data.get('recordMap',{}).get('block',{})
-          candidates=[]
-          def walk(x):
-              if isinstance(x,str) and (x.startswith('attachment:') or x.startswith('http')) and ('zip' in x.lower() or x.startswith('attachment:')): candidates.append(x)
-              elif isinstance(x,dict):
-                  for v in x.values(): walk(v)
-              elif isinstance(x,list):
-                  for v in x: walk(v)
           for bid,rec in blocks.items():
               val=rec.get('value') or {}
-              before=len(candidates); walk(val)
-              for url in candidates[before:]:
+              found=[]
+              def walk(x):
+                  if isinstance(x,str) and (x.startswith('attachment:') or (x.startswith('http') and 'zip' in x.lower())): found.append(x)
+                  elif isinstance(x,dict):
+                      for v in x.values(): walk(v)
+                  elif isinstance(x,list):
+                      for v in x: walk(v)
+              walk(val)
+              for url in found:
                   if url.startswith('http'):
                       signed=url
                   else:
-                      payload={'urls':[{'url':url,'permissionRecord':{'table':'block','id':bid,'spaceId':val.get('space_id')}}]}
-                      signed=(post('getSignedFileUrls',payload).get('signedUrls') or [None])[0]
-                  if signed:
-                      try:
-                          raw=urllib.request.urlopen(urllib.request.Request(signed,headers={'User-Agent':'Mozilla/5.0'}),timeout=120).read()
-                          if raw[:4]==b'PK\x03\x04':
-                              pathlib.Path('/tmp/book.zip').write_bytes(raw); print('downloaded',len(raw)); raise SystemExit
-                      except Exception as e: print('candidate failed',type(e).__name__)
+                      perm={'table':'block','id':bid}
+                      if val.get('space_id'): perm['spaceId']=val['space_id']
+                      rsp=post('getSignedFileUrls',{'urls':[{'url':url,'permissionRecord':perm}]})
+                      signed=(rsp.get('signedUrls') or [None])[0]
+                  if not signed: continue
+                  try:
+                      req=urllib.request.Request(signed,headers={'User-Agent':'Mozilla/5.0'})
+                      raw=urllib.request.urlopen(req,timeout=120).read()
+                  except Exception as exc:
+                      print('candidate failed',type(exc).__name__); continue
+                  if raw[:4]==b'PK\x03\x04':
+                      pathlib.Path('/tmp/book.zip').write_bytes(raw)
+                      print('downloaded',len(raw))
+                      raise SystemExit(0)
           raise SystemExit('ZIP attachment not found')
           PY
           unzip -t /tmp/book.zip

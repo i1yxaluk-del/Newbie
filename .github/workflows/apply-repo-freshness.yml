@@ -2,6 +2,8 @@ name: Apply repository freshness audit
 on:
   push:
     branches: [audit/repo-wide-deployment-freshness]
+  pull_request:
+    branches: [main]
 permissions: {contents: write}
 jobs:
   apply:

@@ -1,52 +1,28 @@
-# 10. Python-путь запроса: от socket до функции
+# 10. Python-путь запроса: от сетевое подключение до функции
 
 > **Учебная ситуация.** Нужно понять, что именно происходит между POST `/api/leads` и записью в Mongo.
 
-Предыдущая глава: [глава 9](./09-yaml-и-env-как-разные-языки.md).
+## Главное
 
-## Модель, которую нужно построить
-
-Uvicorn принимает socket и вызывает ASGI application. FastAPI сопоставляет method/path с route, выполняет dependencies и validation.
+Uvicorn принимает сетевое подключение и вызывает ASGI application. FastAPI сопоставляет method/path с route, выполняет dependencies и validation.
 
 `async def` позволяет уступать event loop во время I/O, но CPU-heavy код всё равно блокирует процесс.
 
 Middleware оборачивает application. В `secure_server.py` body читается, проверяется consent и воспроизводится для FastAPI.
 
-## Термины в рабочем смысле
+## Как это работает
 
-### ASGI
+Uvicorn превращает bytes из сетевое подключение в ASGI events. Middleware читает `http.request`; если body потреблён, downstream нужно вернуть его через replay. FastAPI после middleware выбирает route и валидирует model. Затем handler пишет Mongo и создаёт outbox, поэтому status ответа надо связывать с фактическим коммит данных.
 
-Контракт вызовов между Python web server и asynchronous application. Uvicorn владеет socket, FastAPI обрабатывает scope/events.
-
-### middleware
-
-Обёртка вокруг application, которая может проверить или изменить запрос/ответ. Ошибка в чтении body способна лишить downstream исходных данных.
-
-### process
-
-Запущенный экземпляр программы: address space, PID, credentials, environment и file descriptors. Service может породить несколько процессов.
-
-## Что происходит внутри
-
-Uvicorn превращает bytes из socket в ASGI events. Middleware читает `http.request`; если body потреблён, downstream нужно вернуть его через replay. FastAPI после middleware выбирает route и валидирует model. Затем handler пишет Mongo и создаёт outbox, поэтому status ответа надо связывать с фактическим commit данных.
-
-## Разобранный пример
+## Пример
 
 ```python
-if scope["method"] == "POST" and scope["path"] == "/api/leads":
+if границы услуги["method"] == "POST" and границы услуги["path"] == "/api/leads":
     body = b"".join(chunks)
     payload = json.loads(body or b"{}")
     if payload.get("consent") is not True:
         return JSONResponse({"detail": "consent_required"}, status_code=400)
 ```
-
-### Как читать пример
-
-- `if scope["method"] == "POST" and scope["path"] == "/api/leads":` — Разделите строку на программу/оператор, options и operands; затем по документации установите side effect и exit semantics.
-- `body = b"".join(chunks)` — Разделите строку на программу/оператор, options и operands; затем по документации установите side effect и exit semantics.
-- `payload = json.loads(body or b"{}")` — Разделите строку на программу/оператор, options и operands; затем по документации установите side effect и exit semantics.
-- `if payload.get("consent") is not True:` — Разделите строку на программу/оператор, options и operands; затем по документации установите side effect и exit semantics.
-- `return JSONResponse({"detail": "consent_required"}, status_code=400)` — Разделите строку на программу/оператор, options и operands; затем по документации установите side effect и exit semantics.
 
 ## Практикум
 
@@ -54,24 +30,12 @@ if scope["method"] == "POST" and scope["path"] == "/api/leads":
 2. Напишите минимальный endpoint и Pydantic model.
 3. Проверьте malformed JSON, отсутствие consent и корректный payload.
 
-## Если результат не совпал с ожиданием
+## Если что-то не работает
 
 | Наблюдение | Что это означает | Следующая проверка |
 |---|---|---|
-| 422 | Это сужает область поиска, но не доказывает единственную причину | schema validation, 400 здесь — policy middleware. |
-| 500 | Это сужает область поиска, но не доказывает единственную причину | необработанное исключение; искать traceback и request correlation. |
-
-## Самостоятельная работа
-
-Решите изменённый вариант исходной ситуации: **Нужно понять, что именно происходит между POST `/api/leads` и записью в Mongo.** Измените один существенный параметр — host, port, credential, dataset, пакет или ограничение клиента — и сначала письменно предскажите результат. Затем выполните проверку на безопасном стенде. В отчёте оставьте исходное предположение, фактическое наблюдение, причину расхождения и способ восстановления.
-
-## Проверка понимания
-
-1. Объясните `ASGI` через механизм и приведите пример из этой главы, а не словарную формулировку.
-1. Объясните `middleware` через механизм и приведите пример из этой главы, а не словарную формулировку.
-1. Объясните `process` через механизм и приведите пример из этой главы, а не словарную формулировку.
-1. Почему симптом «422» ещё не доказывает единственную причину?
-1. Какая независимая проверка отличает выполненную команду от достигнутого результата?
+| 422 | schema validation, 400 здесь — policy middleware. |
+| 500 | необработанное исключение; искать traceback и request correlation. |
 
 ## Источники проекта
 
@@ -81,6 +45,3 @@ if scope["method"] == "POST" and scope["path"] == "/api/leads":
 
 - [Кураторская видеотека и порядок практики](../VIDEO_GUIDE.md)
 
-## Условие перехода
-
-Глава завершена, если вы можете связно объяснить `ASGI`, `middleware`, `process`, выполнить практикум без копирования команд и восстановить систему после описанного отказа. Запишите в `learning-log.md`, что осталось непонятным; неизвестность не заменяйте догадкой.

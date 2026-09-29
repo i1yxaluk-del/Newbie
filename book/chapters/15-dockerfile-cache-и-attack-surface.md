@@ -1,0 +1,87 @@
+# 15. Dockerfile, cache и attack surface
+
+> **Учебная ситуация.** Нужно собрать backend воспроизводимо и не запускать его как root без причины.
+
+Предыдущая глава: [глава 14](./14-что-docker-изолирует-а-что-нет.md).
+
+## Модель, которую нужно построить
+
+`FROM` задаёт базовый filesystem. `COPY` и `RUN` создают layers; изменение раннего layer инвалидирует последующий cache.
+
+Build context определяет, какие файлы доступны `COPY`; секреты не должны попадать в context или layer history.
+
+`CMD` задаёт default process. Production image проекта запускает `secure_server:app`, чтобы consent/CAPTCHA/outbox policy нельзя было обойти.
+
+## Термины в рабочем смысле
+
+### build context
+
+Набор файлов, отправляемый builder. `.dockerignore` уменьшает размер и риск случайно включить secrets.
+
+### layer
+
+Неизменяемый результат инструкции image build. Удаление секрета следующим RUN не гарантирует его исчезновение из предыдущего layer.
+
+### image
+
+Неизменяемый шаблон root filesystem и metadata для container. Image не содержит runtime volume data.
+
+## Что происходит внутри
+
+Builder вычисляет cache key инструкции и её inputs. Копирование всего repository до install делает любое изменение source причиной повторной установки dependencies. Secrets нельзя исправить простым `rm` в следующем layer: предыдущий layer остаётся доступным в image history.
+
+## Разобранный пример
+
+```dockerfile
+FROM python:3.12-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+CMD ["uvicorn", "secure_server:app", "--host", "0.0.0.0", "--port", "8001"]
+```
+
+### Как читать пример
+
+- `FROM python:3.12-slim` — None
+- `WORKDIR /app` — None
+- `COPY requirements.txt .` — None
+- `RUN pip install --no-cache-dir -r requirements.txt` — None
+- `COPY . .` — None
+- `CMD ["uvicorn", "secure_server:app", "--host", "0.0.0.0", "--port", "8001"]` — None
+
+## Практикум
+
+1. Соберите image дважды и сравните cache.
+2. Добавьте non-root user.
+3. Проверьте image history на secrets.
+
+## Если результат не совпал с ожиданием
+
+| Наблюдение | Что это означает | Следующая проверка |
+|---|---|---|
+| Сборка всегда долгая | Это сужает область поиска, но не доказывает единственную причину | часто requirements копируются после всего source. |
+| Container стартует, policy нет | Это сужает область поиска, но не доказывает единственную причину | указан `server:app` вместо wrapper. |
+
+## Самостоятельная работа
+
+Решите изменённый вариант исходной ситуации: **Нужно собрать backend воспроизводимо и не запускать его как root без причины.** Измените один существенный параметр — host, port, credential, dataset, пакет или ограничение клиента — и сначала письменно предскажите результат. Затем выполните проверку на безопасном стенде. В отчёте оставьте исходное предположение, фактическое наблюдение, причину расхождения и способ восстановления.
+
+## Проверка понимания
+
+1. Объясните `build context` через механизм и приведите пример из этой главы, а не словарную формулировку.
+1. Объясните `layer` через механизм и приведите пример из этой главы, а не словарную формулировку.
+1. Объясните `image` через механизм и приведите пример из этой главы, а не словарную формулировку.
+1. Почему симптом «Сборка всегда долгая» ещё не доказывает единственную причину?
+1. Какая независимая проверка отличает выполненную команду от достигнутого результата?
+
+## Источники проекта
+
+- [deploy/yandex/Dockerfile.backend](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/deploy/yandex/Dockerfile.backend)
+- [backend/secure_server.py](https://github.com/i1yxaluk-del/Newbie/blob/89249e43a4e8b2e90d562307ef244ba95288c64c/backend/secure_server.py)
+
+- [Русскоязычный видеопоиск: Dockerfile, cache и attack surface](https://www.youtube.com/results?search_query=Dockerfile%2C+cache+%D0%B8+attack+surface+%D0%BD%D0%B0+%D1%80%D1%83%D1%81%D1%81%D0%BA%D0%BE%D0%BC)
+
+## Условие перехода
+
+Глава завершена, если вы можете связно объяснить `build context`, `layer`, `image`, выполнить практикум без копирования команд и восстановить систему после описанного отказа. Запишите в `learning-log.md`, что осталось непонятным; неизвестность не заменяйте догадкой.

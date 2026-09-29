@@ -1,0 +1,192 @@
+[
+  {
+    "n": 1,
+    "title": "От услуги к работающей системе",
+    "file": "01-от-услуги-к-работающей-системе.md"
+  },
+  {
+    "n": 2,
+    "title": "Исследование незнакомой системы без угадывания",
+    "file": "02-исследование-незнакомой-системы-без-угадывания.md"
+  },
+  {
+    "n": 3,
+    "title": "Файлы, каталоги, пользователи и права",
+    "file": "03-файлы-каталоги-пользователи-и-права.md"
+  },
+  {
+    "n": 4,
+    "title": "Процессы, signals, systemd и журналы",
+    "file": "04-процессы-signals-systemd-и-журналы.md"
+  },
+  {
+    "n": 5,
+    "title": "Shell без магии",
+    "file": "05-shell-без-магии.md"
+  },
+  {
+    "n": 6,
+    "title": "IP, маршрут, TCP, порт и DNS",
+    "file": "06-ip-маршрут-tcp-порт-и-dns.md"
+  },
+  {
+    "n": 7,
+    "title": "HTTP, TLS и reverse proxy",
+    "file": "07-http-tls-и-reverse-proxy.md"
+  },
+  {
+    "n": 8,
+    "title": "Git как история решений",
+    "file": "08-git-как-история-решений.md"
+  },
+  {
+    "n": 9,
+    "title": "YAML и .env как разные языки",
+    "file": "09-yaml-и-env-как-разные-языки.md"
+  },
+  {
+    "n": 10,
+    "title": "Python-путь запроса: от socket до функции",
+    "file": "10-python-путь-запроса-от-socket-до-функции.md"
+  },
+  {
+    "n": 11,
+    "title": "MongoDB, persistence и consistency",
+    "file": "11-mongodb-persistence-и-consistency.md"
+  },
+  {
+    "n": 12,
+    "title": "Интеграции и durable outbox",
+    "file": "12-интеграции-и-durable-outbox.md"
+  },
+  {
+    "n": 13,
+    "title": "Frontend и форма как недоверенный клиент",
+    "file": "13-frontend-и-форма-как-недоверенный-клиент.md"
+  },
+  {
+    "n": 14,
+    "title": "Что Docker изолирует, а что нет",
+    "file": "14-что-docker-изолирует-а-что-нет.md"
+  },
+  {
+    "n": 15,
+    "title": "Dockerfile, cache и attack surface",
+    "file": "15-dockerfile-cache-и-attack-surface.md"
+  },
+  {
+    "n": 16,
+    "title": "Compose как граф зависимостей",
+    "file": "16-compose-как-граф-зависимостей.md"
+  },
+  {
+    "n": 17,
+    "title": "Облако и VM с нуля",
+    "file": "17-облако-и-vm-с-нуля.md"
+  },
+  {
+    "n": 18,
+    "title": "Полный deploy MSPShield",
+    "file": "18-полный-deploy-mspshield.md"
+  },
+  {
+    "n": 19,
+    "title": "SMTP, DNS и Stalwart/Postbox",
+    "file": "19-smtp-dns-и-stalwart-postbox.md"
+  },
+  {
+    "n": 20,
+    "title": "Метрики и Prometheus",
+    "file": "20-метрики-и-prometheus.md"
+  },
+  {
+    "n": 21,
+    "title": "Alerting и доставка в MAX",
+    "file": "21-alerting-и-доставка-в-max.md"
+  },
+  {
+    "n": 22,
+    "title": "Backup, restore, RPO и RTO",
+    "file": "22-backup-restore-rpo-и-rto.md"
+  },
+  {
+    "n": 23,
+    "title": "Миграция и Disaster Recovery",
+    "file": "23-миграция-и-disaster-recovery.md"
+  },
+  {
+    "n": 24,
+    "title": "Secrets, Vaultwarden и доступ",
+    "file": "24-secrets-vaultwarden-и-доступ.md"
+  },
+  {
+    "n": 25,
+    "title": "Харденинг и безопасные изменения",
+    "file": "25-харденинг-и-безопасные-изменения.md"
+  },
+  {
+    "n": 26,
+    "title": "Incident, problem, change и service review",
+    "file": "26-incident-problem-change-и-service-review.md"
+  },
+  {
+    "n": 27,
+    "title": "Технический capstone: построить аналог с нуля",
+    "file": "27-технический-capstone-построить-аналог-с-нуля.md"
+  },
+  {
+    "n": 28,
+    "title": "Деньги и время: язык модели",
+    "file": "28-деньги-и-время-язык-модели.md"
+  },
+  {
+    "n": 29,
+    "title": "Capacity и путь от подработки к команде",
+    "file": "29-capacity-и-путь-от-подработки-к-команде.md"
+  },
+  {
+    "n": 30,
+    "title": "Из технического scope в пакет и цену",
+    "file": "30-из-технического-scope-в-пакет-и-цену.md"
+  },
+  {
+    "n": 31,
+    "title": "ICP и ценностное предложение без тумана",
+    "file": "31-icp-и-ценностное-предложение-без-тумана.md"
+  },
+  {
+    "n": 32,
+    "title": "Воронка как управляемый процесс",
+    "file": "32-воронка-как-управляемый-процесс.md"
+  },
+  {
+    "n": 33,
+    "title": "Discovery и безопасный pre-audit",
+    "file": "33-discovery-и-безопасный-pre-audit.md"
+  },
+  {
+    "n": 34,
+    "title": "КП, переговоры и скидки",
+    "file": "34-кп-переговоры-и-скидки.md"
+  },
+  {
+    "n": 35,
+    "title": "Договор, SLA, Периметр и ПДн",
+    "file": "35-договор-sla-периметр-и-пдн.md"
+  },
+  {
+    "n": 36,
+    "title": "Onboarding, steady state и offboarding",
+    "file": "36-onboarding-steady-state-и-offboarding.md"
+  },
+  {
+    "n": 37,
+    "title": "Owner dashboard и управленческие решения",
+    "file": "37-owner-dashboard-и-управленческие-решения.md"
+  },
+  {
+    "n": 38,
+    "title": "Финальный бизнес-capstone",
+    "file": "38-финальный-бизнес-capstone.md"
+  }
+]

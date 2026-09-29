@@ -12,7 +12,7 @@
 4. Закройте текст и выполните самостоятельную работу.
 5. Через неделю повторите ключевую команду и объяснение из памяти.
 6. Ведите `learning-log.md`: дата, задача, ошибка, механизм, исправление.
-7. Destructive-действия, firewall/DNS changes, `--drop`, restore поверх данных и production credentials сначала отрабатываются на lab; перед production нужен change с rollback.
+7. Все destructive-действия, firewall/DNS changes, `--drop`, restore поверх данных и production credentials сначала отрабатываются на lab; перед production нужен change с rollback.
 
 ## Научиться видеть систему
 
@@ -54,7 +54,7 @@
 24. [Secrets, Vaultwarden и доступ](chapters/24-secrets-vaultwarden-и-доступ.md)
 25. [Харденинг и безопасные изменения](chapters/25-харденинг-и-безопасные-изменения.md)
 26. [Incident, problem, change и service review](chapters/26-incident-problem-change-и-service-review.md)
-27. [Технический capstone](chapters/27-технический-capstone-построить-аналог-с-нуля.md)
+27. [Технический capstone: построить аналог с нуля](chapters/27-технический-capstone-построить-аналог-с-нуля.md)
 
 ## Экономика MSP
 
@@ -64,11 +64,18 @@
 
 ## Продажи и lifecycle
 
-31. [ICP и ценностное предложение](chapters/31-icp-и-ценностное-предложение-без-тумана.md)
+31. [ICP и ценностное предложение без тумана](chapters/31-icp-и-ценностное-предложение-без-тумана.md)
 32. [Воронка как управляемый процесс](chapters/32-воронка-как-управляемый-процесс.md)
 33. [Discovery и безопасный pre-audit](chapters/33-discovery-и-безопасный-pre-audit.md)
 34. [КП, переговоры и скидки](chapters/34-кп-переговоры-и-скидки.md)
 35. [Договор, SLA, Периметр и ПДн](chapters/35-договор-sla-периметр-и-пдн.md)
 36. [Onboarding, steady state и offboarding](chapters/36-onboarding-steady-state-и-offboarding.md)
-37. [Owner dashboard](chapters/37-owner-dashboard-и-управленческие-решения.md)
+37. [Owner dashboard и управленческие решения](chapters/37-owner-dashboard-и-управленческие-решения.md)
 38. [Финальный бизнес-capstone](chapters/38-финальный-бизнес-capstone.md)
+
+## Приложения
+
+- [Стандарт написания и контроль фактов](00_AUTHORING_STANDARD.md)
+- [Исходная карта программы](00_BOOK_MAP.md)
+- [Глоссарий](GLOSSARY.md)
+- [Ответы и подсказки преподавателю](INSTRUCTOR_NOTES.md)

@@ -38,7 +38,7 @@ git clone https://github.com/i1yxaluk-del/Newbie.git /opt/msp/Newbie
 
 | Файл | Обязательно |
 |---|---|
-| `backend/.env` | `ADMIN_TOKEN` (`openssl rand -hex 32`), `MONGO_URL=mongodb://mongo:27017`, `DB_NAME=mspshield`, `TG_BOT_TOKEN`, `TG_CHAT_ID`, `TG_ALERT_CHAT_ID` |
+| `backend/.env` | `ADMIN_TOKEN` (`openssl rand -hex 32`), `MONGO_URL=mongodb://mongo:27017`, `DB_NAME=mspshield`, `TG_BOT_TOKEN`, `TG_CHAT_ID`, `TG_ALERT_CHAT_ID`; **доставка лидов**: `SMTP_HOST/PORT/USER/PASSWORD/FROM/FROM_NAME`, `LEAD_EMAIL_TO`, `KAITEN_DOMAIN/API_TOKEN/BOARD_ID/COLUMN_ID` (см. §14) |
 | `deploy/yandex/.env` | `VAULTWARDEN_ADMIN_TOKEN`, `POSTBOX_API_KEY_ID`, `POSTBOX_API_KEY_SECRET`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`, `STALWART_ADMIN_PASSWORD` |
 | `deploy/yandex/monitoring/.env` | `GRAFANA_ADMIN_USER/PASSWORD`, `ALERTMANAGER_WEBHOOK_TOKEN`, `SMTP_AUTH_USER`/`SMTP_AUTH_PASSWORD` (= ключ Postbox), `SMTP_HOST=postbox.cloud.yandex.net`, `SMTP_PORT=465`, `SMTP_USER/PASSWORD`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `MAX_PHONE`, `MAX_CHAT_ID`, `ALERT_EMAIL_TO`, `MAX_FAILURE_COOLDOWN` |
 
@@ -137,6 +137,7 @@ powershell -File C:\Users\<user>\vm_watcher\install.ps1
 - Публичный IP доступен по TCP из целевой сети (см. §8).
 - Stalwart не в bootstrap: `docker logs msp-stalwart-1 | grep -c 'bootstrap mode'` → `0` (актуально при миграции).
 - При восстановлении из бэкапа `du -sh` томов ≈ размеру бэкапа (см. MIGRATION_RUNBOOK §9.4).
+- Форма заявки: тест → письмо на `LEAD_EMAIL_TO` + карточка в Kaiten «Новая» (см. §14).
 
 ## 13. Харденинг SSH (после того как AWG-туннель проверен)
 
@@ -163,3 +164,37 @@ yc vpc security-group update-rules --id <sg-id> \
 ```
 
 Применено на production 28.09.2026: публичный 22 закрыт на уровнях SG и ufw.
+
+## 14. Интеграции лидов (Postbox SMTP + Kaiten)
+
+После подъёма стека заполните в `backend/.env` доставку заявок (в проде нужны обе секции):
+
+```env
+# Почта (лиды) — прямой Postbox
+SMTP_HOST=postbox.cloud.yandex.net
+SMTP_PORT=465
+SMTP_USER=<POSTBOX_API_KEY_ID из deploy/.env>
+SMTP_PASSWORD=<POSTBOX_API_KEY_SECRET>
+SMTP_FROM=sales@msp-claude.online
+SMTP_FROM_NAME=MSPShield
+LEAD_EMAIL_TO=sales@msp-claude.online,admin@msp-claude.online
+
+# Kaiten CRM
+KAITEN_DOMAIN=<workspace>.kaiten.ru
+KAITEN_API_TOKEN=<токен с /profile/api-key>
+KAITEN_BOARD_ID=<id доски>
+KAITEN_COLUMN_ID=<id колонки «Новая»>
+```
+
+Пока переменных нет — каналы молча выключены (`is_enabled()=false`), заявка остаётся только в Mongo.
+
+Перезапуск и проверка:
+
+```bash
+cd /opt/msp/Newbie/deploy/yandex && docker compose up -d --force-recreate backend
+curl -s http://127.0.0.1:8001/api/integrations/status   # ожидаемо kaiten:true
+# тестовая заявка на https://<domain>/api/leads → в логах "lead email sent" и "kaiten card created"
+docker logs msp-backend-1 --since 3m | grep -Ei "lead|kaiten|email"
+```
+
+Текущий прод-конфиг Kaiten: `maksivanovza.kaiten.ru`, доска Lead Pipeline `1773682`, колонка «Новая» `6129074` (подробнее — `docs/KAITEN_SETUP.md`).

@@ -822,3 +822,10 @@ Kaiten не интегрируется с ЭДО напрямую. Связь �
 ---
 
 *Последнее обновление: 2026-05-18 · v1.0 · покрывает Free / Standard тарифы Kaiten.*
+
+## Проверено в проде (29.09.2026)
+
+- Workspace: `maksivanovza.kaiten.ru`; Space `785467` «MSPShield · Sales»; доска **Lead Pipeline** `1773682`; колонка лидов **«Новая»** `6129074`.
+- Значения прописаны в `backend/.env` (`KAITEN_DOMAIN`, `KAITEN_API_TOKEN`, `KAITEN_BOARD_ID`, `KAITEN_COLUMN_ID`); токен также в `~/msp-deploy-secrets.txt` на ВМ.
+- Грабли: токен при вставке легко теряет символы — обрезанный даёт `401 Unauthorized` на `/api/latest/users/current`; перевыпуск — `/profile/api-key`.
+- Проверка: `curl 127.0.0.1:8001/api/integrations/status` → `"kaiten":true`, затем тестовая заявка → в логах `kaiten card created ... card_id=…`.

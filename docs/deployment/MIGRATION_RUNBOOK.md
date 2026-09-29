@@ -138,6 +138,7 @@ sudo docker exec -it msp-max-alerter python -m max_alerter.auth --authorize
 - [ ] `curl https://<domain>/api/health` — ok (локально, до DNS);
 - [ ] `restic snapshots` в новом бакете — ok; cron/timer на месте;
 - [ ] DKIM опубликован (CNAME `dkim.pstbx.ru`), домен в Postbox «verified» (иначе письма не уйдут).
+- [ ] Интеграции лидов (`backend/.env`) заполнены и проверены тестовой заявкой (§9.10).
 
 ### 9.9 Очередь Stalwart: письма копятся, наружу не уходят (535 Authentication failed)
 
@@ -168,3 +169,13 @@ sudo docker restart msp-stalwart-1
 ```
 
 Проверка: письмо с `admin@` на `check-auth@verifier.port25.com`; через пару минут в ящик `admin@` вернётся автоотчёт с результатами SPF/DKIM/DMARC. Зависшие ранее письма до-отправятся на ближайших retry.
+
+### 9.10 Лиды после переноса: email + Kaiten
+
+Заявка с сайта доходит до Mongo всегда; доставка в каналы зависит от переменных `backend/.env` — при пустых `SMTP_*`/`LEAD_EMAIL_TO` и `KAITEN_*` каналы молча выключены (см. §9.3). На проде 29.09 заполнено: Postbox SMTP (ключ из `deploy/.env`), `LEAD_EMAIL_TO=sales@,admin@`, Kaiten `maksivanovza.kaiten.ru` / доска `1773682` / колонка `6129074` («Новая»).
+
+Проверка после переноса/деплоя:
+- [ ] `curl 127.0.0.1:8001/api/integrations/status` → `"kaiten":true`;
+- [ ] тестовая заявка → в логах `lead email sent` и `kaiten card created`; письмо пришло, карточка видна в «Новая».
+
+Грабли: неверный/обрезанный Kaiten-токен → `401 Unauthorized` (токен показывается один раз — сразу копировать целиком или перевыпустить на `/profile/api-key`); для карточек нужны `KAITEN_BOARD_ID`+`KAITEN_COLUMN_ID` (ID забрать через API: `/api/latest/spaces/{id}/boards` и `/api/latest/boards/{id}/columns`).

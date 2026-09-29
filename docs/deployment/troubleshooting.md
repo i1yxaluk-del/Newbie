@@ -361,6 +361,12 @@ sudo docker exec msp-max-alerter python -c "from pymax.versions.catalog import V
 ### Письма наружу копятся, docker-логи Stalwart пусты (`535 Authentication failed`)
 После смены Postbox-ключей маршрут `postbox-outbound` в Stalwart остаётся со старыми кредами — письма молча уходят в очередь. Диагностика: JMAP `x:QueuedMessage/get` (учётка `admin` + `STALWART_ADMIN_PASSWORD`); лечение: `x:MtaRoute/set` + **рестарт** `msp-stalwart-1`. Полный рецепт — `MIGRATION_RUNBOOK.md` §9.9.
 
+### Заявки с сайта не доходят ни в Kaiten, ни на почту (сохраняются только в Mongo)
+Причина: пустые переменные в `backend/.env` — каналы выключены молча (`is_enabled()=false`). Проверка статуса: `curl 127.0.0.1:8001/api/integrations/status`; настройка и тест — `DEPLOY_RUNBOOK.md` §14.
+
+### Kaiten API отвечает `401 Unauthorized`
+Токен недействителен/обрезан или указан чужой workspace. Перевыпустить на `https://<workspace>.kaiten.ru/profile/api-key`, скопировать целиком, обновить `KAITEN_API_TOKEN` и пересоздать backend (`docker compose up -d --force-recreate backend`).
+
 ## Общее: «не знаю что сломано»
 
 Универсальный health-check:

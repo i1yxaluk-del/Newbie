@@ -10,20 +10,6 @@ MX указывает принимающий host; SPF разрешает sender
 
 Stalwart хранит route секрет доступаs в собственной БД. Восстановление старой БД может вернуть старый ключ, даже если `.env` обновлён. Очередь JMAP показывает реальную 535.
 
-## Слова, которые встретятся дальше
-
-### SMTP
-
-Store-and-forward протокол передачи почты между clients/servers. Успешная submission ещё не доказывает final delivery.
-
-### DKIM
-
-Криптографическая подпись выбранных headers/body, проверяемая public key из DNS. В Postbox проект публикует выданные CNAME delegation records.
-
-### bootstrap mode
-
-Начальное состояние Stalwart без восстановленной рабочей конфигурации. Process может быть healthy, но service для клиента фактически потерян.
-
 ## Как это работает
 
 Stalwart принимает local mail и/или отправляет через Postbox relay. Route секрет доступаs могут жить в восстановлениеd RocksDB, поэтому environment не является единственным source. JMAP queue показывает recipient-level last error. После route update restart нужен, чтобы runtime перечитал состояние.
@@ -35,12 +21,6 @@ curl -s -u "admin:$PW" -H 'Content-Type: application/json' \
  -d '{"using":["urn:ietf:params:jmap:core","urn:stalwart:jmap"],"methodCalls":[["x:QueuedMessage/get",{},"0"]]}' \
  http://127.0.0.1:8080/jmap/
 ```
-
-### Что здесь происходит
-
-- `curl -s -u "admin:$PW" -H 'Content-Type: application/json' \` — `curl` создаёт реальный HTTP/TLS request. `-f` делает HTTP 4xx/5xx ненулевым exit, `-sS` скрывает progress, но оставляет ошибки.
-- `-d '{"using":["urn:ietf:params:jmap:core","urn:stalwart:jmap"],"methodCalls":[["x:QueuedMessage/get",{},"0"]]}' \` — Разделите строку на программу/оператор, options и operands; затем по документации установите side effect и exit semantics.
-- `http://127.0.0.1:8080/jmap/` — Разделите строку на программу/оператор, options и operands; затем по документации установите side effect и exit semantics.
 
 ## Практикум
 
@@ -54,15 +34,6 @@ curl -s -u "admin:$PW" -H 'Content-Type: application/json' \
 |---|---|---|
 | 535 | секрет доступа/identity, не сетевой timeout. |
 | Bootstrap mode | не восстановлен `stalwart-data` или `stalwart-etc`. |
-
-
-## Проверьте себя
-
-1. Объясните `SMTP` через механизм и приведите пример из этой главы, а не словарную формулировку.
-1. Объясните `DKIM` через механизм и приведите пример из этой главы, а не словарную формулировку.
-1. Объясните `bootstrap mode` через механизм и приведите пример из этой главы, а не словарную формулировку.
-1. Почему симптом «535» ещё не доказывает единственную причину?
-1. Какая независимая проверка отличает выполненную команду от достигнутого результата?
 
 ## Источники проекта
 

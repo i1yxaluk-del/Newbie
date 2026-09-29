@@ -10,23 +10,9 @@ Uvicorn принимает сетевое подключение и вызыва
 
 Middleware оборачивает application. В `secure_server.py` body читается, проверяется consent и воспроизводится для FastAPI.
 
-## Слова, которые встретятся дальше
-
-### ASGI
-
-Контракт вызовов между Python web server и asynchronous application. Uvicorn владеет сетевое подключение, FastAPI обрабатывает границы услуги/events.
-
-### middleware
-
-Обёртка вокруг application, которая может проверить или изменить запрос/ответ. Ошибка в чтении body способна лишить downstream исходных данных.
-
-### процесс
-
-Запущенный экземпляр программы: address space, PID, секрет доступаs, environment и file descriptors. Service может породить несколько процессов.
-
 ## Как это работает
 
-Uvicorn превращает bytes из сетевое подключение в ASGI events. Middleware читает `http.request`; если body потреблён, downstream нужно вернуть его через replay. FastAPI после middleware выбирает route и валидирует model. Затем handler пишет Mongo и создаёт outbox, поэтому status ответа надо связывать с фактическим commit данных.
+Uvicorn превращает bytes из сетевое подключение в ASGI events. Middleware читает `http.request`; если body потреблён, downstream нужно вернуть его через replay. FastAPI после middleware выбирает route и валидирует model. Затем handler пишет Mongo и создаёт outbox, поэтому status ответа надо связывать с фактическим коммит данных.
 
 ## Пример
 
@@ -37,14 +23,6 @@ if границы услуги["method"] == "POST" and границы услуг
     if payload.get("consent") is not True:
         return JSONResponse({"detail": "consent_required"}, status_code=400)
 ```
-
-### Что здесь происходит
-
-- `if границы услуги["method"] == "POST" and границы услуги["path"] == "/api/leads":` — Разделите строку на программу/оператор, options и operands; затем по документации установите side effect и exit semantics.
-- `body = b"".join(chunks)` — Разделите строку на программу/оператор, options и operands; затем по документации установите side effect и exit semantics.
-- `payload = json.loads(body or b"{}")` — Разделите строку на программу/оператор, options и operands; затем по документации установите side effect и exit semantics.
-- `if payload.get("consent") is not True:` — Разделите строку на программу/оператор, options и operands; затем по документации установите side effect и exit semantics.
-- `return JSONResponse({"detail": "consent_required"}, status_code=400)` — Разделите строку на программу/оператор, options и operands; затем по документации установите side effect и exit semantics.
 
 ## Практикум
 
@@ -58,15 +36,6 @@ if границы услуги["method"] == "POST" and границы услуг
 |---|---|---|
 | 422 | schema validation, 400 здесь — policy middleware. |
 | 500 | необработанное исключение; искать traceback и request correlation. |
-
-
-## Проверьте себя
-
-1. Объясните `ASGI` через механизм и приведите пример из этой главы, а не словарную формулировку.
-1. Объясните `middleware` через механизм и приведите пример из этой главы, а не словарную формулировку.
-1. Объясните `процесс` через механизм и приведите пример из этой главы, а не словарную формулировку.
-1. Почему симптом «422» ещё не доказывает единственную причину?
-1. Какая независимая проверка отличает выполненную команду от достигнутого результата?
 
 ## Источники проекта
 

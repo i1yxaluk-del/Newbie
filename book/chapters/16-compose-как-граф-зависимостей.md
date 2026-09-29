@@ -10,20 +10,6 @@ Compose project объединяет services, networks и volumes. Service — 
 
 Два Compose-проекта связываются через external network `msp_default`; имя должно уже существовать.
 
-## Слова, которые встретятся дальше
-
-### service-compose
-
-Compose-описание желаемого container: image/build, env, mounts, networks, health и restart. Это не systemd service.
-
-### healthcheck
-
-Команда, оценивающая выбранный признак внутри/рядом с service. Она доказывает только то, что действительно проверяет.
-
-### volume
-
-Storage с lifecycle отдельно от container. Резервная копия volume всё равно должен учитывать consistency приложения.
-
 ## Как это работает
 
 Compose сначала создаёт networks/volumes, затем containers. `depends_on` с health condition ждёт initial health, но после запуска backend должен сам переживать краткий отказ Mongo. External network — контракт между двумя projects и не создаётся вторым Compose автоматически.
@@ -39,15 +25,6 @@ backend:
     - "127.0.0.1:8001:8001"
 ```
 
-### Что здесь происходит
-
-- `backend:` — Стрелка показывает направление зависимости; подпись на стрелке задаёт протокол или тип передачи.
-- `depends_on:` — Разделите строку на программу/оператор, options и operands; затем по документации установите side effect и exit semantics.
-- `mongo:` — Стрелка показывает направление зависимости; подпись на стрелке задаёт протокол или тип передачи.
-- `condition: service_healthy` — Разделите строку на программу/оператор, options и operands; затем по документации установите side effect и exit semantics.
-- `ports:` — Разделите строку на программу/оператор, options и operands; затем по документации установите side effect и exit semantics.
-- `- "127.0.0.1:8001:8001"` — Эта строка является частью конфигурации или формулы; смысл определяется родительским блоком и отступом.
-
 ## Практикум
 
 1. Поднимите Mongo+backend.
@@ -60,15 +37,6 @@ backend:
 |---|---|---|
 | Compose config ok, external network missing | runtime prerequisite. |
 | `restart` не перечитал env | нужен recreate. |
-
-
-## Проверьте себя
-
-1. Объясните `service-compose` через механизм и приведите пример из этой главы, а не словарную формулировку.
-1. Объясните `healthcheck` через механизм и приведите пример из этой главы, а не словарную формулировку.
-1. Объясните `volume` через механизм и приведите пример из этой главы, а не словарную формулировку.
-1. Почему симптом «Compose config ok, external network missing» ещё не доказывает единственную причину?
-1. Какая независимая проверка отличает выполненную команду от достигнутого результата?
 
 ## Источники проекта
 

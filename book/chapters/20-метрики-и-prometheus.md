@@ -10,23 +10,9 @@ Prometheus сам scrape targets. `up=1` означает успешный scrap
 
 Каждая комбинация labels создаёт series. User ID или URL с уникальным query ведёт к cardinality explosion.
 
-## Слова, которые встретятся дальше
-
-### metric
-
-Числовое наблюдение с именем, labels и timestamp. Оно не содержит автоматически порог, приоритет или договорное обещание.
-
-### counter
-
-Metric, которая монотонно растёт до reset процесса; скорость считают через `rate`, а не вычитанием случайных точек.
-
-### cardinality
-
-Число уникальных label sets. Неограниченные user/request значения создают новые series и нагружают TSDB.
-
 ## Как это работает
 
-Exporter не отправляет данные в Prometheus: Prometheus сам делает scrape. Query `rate(counter[5m])` оценивает среднюю скорость с учётом reset. Histogram quantile вычисляется по агрегированным buckets; без правильного `le` и одинаковых dimensions результат бессмыслен.
+Exporter не отправляет данные в Prometheus: Prometheus сам делает scrape. Query `rate(counter[5m])` оценивает среднюю скорость с учётом перенос указателя версии. Histogram quantile вычисляется по агрегированным buckets; без правильного `le` и одинаковых dimensions результат бессмыслен.
 
 ## Пример
 
@@ -35,12 +21,6 @@ up{job="backend"}
 rate(http_requests_total{status=~"5.."}[5m])
 histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[5m])))
 ```
-
-### Что здесь происходит
-
-- `up{job="backend"}` — Разделите строку на программу/оператор, options и operands; затем по документации установите side effect и exit semantics.
-- `rate(http_requests_total{status=~"5.."}[5m])` — `rate` оценивает скорость counter по диапазону и учитывает reset; instant selector counter показывает накопленное значение.
-- `histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[5m])))` — `rate` оценивает скорость counter по диапазону и учитывает reset; instant selector counter показывает накопленное значение.
 
 ## Практикум
 
@@ -52,17 +32,8 @@ histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[
 
 | Наблюдение | Что это означает | Следующая проверка |
 |---|---|---|
-| No data | target/selector/retention, а не нулевое значение. |
+| No data | target/selector/срок хранения, а не нулевое значение. |
 | Высокий CPU Prometheus | проверить cardinality и query. |
-
-
-## Проверьте себя
-
-1. Объясните `metric` через механизм и приведите пример из этой главы, а не словарную формулировку.
-1. Объясните `counter` через механизм и приведите пример из этой главы, а не словарную формулировку.
-1. Объясните `cardinality` через механизм и приведите пример из этой главы, а не словарную формулировку.
-1. Почему симптом «No data» ещё не доказывает единственную причину?
-1. Какая независимая проверка отличает выполненную команду от достигнутого результата?
 
 ## Источники проекта
 

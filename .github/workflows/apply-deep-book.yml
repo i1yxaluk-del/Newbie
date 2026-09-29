@@ -1,0 +1,22 @@
+name: Apply deep owner handbook
+on:
+  push:
+    branches: [book/deep-owner-handbook-v4]
+permissions: {contents: write}
+jobs:
+  build:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: book/deep-owner-handbook-v4}
+      - run: python book/build_deep_book.py
+      - run: python book/verify_deep_book.py
+      - run: python scripts/validate_markdown_links.py
+      - run: |
+          rm .github/workflows/apply-deep-book.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m 'docs(book): build deep source-driven owner handbook'
+          git push origin HEAD:book/deep-owner-handbook-v4

@@ -30,8 +30,11 @@ jobs:
           cp -a /tmp/book-unpacked/MSPShield_Academy_MD/. book/
           rm -f book/push-*.json
           test -f book/BOOK.md
+          test -f book/GLOSSARY.md
+          test -f book/manifest.json
           test "$(find book/chapters -maxdepth 1 -type f -name '*.md' | wc -l)" -eq 38
-          python3 book/verify_full.py
+          test "$(python3 -c 'import json; print(len(json.load(open("book/manifest.json"))))')" -eq 38
+          ! grep -RIl $'\357\277\275' book/chapters
       - name: Commit complete book
         shell: bash
         run: |

@@ -13,24 +13,57 @@ jobs:
   import-book:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Download and unpack verified book archive
+      - name: Download archive from temporary public page
+        env:
+          NOTION_PAGE_ID: 40c37e2e2ead4f3895c4f932fc156410
         shell: bash
         run: |
           set -Eeuo pipefail
-          curl --fail --location --retry 3 --output /tmp/book.zip 'file://%7B%22source%22%3A%22attachment%3Aedb1fe4a-6327-4983-8c37-cd07214f4292%3AMSPShield_Academy_MD_complete.zip%22%2C%22permissionRecord%22%3A%7B%22table%22%3A%22block%22%2C%22id%22%3A%22d435e710-6e13-403d-80dc-290ea9154fb5%22%2C%22spaceId%22%3A%2258aa5f3f-d1c2-81d3-85bd-000368aa0c95%22%7D%7D'
+          python3 - <<'PY'
+          import json, os, pathlib, urllib.request
+          page=os.environ['NOTION_PAGE_ID']
+          def post(path,data):
+              req=urllib.request.Request('https://www.notion.so/api/v3/'+path,data=json.dumps(data).encode(),headers={'Content-Type':'application/json','User-Agent':'Mozilla/5.0'})
+              return json.load(urllib.request.urlopen(req,timeout=60))
+          data=post('loadCachedPageChunk',{'page':{'id':page},'limit':50,'cursor':{'stack':[]},'chunkNumber':0,'verticalColumns':False})
+          blocks=data.get('recordMap',{}).get('block',{})
+          candidates=[]
+          def walk(x):
+              if isinstance(x,str) and (x.startswith('attachment:') or x.startswith('http')) and ('zip' in x.lower() or x.startswith('attachment:')): candidates.append(x)
+              elif isinstance(x,dict):
+                  for v in x.values(): walk(v)
+              elif isinstance(x,list):
+                  for v in x: walk(v)
+          for bid,rec in blocks.items():
+              val=rec.get('value') or {}
+              before=len(candidates); walk(val)
+              for url in candidates[before:]:
+                  if url.startswith('http'):
+                      signed=url
+                  else:
+                      payload={'urls':[{'url':url,'permissionRecord':{'table':'block','id':bid,'spaceId':val.get('space_id')}}]}
+                      signed=(post('getSignedFileUrls',payload).get('signedUrls') or [None])[0]
+                  if signed:
+                      try:
+                          raw=urllib.request.urlopen(urllib.request.Request(signed,headers={'User-Agent':'Mozilla/5.0'}),timeout=120).read()
+                          if raw[:4]==b'PK\x03\x04':
+                              pathlib.Path('/tmp/book.zip').write_bytes(raw); print('downloaded',len(raw)); raise SystemExit
+                      except Exception as e: print('candidate failed',type(e).__name__)
+          raise SystemExit('ZIP attachment not found')
+          PY
           unzip -t /tmp/book.zip
-          rm -rf book
-          mkdir -p book
+          rm -rf book /tmp/book-unpacked
+          mkdir -p book /tmp/book-unpacked
           unzip -q /tmp/book.zip -d /tmp/book-unpacked
           cp -a /tmp/book-unpacked/MSPShield_Academy_MD/. book/
           rm -f book/push-*.json
           test -f book/BOOK.md
           test "$(find book/chapters -maxdepth 1 -type f -name '*.md' | wc -l)" -eq 38
+          python3 book/verify_full.py
 
       - name: Commit complete book
         shell: bash

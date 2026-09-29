@@ -22,7 +22,7 @@ jobs:
           python scripts/validate_markdown_links.py
           python -m compileall -q scripts services/max_alerter book/build_full_book.py
           bash -n scripts/deployment/preflight.sh migration/restic-backup.sh migration/restore-on-vm.sh migration/diag.sh
-      - run: rm .github/repo_freshness_patch.py .github/workflows/apply-repo-freshness.yml
+      - run: rm .github/repo_freshness_patch.py
       - run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com

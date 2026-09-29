@@ -1,0 +1,41 @@
+name: Fix book generator quality
+
+on:
+  push:
+    branches:
+      - docs/curate-book-video-stack
+    paths:
+      - .github/workflows/fix-book-generator.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix-generator:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: docs/curate-book-video-stack
+      - name: Repair generator and verify
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('book/build_full_book.py')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace('\ufffd','').replace('слева нараво','слева направо').replace('карта програмы','карта программы').replace('без подсказки и справляет','без подсказки и исправляет')
+          s=s.replace('ADMIN_TOKEN\\|PASSWORD','ADMIN_TOKEN\\\\|PASSWORD')
+          p.write_text(s,encoding='utf-8')
+          PY
+          python3 -W error::SyntaxWarning -m py_compile book/build_full_book.py
+          ! grep -R "youtube.com/results?search_query" book
+          ! grep -R $'\uFFFD' book --include='*.md' --include='*.py'
+          test "$(find book/chapters -maxdepth 1 -type f -name '*.md' | wc -l)" -eq 38
+          rm -rf book/__pycache__
+          rm -f .github/workflows/fix-book-generator.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(book): очистить генератор и запретить поисковые видеоссылки [skip ci]"
+          git push origin HEAD:docs/curate-book-video-stack

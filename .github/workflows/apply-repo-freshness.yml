@@ -4,7 +4,6 @@ on:
     branches: [audit/repo-wide-deployment-freshness]
 permissions:
   contents: write
-  pull-requests: write
 concurrency:
   group: repository-freshness-migration
   cancel-in-progress: true
@@ -16,29 +15,18 @@ jobs:
       - uses: actions/checkout@v4
         with: {ref: audit/repo-wide-deployment-freshness, fetch-depth: 0}
       - name: Применить, проверить и отправить
-        env: {GH_TOKEN: '${{ github.token }}'}
         run: |
-          set +e
-          {
-            set -x
-            python .github/repo_freshness_patch.py
-            python scripts/validate_deployment_freshness.py
-            python scripts/validate_operational_consistency.py
-            python scripts/validate_markdown_links.py
-            python -m compileall -q scripts services/max_alerter book/build_full_book.py
-            bash -n scripts/deployment/preflight.sh migration/restic-backup.sh migration/restore-on-vm.sh migration/diag.sh
-            rm .github/repo_freshness_patch.py
-            git config user.name github-actions[bot]
-            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-            git add -A
-            git status --short
-            git commit -m 'docs(deploy): synchronize repository with migration lessons'
-            git push origin HEAD:audit/repo-wide-deployment-freshness
-          } > /tmp/freshness.log 2>&1
-          rc=$?
-          cat /tmp/freshness.log
-          if [ $rc -ne 0 ]; then
-            { echo 'Автоматическая миграция завершилась ошибкой:'; echo '```text'; tail -80 /tmp/freshness.log; echo '```'; } > /tmp/comment.md
-            gh pr comment 66 --body-file /tmp/comment.md
-          fi
-          exit $rc
+          set -euxo pipefail
+          python .github/repo_freshness_patch.py
+          python scripts/validate_deployment_freshness.py
+          python scripts/validate_operational_consistency.py
+          python scripts/validate_markdown_links.py
+          python -m compileall -q scripts services/max_alerter book/build_full_book.py
+          bash -n scripts/deployment/preflight.sh migration/restic-backup.sh migration/restore-on-vm.sh migration/diag.sh
+          rm .github/repo_freshness_patch.py
+          git restore .github/workflows/quality.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m 'docs(deploy): synchronize repository with migration lessons'
+          git push origin HEAD:audit/repo-wide-deployment-freshness

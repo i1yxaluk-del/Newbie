@@ -37,6 +37,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python scripts/validate_operational_consistency.py
+  deployment-freshness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python scripts/validate_deployment_freshness.py
   operational-shell-syntax:
     runs-on: ubuntu-latest
     steps:

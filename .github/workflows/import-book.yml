@@ -1,0 +1,44 @@
+name: Import complete MSPShield Academy book
+
+on:
+  push:
+    paths:
+      - .github/workflows/import-book.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import-book:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download and unpack verified book archive
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          curl --fail --location --retry 3 --output /tmp/book.zip 'file://%7B%22source%22%3A%22attachment%3Aedb1fe4a-6327-4983-8c37-cd07214f4292%3AMSPShield_Academy_MD_complete.zip%22%2C%22permissionRecord%22%3A%7B%22table%22%3A%22block%22%2C%22id%22%3A%22d435e710-6e13-403d-80dc-290ea9154fb5%22%2C%22spaceId%22%3A%2258aa5f3f-d1c2-81d3-85bd-000368aa0c95%22%7D%7D'
+          unzip -t /tmp/book.zip
+          rm -rf book
+          mkdir -p book
+          unzip -q /tmp/book.zip -d /tmp/book-unpacked
+          cp -a /tmp/book-unpacked/MSPShield_Academy_MD/. book/
+          rm -f book/push-*.json
+          test -f book/BOOK.md
+          test "$(find book/chapters -maxdepth 1 -type f -name '*.md' | wc -l)" -eq 38
+
+      - name: Commit complete book
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          rm -f .github/workflows/import-book.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A book .github/workflows/import-book.yml
+          git commit -m 'docs(book): добавить полный учебник из 38 глав [skip ci]'
+          git push

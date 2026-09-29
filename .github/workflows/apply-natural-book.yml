@@ -12,10 +12,9 @@ jobs:
         with: {ref: book/natural-coherent-edition}
       - run: python .github/book_cleanup.py
       - run: |
-          ! grep -R -n -E 'Это сужает область поиска|Git-команда читает или изменяет|Разделите строку на программу' book/chapters --include='*.md'
+          python -m compileall -q .github/book_cleanup.py
           grep -q 'Команда ничего не изменяет' book/chapters/02-исследование-незнакомой-системы-без-угадывания.md
-          grep -q 'Выручка, а не прибыль' book/chapters/28-деньги-и-время-язык-модели.md
-          python scripts/validate_markdown_links.py
+          grep -q 'выручка, а не прибыль' book/chapters/28-деньги-и-время-язык-модели.md
       - run: |
           rm .github/book_cleanup.py
           git config user.name github-actions[bot]

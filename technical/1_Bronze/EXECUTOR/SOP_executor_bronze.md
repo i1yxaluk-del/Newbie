@@ -1,4 +1,6 @@
 # SOP — Bronze · Сторона ИСПОЛНИТЕЛЯ
+
+> **Legacy/учебный SOP.** Для текущего production каноничны `docs/deployment/DEPLOY_RUNBOOK.md` и `deploy/yandex/README.md`. Backend доступен только через loopback, alerts идут в MAX + email, а public SSH закрывается после проверки AWG.
 # Версия 3.0 | PowerShell-first (Windows 10 admin workstation)
 # ═══════════════════════════════════════════════════════════════════
 #
@@ -334,7 +336,7 @@ sudo systemctl enable --now fail2ban
 # UFW Firewall
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
-sudo ufw allow 22/tcp     comment "SSH"
+sudo ufw allow 22/tcp     comment "TEMP bootstrap SSH; закрыть после проверки AWG"
 sudo ufw allow 443/udp    comment "AmneziaWG VPN (DPI-obf)"
 sudo ufw --force enable
 sudo ufw status verbose

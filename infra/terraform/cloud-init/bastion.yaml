@@ -25,7 +25,8 @@ runcmd:
   - echo "net.ipv4.ip_forward=1" >> /etc/sysctl.d/99-awg.conf
   - ufw default deny incoming
   - ufw default allow outgoing
-  - ufw allow 22/tcp
+  # TEMP bootstrap: SG обязана ограничивать ADMIN_CIDR; после AWG закрыть public 22.
+  - ufw allow 22/tcp comment 'TEMP bootstrap SSH'
   - ufw allow 443/udp
   - ufw --force enable
   - systemctl enable --now fail2ban

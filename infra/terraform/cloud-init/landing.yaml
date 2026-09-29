@@ -33,7 +33,8 @@ write_files:
 runcmd:
   - ufw default deny incoming
   - ufw default allow outgoing
-  - ufw allow 22/tcp
+  # TEMP bootstrap: SG обязана ограничивать ADMIN_CIDR; после AWG закрыть public 22.
+  - ufw allow 22/tcp comment 'TEMP bootstrap SSH'
   - ufw allow 80/tcp
   - ufw allow 443/tcp
   - ufw --force enable

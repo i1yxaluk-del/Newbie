@@ -1,24 +1,17 @@
-﻿# R-smtp-down · SMTP недоступен
+# R-smtp-down · Почта недоступна
 
-| | |
-|---|---|
-| **Alert** | `StalwartSmtpDown` |
-| **Severity** | P1 |
-| **Expression** | `probe_success{job="blackbox-smtp"} == 0` for 3m |
-| **Summary** | Stalwart SMTP недоступен — отправка почты не работает |
+**Основной production path:** сервис → `postbox.cloud.yandex.net:465` implicit TLS. Stalwart — optional profile `mail`.
 
 ## Диагностика
 
-1. `docker ps | grep stalwart`
-2. `nc -zv 127.0.0.1 465` — SMTPS порт
-3. `nc -zv 127.0.0.1 25` — SMTP inbound
-4. Проверить Caddy не занял ли порт 443 вместо Stalwart
-5. UFW rules для 25, 465
+1. Определить отправителя: backend, Alertmanager, Grafana, Vaultwarden или Stalwart.
+2. `535 Authentication failed`: username должен быть ID API-ключа, не service-account ID.
+3. `550 identity not verified`: проверить identity и DKIM CNAME из Postbox.
+4. Для Stalwart проверить очередь `x:QueuedMessage/get` и отсутствие `bootstrap mode`.
 
-## Устранение
+## Восстановление
 
-1. Рестарт: `cd /opt/msp/Newbie/deploy/yandex && docker compose restart stalwart`
-2. Если port conflict: Caddy и Stalwart оба на 443 — проверить Caddyfile
-3. Проверить UFW: `sudo ufw status`
-4. Проверить MX записи: `dig MX msp-claude.online`
-5. Тест: `swaks --to alert@msp-claude.online --server msp-claude.online:25`
+- После изменения `.env`: `docker compose up -d --force-recreate <service>`; `restart` env не перечитывает.
+- Восстановленный `postbox-outbound` обновить через `x:MtaRoute/set`, затем перезапустить Stalwart.
+- При bootstrap mode восстановить оба тома: `stalwart-etc` и `stalwart-data`.
+- После фикса отправить контрольное письмо и сохранить message-id/ошибку без секретов.

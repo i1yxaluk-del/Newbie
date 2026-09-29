@@ -4,7 +4,7 @@
 
 ## Архитектура
 
-Все сервисы работают на одной Yandex Cloud VM (static IP: `130.193.49.21`). Доступ — только через AmneziaWG туннель (`10.9.0.1`, UDP/443). SSH: `ssh -i ~/.ssh/id_ed25519_yc_new ubuntu@10.9.0.1`.
+Пилот использует одну Yandex Cloud VM со статическим IP. IP и cloud ID берутся из runtime inventory, а не из документации. После проверки AWG публичный TCP/22 закрывается и в Security Group, и в UFW.
 
 Два Docker-стека:
 - **Приложение**: `/opt/msp/Newbie/deploy/yandex/` (сеть `msp_default`) — MongoDB, backend, Stalwart, Vaultwarden
@@ -40,7 +40,7 @@
 ```
 /opt/msp/Newbie/backend/.env          # backend: ADMIN_TOKEN, SMTP, env
 /opt/msp/Newbie/deploy/yandex/monitoring/.env # мониторинг: все токены, chat_id
-Docker volume msp-max-alerter-data     # pymax session (SMS auth)
+`monitoring/max-session/max.db`        # bind-mounted pymax session; credential
 /etc/restic/env.sh                    # restic: S3 keys, encryption pw
 /opt/msp/secrets/vaultwarden-import.csv # CSV для импорта (вне git)
 ```
@@ -119,7 +119,7 @@ Prometheus rules (P1/P2/P3)
 | `ADMIN_TOKEN` backend | 6 мес | Или при подозрении на утечку |
 | `ALERTMANAGER_WEBHOOK_TOKEN` | 12 мес | `openssl rand -hex 32` → обновить в обоих `.env` |
 | Telegram Bot token | По необходимости | Через @BotFather → revoke |
-| MAX session | При истечении | `python3 auth.py --phone +79990703823 --session /opt/msp/Newbie/deploy/yandex/monitoring/max-session/max.db` |
+| MAX session | При истечении | `sudo docker exec -it msp-max-alerter python -m max_alerter.auth --authorize` |
 | Postbox API key | 6 мес | Новый ключ в YC → обновить Stalwart route |
 | Restic encryption password | 12 мес | `restic key passwd` (требует старый пароль) |
 | Restic S3 keys | 12 мес | Новый ключ в YC → `/etc/restic/env.sh` |
@@ -135,7 +135,7 @@ DNS управляется через Namecheap (НЕ Yandex Cloud DNS — пл�
 
 | Запись | Тип | Значение |
 |--------|-----|----------|
-| `msp-claude.online` | A | `130.193.49.21` |
+| `msp-claude.online` | A | `<CURRENT_PUBLIC_IP>` из inventory |
 | `vault.msp-claude.online` | CNAME | `msp-claude.online` |
 | `mail.msp-claude.online` | CNAME | `msp-claude.online` |
 | `mon.msp-claude.online` | CNAME | `msp-claude.online` |

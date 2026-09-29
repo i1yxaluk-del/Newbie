@@ -81,10 +81,14 @@ MX=$(dig +short MX $DOMAIN | head -1)
 SPF=$(dig +short TXT $DOMAIN | grep -c "v=spf1")
 echo "dns_spf_records $SPF" >> $TMP
 
-# DKIM (ожидаем selector 'default' или 'mail')
-for SEL in default mail selector1 s1; do
-  DKIM=$(dig +short TXT ${SEL}._domainkey.$DOMAIN | grep -c "v=DKIM1")
-  echo "dns_dkim_present{selector=\"$SEL\"} $DKIM" >> $TMP
+# DKIM: TXT для обычных MTA или CNAME для Postbox. Селекторы Postbox
+# передаются из консоли, а не угадываются.
+for SEL in default mail selector1 s1 "${POSTBOX_DKIM_SELECTOR_1:-}" "${POSTBOX_DKIM_SELECTOR_2:-}"; do
+  [[ -z "$SEL" ]] && continue
+  TXT_N=$(dig +short TXT "${SEL}._domainkey.${DOMAIN}" | grep -ci "v=DKIM1" || true)
+  CNAME_N=$(dig +short CNAME "${SEL}._domainkey.${DOMAIN}" | grep -ci "\.dkim\.pstbx\.ru\.?$" || true)
+  (( TXT_N > 0 || CNAME_N > 0 )) && DKIM=1 || DKIM=0
+  echo "dns_dkim_present{selector=\"$SEL\"} $DKIM" >> "$TMP"
 done
 
 # DMARC

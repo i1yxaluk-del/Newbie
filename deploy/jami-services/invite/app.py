@@ -261,11 +261,13 @@ def _qr_png(data: str) -> bytes:
 @app.get("/i/{token}/qr.png")
 def qr(token: str) -> Response:
     c = db()
-    row = c.execute("SELECT inviter_id FROM invites WHERE token=?", (token,)).fetchone()
+    row = c.execute("SELECT inviter_id, created_by FROM invites WHERE token=?", (token,)).fetchone()
     c.close()
     if not row:
         raise HTTPException(status_code=404, detail="not found")
     inviter_id = (row["inviter_id"] or "").strip().lower()
+    if not JAMI_ID_RE.fullmatch(inviter_id) and (row["created_by"] or "admin") == "admin":
+        inviter_id = _get_setting("inviter_id").lower()
     if not JAMI_ID_RE.fullmatch(inviter_id):
         raise HTTPException(status_code=404, detail="inviter id not set")
     return Response(_qr_png("jami:" + inviter_id), media_type="image/png")
@@ -505,6 +507,8 @@ def invite_page(token: str) -> HTMLResponse:
     expired = datetime.fromisoformat(row["expires_at"]) < datetime.now(timezone.utc)
     name = row["inviter_name"] or BRAND
     iid = (row["inviter_id"] or "").strip().lower()
+    if not JAMI_ID_RE.fullmatch(iid) and (row["created_by"] or "admin") == "admin":
+        iid = _get_setting("inviter_id").lower()
     has_iid = bool(JAMI_ID_RE.fullmatch(iid))
     if has_iid:
         inviter_block = f"""<div class="card qr">

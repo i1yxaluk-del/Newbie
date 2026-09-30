@@ -1,0 +1,17 @@
+#!/bin/bash
+set -e
+cd /opt/jami-services
+set -a; . ./.env; set +a
+python3 - "$@" <<'PY' > /tmp/invite-payload.json
+import json, sys
+p = {"inviter_name": sys.argv[1] if len(sys.argv) > 1 else "MSPShield",
+     "inviter_id": sys.argv[2] if len(sys.argv) > 2 else "",
+     "ttl_hours": int(sys.argv[3]) if len(sys.argv) > 3 else 72,
+     "note": sys.argv[4] if len(sys.argv) > 4 else ""}
+print(json.dumps(p))
+PY
+curl -s -X POST http://127.0.0.1:8890/admin/invites \
+  -H "X-Admin-Token: $INVITE_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  --data @/tmp/invite-payload.json
+echo
+rm -f /tmp/invite-payload.json

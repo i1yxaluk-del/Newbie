@@ -1,0 +1,8 @@
+#!/bin/bash
+set -e
+cd /opt/jami-services
+set -a; . ./.env; set +a
+curl -s -X POST http://127.0.0.1:8889/admin/names \
+  -H "X-Admin-Token: $NAMES_ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d "{\"username\":\"$1\",\"jami_id\":\"$2\"}"
+echo

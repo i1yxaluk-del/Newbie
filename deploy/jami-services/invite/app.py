@@ -19,7 +19,7 @@ from datetime import datetime, timedelta, timezone
 import qrcode
 import requests
 from fastapi import FastAPI, Header, HTTPException, Request
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 DB = "/data/invites.db"
 ADMIN_TOKEN = os.environ["ADMIN_TOKEN"]
@@ -150,6 +150,11 @@ def _jams_add_to_group(username: str) -> None:
         pass
 
 
+def _jams_admin_jamiid() -> str:
+    u = _jams_user(JAMS_ADMIN_USER)
+    return ((u or {}).get("jamiId") or "").strip().lower()
+
+
 def _get_setting(k: str) -> str:
     c = db()
     row = c.execute("SELECT v FROM settings WHERE k=?", (k,)).fetchone()
@@ -178,8 +183,8 @@ def create_invite(request: Request, payload: dict, x_admin_token: str = Header("
         "INSERT INTO invites (token, inviter_name, inviter_id, created_at, expires_at, used_at, note, jams_username, jams_password, created_by, member_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
         (
             tok,
-            (payload.get("inviter_name") or "").strip() or _get_setting("inviter_name") or BRAND,
-            ((payload.get("inviter_id") or "").strip() or _get_setting("inviter_id")).lower(),
+            (payload.get("inviter_name") or "").strip() or _get_setting("inviter_name") or JAMS_ADMIN_USER,
+            ((payload.get("inviter_id") or "").strip() or _get_setting("inviter_id") or _jams_admin_jamiid()).lower(),
             now.isoformat(),
             (now + timedelta(hours=ttl)).isoformat(),
             None,
@@ -226,6 +231,19 @@ def get_settings(x_admin_token: str = Header("")) -> dict:
     if x_admin_token != ADMIN_TOKEN:
         raise HTTPException(status_code=401, detail="unauthorized")
     return {"inviter_name": _get_setting("inviter_name"), "inviter_id": _get_setting("inviter_id")}
+
+
+@app.get("/admin/defaults")
+def admin_defaults(x_admin_token: str = Header("")) -> dict:
+    if x_admin_token != ADMIN_TOKEN:
+        raise HTTPException(status_code=401, detail="unauthorized")
+    saved_id = _get_setting("inviter_id")
+    iid = saved_id or _jams_admin_jamiid()
+    return {
+        "inviter_name": _get_setting("inviter_name") or JAMS_ADMIN_USER,
+        "inviter_id": iid,
+        "from_admin": bool(iid and not saved_id),
+    }
 
 
 @app.post("/admin/settings")
@@ -406,6 +424,124 @@ def member_invite_delete(ctoken: str, token: str) -> dict:
     c.commit()
     c.close()
     return {"ok": cur.rowcount > 0}
+
+
+@app.get("/login")
+def login_page() -> HTMLResponse:
+    body = f"""<div class="card">
+  <h1>Вход в личный кабинет</h1>
+  <p class="muted">Логин и пароль — от вашей учётной записи Jami (те, что вы создавали по приглашению).</p>
+  <label class="muted">Логин</label>
+  <input id="lu" autocomplete="username">
+  <label class="muted">Пароль</label>
+  <input id="lp" type="password" autocomplete="current-password">
+  <button class="btn btn-main" onclick="doLogin()">Войти</button>
+  <p class="muted" id="lres"></p>
+</div>
+<script>
+  async function doLogin() {{
+    const el = document.getElementById("lres");
+    el.innerHTML = "Проверяю…";
+    const r = await fetch("/login", {{
+      method: "POST",
+      headers: {{"Content-Type": "application/json"}},
+      body: JSON.stringify({{username: document.getElementById("lu").value, password: document.getElementById("lp").value}}),
+    }});
+    const d = await r.json().catch(() => ({{}}));
+    if (d.ok) {{ window.location.href = "/cabinet"; return; }}
+    el.innerHTML = '<span class="warn">' + (d.message || "Не получилось войти — проверьте логин и пароль.") + "</span>";
+  }}
+</script>"""
+    return _page("Вход — MSPShield Jami", body)
+
+
+@app.post("/login")
+def login_submit(payload: dict) -> Response:
+    username = (payload.get("username") or "").strip().lower()
+    password = payload.get("password") or ""
+    if not username or not password:
+        return JSONResponse({"ok": False, "message": "Заполните логин и пароль."}, status_code=400)
+    try:
+        r = requests.post(
+            JAMS_URL.rstrip("/") + "/api/login",
+            json={"username": username, "password": password},
+            timeout=15,
+        )
+    except Exception:
+        return JSONResponse({"ok": False, "message": "Сервер недоступен, попробуйте позже."}, status_code=502)
+    if r.status_code != 200:
+        return JSONResponse({"ok": False, "message": "Неверный логин или пароль."}, status_code=401)
+    c = db()
+    row = c.execute("SELECT * FROM members WHERE jams_username=?", (username,)).fetchone()
+    if row is None:
+        ctoken = secrets.token_urlsafe(24)
+        c.execute(
+            "INSERT INTO members (jams_username, jams_password, cabinet_token, jami_id, display_name, created_at, source_invite) VALUES (?,?,?,?,?,?,?)",
+            (username, password, ctoken, "", username, datetime.now(timezone.utc).isoformat(), ""),
+        )
+        c.commit()
+        row = c.execute("SELECT * FROM members WHERE jams_username=?", (username,)).fetchone()
+    c.close()
+    resp = JSONResponse({"ok": True})
+    resp.set_cookie("cab", row["cabinet_token"], max_age=30 * 24 * 3600, httponly=True, samesite="lax")
+    return resp
+
+
+@app.get("/cabinet")
+def cabinet_alias(request: Request) -> Response:
+    ct = request.cookies.get("cab", "")
+    if not ct or not _get_member(ct):
+        return RedirectResponse("/login")
+    return cabinet_page(ct)
+
+
+@app.get("/logout")
+def logout_page() -> Response:
+    resp = RedirectResponse("/login")
+    resp.delete_cookie("cab")
+    return resp
+
+
+@app.post("/u/{ctoken}/password")
+def member_password(ctoken: str, payload: dict) -> dict:
+    row = _get_member(ctoken)
+    if not row:
+        raise HTTPException(status_code=404, detail="not found")
+    old = payload.get("old_password") or ""
+    new = payload.get("new_password") or ""
+    if len(new) < 8:
+        return {"ok": False, "message": "Новый пароль — минимум 8 символов."}
+    try:
+        r = requests.post(
+            JAMS_URL.rstrip("/") + "/api/login",
+            json={"username": row["jams_username"], "password": old},
+            timeout=15,
+        )
+    except Exception:
+        return {"ok": False, "message": "Сервер недоступен."}
+    if r.status_code != 200:
+        return {"ok": False, "message": "Текущий пароль неверный."}
+    pr = _jams_admin("PUT", "/api/admin/user", body={"username": row["jams_username"], "password": new})
+    if pr.status_code != 200:
+        return {"ok": False, "message": "Не удалось сменить пароль (код " + str(pr.status_code) + ")."}
+    c = db()
+    c.execute("UPDATE members SET jams_password=? WHERE cabinet_token=?", (new, ctoken))
+    c.commit()
+    c.close()
+    return {"ok": True}
+
+
+@app.post("/u/{ctoken}/profile")
+def member_profile(ctoken: str, payload: dict) -> dict:
+    row = _get_member(ctoken)
+    if not row:
+        raise HTTPException(status_code=404, detail="not found")
+    name = (payload.get("display_name") or "").strip()[:64]
+    c = db()
+    c.execute("UPDATE members SET display_name=? WHERE cabinet_token=?", (name, ctoken))
+    c.commit()
+    c.close()
+    return {"ok": True}
 
 
 @app.get("/qr/{jami_id}.png")
@@ -619,30 +755,45 @@ def welcome_page(ctoken: str) -> HTMLResponse:
     row = _get_member(ctoken)
     if not row:
         return _page("Кабинет не найден", '<div class="card"><h1>Кабинет не найден</h1><p class="muted">Ссылка неверная или устарела.</p></div>')
+    u = _jams_user(row["jams_username"])
+    jid = ((u or {}).get("jamiId") or "").strip().lower()
+    if not JAMI_ID_RE.fullmatch(jid):
+        jid = ""
+    id_row = (
+        f'<div class="kv"><span class="muted">Ваш Jami ID</span> <span class="mono" id="mid">{jid}</span> <button class="btn btn-small btn-sec" onclick="copyText(&quot;mid&quot;)">копировать</button></div>'
+        if jid else
+        '<div class="kv"><span class="muted">Ваш Jami ID</span> <span class="muted">появится после подключения — смотрите в кабинете</span></div>'
+    )
     body = f"""<div class="card done">
   <h1>Учётная запись создана</h1>
   <p class="ok">Логин: <b>{row["jams_username"]}</b></p>
   <p class="muted">Сохраните ссылку на личный кабинет — через неё вы будете создавать приглашения и смотреть свой Jami ID.</p>
 </div>
 <div class="card">
-  <h2>Данные для подключения</h2>
+  <h2>1. Установите Jami</h2>
+  <a class="btn btn-main" href="https://play.google.com/store/apps/details?id=cx.ring">Установить из Google Play (Android)</a>
+  <a class="btn btn-main" href="https://apps.apple.com/app/jami/id1306951055">Установить из App Store (iPhone / iPad)</a>
+  <a class="btn btn-sec" href="https://jami.net/download/" style="display:block">Скачать для Windows / macOS / Linux</a>
+</div>
+<div class="card">
+  <h2>2. Данные для входа (в приложении)</h2>
   <div class="kv"><span class="muted">Сервер</span> <span class="mono" id="srv">{JAMS_URL}</span> <button class="btn btn-small btn-sec" onclick="copyText(&quot;srv&quot;)">копировать</button></div>
   <div class="kv"><span class="muted">Логин</span> <span class="mono" id="lgn">{row["jams_username"]}</span> <button class="btn btn-small btn-sec" onclick="copyText(&quot;lgn&quot;)">копировать</button></div>
   <div class="kv"><span class="muted">Пароль</span> <span class="mono" id="pwd">{row["jams_password"]}</span> <button class="btn btn-small btn-sec" onclick="copyText(&quot;pwd&quot;)">копировать</button></div>
+  {id_row}
 </div>
 <div class="card">
-  <h2>Как подключить Jami</h2>
+  <h2>3. Подключение</h2>
   <ol class="steps">
-    <li>Установите Jami (см. шаг 1 на странице приглашения).</li>
     <li>Откройте «Добавить аккаунт» → «Подключиться к JAMS-серверу».</li>
-    <li>Введите сервер, логин и пароль. Если появится окно «миграции» — введите тот же пароль.</li>
+    <li>Введите сервер, логин и пароль из блока выше. Если появится окно «миграции» — введите тот же пароль.</li>
     <li>Настройки связи (TURN и DHT) применятся автоматически.</li>
   </ol>
 </div>
 <div class="card">
   <h2>Дальше</h2>
   <p><a class="btn btn-main" href="/u/{ctoken}">Открыть личный кабинет</a></p>
-  <p class="muted">В кабинете: ваш Jami ID с QR-кодом и приглашения для коллег. Учётная запись добавлена в группу MSPShield — после подключения клиент получит наши настройки связи (TURN/DHT).</p>
+  <p class="muted">Заходить в кабинет можно и по логину с паролем: <a href="/login">страница входа</a>. В кабинете: ваш Jami ID с QR-кодом, приглашения для коллег, смена пароля. Учётная запись добавлена в группу MSPShield — после подключения клиент получит наши настройки связи (TURN/DHT).</p>
 </div>
 <script>
   function copyText(id) {{
@@ -668,7 +819,7 @@ def cabinet_page(ctoken: str) -> HTMLResponse:
     body = f"""<div class="card">
   <h1>Личный кабинет</h1>
   <p class="muted">Пользователь: <b>{row["jams_username"]}</b> {row["display_name"] or ""}</p>
-  <p class="muted">Не пересылайте эту ссылку — она даёт доступ к вашим данным.</p>
+  <p class="muted">Не пересылайте эту ссылку — она даёт доступ к вашим данным. <a href="/logout">Выйти</a></p>
 </div>
 <div class="card">
   <h2>Ваш Jami ID</h2>
@@ -678,11 +829,7 @@ def cabinet_page(ctoken: str) -> HTMLResponse:
 </div>
 <div class="card">
   <h2>Пригласить коллег</h2>
-  <p class="muted">Человек по ссылке создаст себе учётную запись и подключится к серверу; после подключения он сможет добавить вас в контакты по QR из приглашения.</p>
-  <label class="muted">Срок действия, часов</label>
-  <input id="i-ttl" type="number" value="72" min="1" max="720">
-  <label class="muted">Заметка (для себя)</label>
-  <input id="i-note" placeholder="Например: Пётр">
+  <p class="muted">Нажмите кнопку — ссылка появится сразу (действует 72 часа); дополнительно ничего указывать не нужно.</p>
   <button class="btn btn-main" onclick="createInvite()">Создать приглашение</button>
   <p class="muted" id="ires"></p>
   <table>
@@ -690,10 +837,47 @@ def cabinet_page(ctoken: str) -> HTMLResponse:
     <tbody id="irows"><tr><td colspan="4" class="muted">Загрузка…</td></tr></tbody>
   </table>
 </div>
+<div class="card">
+  <h2>Учётные данные</h2>
+  <label class="muted">Отображаемое имя (как видят получатели ваших приглашений)</label>
+  <input id="p-name" value="{row["display_name"] or row["jams_username"]}">
+  <button class="btn btn-sec" onclick="saveName()">Сохранить имя</button>
+  <p class="muted" id="p-res"></p>
+  <hr style="border:0;border-top:1px solid #e3e6ea;margin:14px 0">
+  <label class="muted">Текущий пароль</label>
+  <input id="p-old" type="password" autocomplete="current-password">
+  <label class="muted">Новый пароль (минимум 8 символов)</label>
+  <input id="p-new" type="password" autocomplete="new-password">
+  <button class="btn btn-main" onclick="changePass()">Сменить пароль</button>
+  <p class="muted" id="pw-res"></p>
+</div>
 <script>
   function copyText(id) {{
     const el = document.getElementById(id);
     if (el) {{ navigator.clipboard.writeText(el.textContent.trim()); }}
+  }}
+  async function saveName() {{
+    const r = await fetch("/u/{ctoken}/profile", {{
+      method: "POST",
+      headers: {{"Content-Type": "application/json"}},
+      body: JSON.stringify({{display_name: document.getElementById("p-name").value}}),
+    }});
+    const d = await r.json().catch(() => ({{}}));
+    document.getElementById("p-res").innerHTML = d.ok ? '<span class="ok">Сохранено</span>' : '<span class="warn">Ошибка</span>';
+  }}
+  async function changePass() {{
+    const el = document.getElementById("pw-res");
+    el.innerHTML = "Меняю…";
+    const r = await fetch("/u/{ctoken}/password", {{
+      method: "POST",
+      headers: {{"Content-Type": "application/json"}},
+      body: JSON.stringify({{
+        old_password: document.getElementById("p-old").value,
+        new_password: document.getElementById("p-new").value,
+      }}),
+    }});
+    const d = await r.json().catch(() => ({{}}));
+    el.innerHTML = d.ok ? '<span class="ok">Пароль изменён — используйте его при следующем входе в Jami и кабинет.</span>' : '<span class="warn">' + (d.message || "Ошибка") + "</span>";
   }}
   async function refreshJami() {{
     const el = document.getElementById("jres");
@@ -717,29 +901,31 @@ def cabinet_page(ctoken: str) -> HTMLResponse:
     (d.invites || []).forEach(i => {{
       const tr = document.createElement("tr");
       tr.innerHTML = "<td>" + fmt(i.created_at) + "</td><td>" + (i.note || "") + "</td><td>" + status(i) +
-        '</td><td><a href="/i/' + i.token + '" target="_blank">открыть</a> <button class="btn btn-small btn-sec" onclick="copyUrl(\\'' + i.token + '\\')">копировать</button> <button class="btn btn-small btn-sec" onclick="delInvite(\\'' + i.token + '\\')">удалить</button></td>';
+        '</td><td><a href="/i/' + i.token + '" target="_blank">открыть</a> <button class="btn btn-small btn-sec" onclick="copyUrl(\\'' + i.token + '\\')">копировать</button> <button class="btn btn-small btn-sec" onclick="delInvite(\\'' + i.token + '\\')">отозвать</button></td>';
       rows.appendChild(tr);
     }});
   }}
   function copyUrl(tok) {{ navigator.clipboard.writeText("{INVITE_BASE}/i/" + tok); }}
   async function delInvite(tok) {{
-    if (!confirm("Удалить приглашение?")) return;
+    if (!confirm("Отозвать приглашение?")) return;
     await fetch("/u/{ctoken}/invites/" + tok, {{method: "DELETE"}});
     loadInvites();
   }}
   async function createInvite() {{
+    const el = document.getElementById("ires");
+    el.innerHTML = "Создаю…";
     const r = await fetch("/u/{ctoken}/invites", {{
       method: "POST",
       headers: {{"Content-Type": "application/json"}},
-      body: JSON.stringify({{
-        ttl_hours: parseInt(document.getElementById("i-ttl").value || "72", 10),
-        note: document.getElementById("i-note").value,
-      }}),
+      body: JSON.stringify({{ttl_hours: 72, note: ""}}),
     }});
     const d = await r.json().catch(() => ({{}}));
-    document.getElementById("ires").innerHTML = d.ok
-      ? '<span class="ok">Создано:</span> <span class="mono">' + d.url + "</span>"
-      : '<span class="warn">Ошибка: ' + JSON.stringify(d) + "</span>";
+    if (d.ok) {{
+      el.innerHTML = '<span class="ok">Ссылка создана (скопирована):</span> <span class="mono">' + d.url + "</span>";
+      try {{ await navigator.clipboard.writeText(d.url); }} catch (e) {{}}
+    }} else {{
+      el.innerHTML = '<span class="warn">Ошибка: ' + JSON.stringify(d) + "</span>";
+    }}
     loadInvites();
   }}
   loadInvites();
@@ -760,8 +946,8 @@ def admin_page(token: str = "") -> HTMLResponse:
   <p class="muted">Создавайте одноразовые ссылки и следите за статусом. Токен уже подставлен из URL.</p>
 </div>
 <div class="card">
-  <h2>Профиль приглашающего по умолчанию</h2>
-  <p class="muted">Подставляется, когда поля «Имя»/«Jami ID» в форме ниже пусты — чтобы не вводить их каждый раз.</p>
+  <h2>Профиль приглашающего (ваш Jami ID)</h2>
+  <p class="muted">Укажите один раз ваш Jami ID (у админ-учётки JAMS своего ID нет) — дальше он и имя подставляются во все приглашения автоматически, поля формы предзаполняются.</p>
   <label class="muted">Имя</label>
   <input id="s-name">
   <label class="muted">Jami ID (40 hex)</label>
@@ -771,9 +957,9 @@ def admin_page(token: str = "") -> HTMLResponse:
 </div>
 <div class="card">
   <h2>Новое приглашение</h2>
-  <label class="muted">Имя приглашающего (пусто — из настроек)</label>
+  <label class="muted">Имя приглашающего (подставляется автоматически)</label>
   <input id="f-name" placeholder="Например: Максим">
-  <label class="muted">Jami ID приглашающего (пусто — из настроек; необязательно)</label>
+  <label class="muted">Jami ID приглашающего (подставляется автоматически)</label>
   <input id="f-id" placeholder="7b1cf78913278f3b854286e36abf82b723ce971b">
   <label class="muted">Срок действия, часов</label>
   <input id="f-ttl" type="number" value="72" min="1" max="720">
@@ -795,11 +981,16 @@ def admin_page(token: str = "") -> HTMLResponse:
 </div>
 <script>
   const TOKEN = "{token}";
-  async function loadSettings() {{
-    const r = await fetch("/admin/settings", {{headers: {{"X-Admin-Token": TOKEN}}}});
+  async function loadDefaults() {{
+    const r = await fetch("/admin/defaults", {{headers: {{"X-Admin-Token": TOKEN}}}});
     const d = await r.json();
     document.getElementById("s-name").value = d.inviter_name || "";
     document.getElementById("s-id").value = d.inviter_id || "";
+    document.getElementById("f-name").value = d.inviter_name || "";
+    document.getElementById("f-id").value = d.inviter_id || "";
+    document.getElementById("s-res").innerHTML = d.inviter_id
+      ? '<span class="muted">Подставляется в новые приглашения автоматически.</span>'
+      : '<span class="warn">Укажите ваш Jami ID один раз — дальше будет подставляться сам.</span>';
   }}
   async function saveDefaults() {{
     const r = await fetch("/admin/settings", {{
@@ -811,7 +1002,12 @@ def admin_page(token: str = "") -> HTMLResponse:
       }}),
     }});
     const d = await r.json();
-    document.getElementById("s-res").innerHTML = d.ok ? '<span class="ok">Сохранено</span>' : '<span class="warn">Ошибка</span>';
+    if (d.ok) {{
+      await loadDefaults();
+      document.getElementById("s-res").innerHTML = '<span class="ok">Сохранено</span>';
+    }} else {{
+      document.getElementById("s-res").innerHTML = '<span class="warn">Ошибка</span>';
+    }}
   }}
   function fmt(ts) {{ return ts ? new Date(ts).toLocaleString("ru-RU") : ""; }}
   function status(i) {{
@@ -828,7 +1024,7 @@ def admin_page(token: str = "") -> HTMLResponse:
       const tr = document.createElement("tr");
       tr.innerHTML = "<td>" + fmt(i.created_at) + "</td><td>" + (i.inviter_name || "") +
         "</td><td>" + (i.jams_username || "") + "</td><td>" + (i.note || "") + (i.created_by && i.created_by !== "admin" ? " · создал: " + i.created_by : "") + "</td><td>" + status(i) +
-        '</td><td><a href="' + "/i/" + i.token + '" target="_blank">открыть</a> <button class="btn btn-small btn-sec" onclick="copyUrl(\\'' + i.token + '\\')">копировать</button> <button class="btn btn-small btn-sec" onclick="delInvite(\\'' + i.token + '\\')">удалить</button></td>';
+        '</td><td><a href="' + "/i/" + i.token + '" target="_blank">открыть</a> <button class="btn btn-small btn-sec" onclick="copyUrl(\\'' + i.token + '\\')">копировать</button> <button class="btn btn-small btn-sec" onclick="delInvite(\\'' + i.token + '\\')">отозвать</button></td>';
       if (i.inviter_id && /^[0-9a-f]{{40}}$/.test(i.inviter_id)) {{
         const a = document.createElement("a");
         a.href = "/c/" + i.inviter_id;
@@ -843,7 +1039,7 @@ def admin_page(token: str = "") -> HTMLResponse:
     navigator.clipboard.writeText("{INVITE_BASE}/i/" + tok);
   }}
   async function delInvite(tok) {{
-    if (!confirm("Удалить приглашение?")) return;
+    if (!confirm("Отозвать приглашение?")) return;
     await fetch("/admin/invites/" + tok, {{method: "DELETE", headers: {{"X-Admin-Token": TOKEN}}}});
     load();
   }}
@@ -868,11 +1064,11 @@ def admin_page(token: str = "") -> HTMLResponse:
     load();
   }}
   load();
-  loadSettings();
+  loadDefaults();
 </script>"""
     return _page("Админка приглашений — MSPShield", body)
 
 
 @app.get("/")
 def index() -> HTMLResponse:
-    return _page("MSPShield · Приглашения", '<div class="card"><h1>MSPShield Jami</h1><p class="muted">Сервис приглашений и кабинета. Приглашение: /i/… · Кабинет: /u/… · Карточка контакта: /c/…</p></div>')
+    return _page("MSPShield · Приглашения", '<div class="card"><h1>MSPShield Jami</h1><p class="muted">Сервис приглашений и кабинета. Приглашение: /i/… · Вход в кабинет: /login · Карточка контакта: /c/…</p></div>')

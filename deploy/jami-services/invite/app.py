@@ -1,11 +1,13 @@
 """MSPShield Jami Invite Portal.
 
-- Публично: /i/{token} — страница приглашения (QR, платформы, «Я добавил»).
+- Публично: /i/{token} — страница приглашения (данные JAMS, QR контакта, «Я добавил»).
+- Публично: /qr/{jami_id}.png — QR-код контакта (payload jami:<id>), /c/{jami_id} — карточка контакта.
 - Админка: /admin?token=<INVITE_ADMIN_TOKEN> — список приглашений + создание новых (веб-форма).
 - API: POST/GET /admin/invites (X-Admin-Token), GET /i/{token}/qr.png, POST /i/{token}/confirm.
 """
 import io
 import os
+import re
 import secrets
 import sqlite3
 from datetime import datetime, timedelta, timezone
@@ -38,9 +40,16 @@ def init() -> None:
              created_at   TEXT,
              expires_at   TEXT,
              used_at      TEXT,
-             note         TEXT
+             note         TEXT,
+             jams_username TEXT DEFAULT '',
+             jams_password TEXT DEFAULT ''
            )"""
     )
+    for col in ("jams_username", "jams_password"):
+        try:
+            c.execute(f"ALTER TABLE invites ADD COLUMN {col} TEXT DEFAULT ''")
+        except sqlite3.OperationalError:
+            pass
     c.commit()
     c.close()
 
@@ -66,7 +75,7 @@ def create_invite(request: Request, payload: dict, x_admin_token: str = Header("
     tok = secrets.token_urlsafe(24)
     c = db()
     c.execute(
-        "INSERT INTO invites (token, inviter_name, inviter_id, created_at, expires_at, used_at, note) VALUES (?,?,?,?,?,?,?)",
+        "INSERT INTO invites (token, inviter_name, inviter_id, created_at, expires_at, used_at, note, jams_username, jams_password) VALUES (?,?,?,?,?,?,?,?,?)",
         (
             tok,
             payload.get("inviter_name") or BRAND,
@@ -75,6 +84,8 @@ def create_invite(request: Request, payload: dict, x_admin_token: str = Header("
             (now + timedelta(hours=ttl)).isoformat(),
             None,
             payload.get("note", ""),
+            (payload.get("jams_username") or "").strip(),
+            payload.get("jams_password") or "",
         ),
     )
     c.commit()
@@ -110,6 +121,16 @@ def delete_invite(token: str, x_admin_token: str = Header("")) -> dict:
 
 # ─── публичные страницы ─────────────────────────────────────────────────────
 
+JAMI_ID_RE = re.compile(r"^[0-9a-fA-F]{40}$")
+
+
+def _qr_png(data: str) -> bytes:
+    img = qrcode.make(data)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
 @app.get("/i/{token}/qr.png")
 def qr(token: str) -> Response:
     c = db()
@@ -117,11 +138,10 @@ def qr(token: str) -> Response:
     c.close()
     if not row:
         raise HTTPException(status_code=404, detail="not found")
-    content = f"jami://{row['inviter_id']}" if row["inviter_id"] else JAMS_URL
-    img = qrcode.make(content)
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    return Response(buf.getvalue(), media_type="image/png")
+    inviter_id = (row["inviter_id"] or "").strip().lower()
+    if not JAMI_ID_RE.fullmatch(inviter_id):
+        raise HTTPException(status_code=404, detail="inviter id not set")
+    return Response(_qr_png("jami:" + inviter_id), media_type="image/png")
 
 
 @app.post("/i/{token}/confirm")
@@ -139,6 +159,46 @@ def confirm(token: str) -> dict:
         c.commit()
     c.close()
     return {"ok": True}
+
+
+@app.get("/qr/{jami_id}.png")
+def contact_qr(jami_id: str) -> Response:
+    jid = jami_id.strip().lower()
+    if not JAMI_ID_RE.fullmatch(jid):
+        raise HTTPException(status_code=404, detail="bad jami id")
+    return Response(_qr_png("jami:" + jid), media_type="image/png")
+
+
+@app.get("/c/{jami_id}")
+def contact_card(jami_id: str, n: str = "") -> HTMLResponse:
+    jid = jami_id.strip().lower()
+    if not JAMI_ID_RE.fullmatch(jid):
+        return _page("Некорректный Jami ID", '<div class="card"><h1>Некорректный Jami ID</h1><p class="muted">Ожидается 40 hex-символов.</p></div>')
+    name2 = (n or "").strip()
+    title = "Контакт в Jami" + (" — " + name2 if name2 else "")
+    body = f"""<div class="card qr">
+  <h1>{title}</h1>
+  <p class="muted">Отсканируйте QR-код: в Jami откройте «Добавить контакт» → «Сканировать», или скопируйте ID.</p>
+  <img src="/qr/{jid}.png" alt="QR-код контакта">
+  <p class="mono" id="jid">{jid}</p>
+  <button class="btn btn-sec" onclick="copyId()">Скопировать Jami ID</button>
+  <p class="muted" id="copyres"></p>
+</div>
+<div class="card">
+  <h2>Как добавить контакт</h2>
+  <ol class="steps">
+    <li>Откройте Jami на телефоне или компьютере.</li>
+    <li>Нажмите «Добавить контакт», отсканируйте QR-код выше или вставьте ID вручную.</li>
+    <li>После подтверждения контакт появится в списке разговоров.</li>
+  </ol>
+</div>
+<script>
+  function copyId() {{
+    navigator.clipboard.writeText("{jid}");
+    document.getElementById("copyres").innerHTML = '<span class="ok">Скопировано</span>';
+  }}
+</script>"""
+    return _page(title, body)
 
 
 def _page(title: str, body: str, extra_head: str = "", status_code: int = 200) -> HTMLResponse:
@@ -174,6 +234,7 @@ def _page(title: str, body: str, extra_head: str = "", status_code: int = 200) -
   table {{ width:100%; border-collapse:collapse; font-size:14px; }}
   th, td {{ text-align:left; padding:8px 6px; border-bottom:1px solid #e3e6ea; vertical-align:top; }}
   .mono {{ font-family:Consolas,monospace; font-size:12px; word-break:break-all; }}
+  .kv {{ margin:6px 0; }}
 </style>
 </head>
 <body>
@@ -198,6 +259,41 @@ def invite_page(token: str) -> HTMLResponse:
     used = bool(row["used_at"])
     expired = datetime.fromisoformat(row["expires_at"]) < datetime.now(timezone.utc)
     name = row["inviter_name"] or BRAND
+    juser = (row["jams_username"] or "").strip()
+    jpass = (row["jams_password"] or "").strip()
+    iid = (row["inviter_id"] or "").strip().lower()
+    has_iid = bool(JAMI_ID_RE.fullmatch(iid))
+    user_row = (
+        f'<div class="kv"><span class="muted">Логин</span> <span class="mono" id="juser">{juser}</span> <button class="btn btn-small btn-sec" onclick="copyText(&quot;juser&quot;)">копировать</button></div>'
+        if juser else
+        '<div class="kv"><span class="muted">Логин</span> <span class="muted">— запросите у приглашающего</span></div>'
+    )
+    pass_row = (
+        f'<div class="kv"><span class="muted">Пароль</span> <span class="mono" id="jpass">{jpass}</span> <button class="btn btn-small btn-sec" onclick="copyText(&quot;jpass&quot;)">копировать</button></div>'
+        if jpass else
+        '<div class="kv"><span class="muted">Пароль</span> <span class="muted">— пришлёт приглашающий отдельным сообщением</span></div>'
+    )
+    creds_block = f"""<div class="card">
+  <h2>2. Подключение к JAMS</h2>
+  <p class="muted">В Jami откройте «Добавить аккаунт» → «Подключиться к JAMS-серверу» и введите данные:</p>
+  <div class="kv"><span class="muted">Сервер</span> <span class="mono" id="jserver">{JAMS_URL}</span> <button class="btn btn-small btn-sec" onclick="copyText(&quot;jserver&quot;)">копировать</button></div>
+  {user_row}
+  {pass_row}
+  <p class="muted">При первом входе клиент может показать окно «миграции» и попросить пароль — это пароль вашей учётной записи в JAMS.</p>
+</div>"""
+    if has_iid:
+        contact_block = f"""<div class="card qr">
+  <h2>3. Добавьте контакт приглашающего</h2>
+  <p class="muted">В Jami: «Добавить контакт» → «Сканировать QR» — или вставьте ID вручную.</p>
+  <img src="/i/{token}/qr.png" alt="QR-код контакта">
+  <p class="mono">{iid}</p>
+  <p class="muted"><a href="/c/{iid}">Карточка контакта</a> — можно переслать или открыть на другом устройстве.</p>
+</div>"""
+    else:
+        contact_block = """<div class="card">
+  <h2>3. Добавьте контакт приглашающего</h2>
+  <p class="muted">Попросите приглашающего прислать его Jami ID или ссылку-карточку контакта.</p>
+</div>"""
 
     if used:
         return _page(
@@ -222,13 +318,10 @@ def invite_page(token: str) -> HTMLResponse:
   <a class="btn btn-main" id="store-android" href="https://play.google.com/store/apps/details?id=cx.ring">Установить из Google Play</a>
   <a class="btn btn-main" id="store-ios" href="https://apps.apple.com/app/jami/id1306951055">Установить из App Store</a>
 </div>
-<div class="card qr">
-  <h2>2. Добавьте контакт</h2>
-  <p class="muted">Откройте в Jami «Добавить контакт» и отсканируйте QR-код:</p>
-  <img src="/i/{token}/qr.png" alt="QR-код приглашения">
-</div>
+{creds_block}
+{contact_block}
 <div class="card">
-  <h2>3. Подтвердите</h2>
+  <h2>4. Подтвердите</h2>
   <p class="muted">Дождитесь, пока контакт станет доступен, и нажмите кнопку:</p>
   <button class="btn btn-sec" onclick="markUsed()">Я добавил(а) контакт</button>
   <p class="muted" id="result"></p>
@@ -243,6 +336,10 @@ def invite_page(token: str) -> HTMLResponse:
       .then(r => r.json())
       .then(() => {{ document.getElementById("result").innerHTML = '<span class="ok">Готово — приглашение помечено использованным.</span>'; }})
       .catch(() => {{ document.getElementById("result").innerHTML = '<span class="warn">Не получилось отметить. Ничего страшного — просто сообщите пригласившему.</span>'; }});
+  }}
+  function copyText(id) {{
+    const el = document.getElementById(id);
+    if (el) {{ navigator.clipboard.writeText(el.textContent.trim()); }}
   }}
 </script>"""
     return _page(f"Приглашение в Jami от {name}", body)
@@ -270,14 +367,18 @@ def admin_page(token: str = "") -> HTMLResponse:
   <input id="f-ttl" type="number" value="72" min="1" max="720">
   <label class="muted">Заметка (кто приглашён — для себя)</label>
   <input id="f-note" placeholder="Бабуля, Ивановы…">
+  <label class="muted">JAMS-логин нового пользователя (необязательно — покажется получателю)</label>
+  <input id="f-juser" placeholder="например: test2">
+  <label class="muted">Пароль JAMS (необязательно; хранится в БД сервиса в открытом виде — используйте временные пароли)</label>
+  <input id="f-jpass" placeholder="показывается получателю на странице приглашения">
   <button class="btn btn-main" onclick="createInvite()">Создать ссылку</button>
   <p class="muted" id="create-result"></p>
 </div>
 <div class="card">
   <h2>Последние приглашения</h2>
   <table>
-    <thead><tr><th>Создано</th><th>Имя</th><th>Заметка</th><th>Статус</th><th>Ссылка</th></tr></thead>
-    <tbody id="rows"><tr><td colspan="5" class="muted">Загрузка…</td></tr></tbody>
+    <thead><tr><th>Создано</th><th>Имя</th><th>Логин JAMS</th><th>Заметка</th><th>Статус</th><th>Ссылка</th></tr></thead>
+    <tbody id="rows"><tr><td colspan="6" class="muted">Загрузка…</td></tr></tbody>
   </table>
 </div>
 <script>
@@ -296,8 +397,15 @@ def admin_page(token: str = "") -> HTMLResponse:
     d.invites.forEach(i => {{
       const tr = document.createElement("tr");
       tr.innerHTML = "<td>" + fmt(i.created_at) + "</td><td>" + (i.inviter_name || "") +
-        "</td><td>" + (i.note || "") + "</td><td>" + status(i) +
+        "</td><td>" + (i.jams_username || "") + "</td><td>" + (i.note || "") + "</td><td>" + status(i) +
         '</td><td><a href="' + "/i/" + i.token + '" target="_blank">открыть</a> <button class="btn btn-small btn-sec" onclick="copyUrl(\\'' + i.token + '\\')">копировать</button> <button class="btn btn-small btn-sec" onclick="delInvite(\\'' + i.token + '\\')">удалить</button></td>';
+      if (i.inviter_id && /^[0-9a-f]{{40}}$/.test(i.inviter_id)) {{
+        const a = document.createElement("a");
+        a.href = "/c/" + i.inviter_id;
+        a.target = "_blank";
+        a.textContent = " карточка";
+        tr.cells[5].appendChild(a);
+      }}
       rows.appendChild(tr);
     }});
   }}
@@ -315,6 +423,8 @@ def admin_page(token: str = "") -> HTMLResponse:
       inviter_id: document.getElementById("f-id").value,
       ttl_hours: parseInt(document.getElementById("f-ttl").value || "72", 10),
       note: document.getElementById("f-note").value,
+      jams_username: document.getElementById("f-juser").value,
+      jams_password: document.getElementById("f-jpass").value,
     }};
     const r = await fetch("/admin/invites", {{
       method: "POST",
@@ -334,4 +444,4 @@ def admin_page(token: str = "") -> HTMLResponse:
 
 @app.get("/")
 def index() -> HTMLResponse:
-    return _page("MSPShield · Приглашения", '<div class="card"><h1>MSPShield Jami</h1><p class="muted">Сервис приглашений. Откройте персональную ссылку вида /i/…</p></div>')
+    return _page("MSPShield · Приглашения", '<div class="card"><h1>MSPShield Jami</h1><p class="muted">Сервис приглашений. Персональная ссылка: /i/… · Карточка контакта: /c/…</p></div>')

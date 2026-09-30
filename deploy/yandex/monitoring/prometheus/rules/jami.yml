@@ -1,0 +1,44 @@
+groups:
+  - name: jami
+    rules:
+      - alert: JamiServiceDown
+        expr: jami_service_up == 0
+        for: 5m
+        labels:
+          severity: P2
+        annotations:
+          summary: "Jami-сервис недоступен: {{ $labels.name }}"
+          description: "HTTP /health сервиса jami-services не отвечает более 5 минут."
+
+      - alert: JamsDown
+        expr: jami_jams_up == 0
+        for: 5m
+        labels:
+          severity: P1
+        annotations:
+          summary: "JAMS недоступен (логин/API не отвечает)"
+          description: "Проверьте jams.service и https://m.msp-claude.online"
+
+      - alert: JamiDhtDown
+        expr: jami_dht_up == 0
+        for: 5m
+        labels:
+          severity: P2
+        annotations:
+          summary: "OpenDHT node (dhtnode) недоступен"
+
+      - alert: JamiDaemonDown
+        expr: jami_daemon_up == 0
+        for: 5m
+        labels:
+          severity: P2
+        annotations:
+          summary: "always-online jamid не активен (jamiserver.service)"
+
+      - alert: JamiEndpointDown
+        expr: probe_success{instance=~"https://(m|names|invite|push|dht)\\.msp-claude\\.online.*"} == 0
+        for: 5m
+        labels:
+          severity: P1
+        annotations:
+          summary: "Jami endpoint недоступен: {{ $labels.instance }}"

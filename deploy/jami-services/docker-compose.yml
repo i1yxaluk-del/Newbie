@@ -1,5 +1,9 @@
 name: jami-services
 
+networks:
+  msp-monitoring:
+    external: true
+
 services:
   jami-pg:
     image: postgres:16-alpine
@@ -25,7 +29,7 @@ services:
       jami-pg:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://jami:${JAMI_PG_PASSWORD}@jami-pg:5432/names
+      DATABASE_URL: postgresql://jami:${JAMI_PG_PASSWORD:?set JAMI_PG_PASSWORD in .env}@jami-pg:5432/names
       ADMIN_TOKEN: ${NAMES_ADMIN_TOKEN:?set NAMES_ADMIN_TOKEN in .env}
     ports:
       - "127.0.0.1:8889:8000"
@@ -57,3 +61,17 @@ services:
       - /opt/jami-services/ntfy-cache:/var/cache/ntfy
     ports:
       - "127.0.0.1:8891:80"
+
+  jami-exporter:
+    build: ./exporter
+    container_name: jami-exporter
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      JAMS_ADMIN_PASSWORD: ${JAMS_ADMIN_PASSWORD:?set JAMS_ADMIN_PASSWORD in .env}
+    networks:
+      - default
+      - msp-monitoring
+    ports:
+      - "127.0.0.1:8892:8892"

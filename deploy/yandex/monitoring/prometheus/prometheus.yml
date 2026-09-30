@@ -12,6 +12,7 @@ rule_files:
   - rules/containers.yml
   - rules/services.yml
   - rules/backups.yml
+  - rules/jami.yml
 
 alerting:
   alertmanagers:
@@ -43,6 +44,11 @@ scrape_configs:
       # Prometheus подключён к сети msp_default через networks в compose.
       - targets: ["backend:8001"]
 
+
+  - job_name: jami
+    static_configs:
+      - targets: ["jami-exporter:8892"]
+
   # ─── Blackbox: внешние HTTP проверки ───────────────────────────────────────
   - job_name: blackbox-http
     metrics_path: /probe
@@ -52,6 +58,11 @@ scrape_configs:
       - targets:
           - https://msp-claude.online
           - https://msp-claude.online/api/health
+          - https://m.msp-claude.online
+          - https://names.msp-claude.online/health
+          - https://invite.msp-claude.online/health
+          - https://push.msp-claude.online/v1/health
+          - https://dht.msp-claude.online/
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target

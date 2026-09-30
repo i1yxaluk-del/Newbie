@@ -104,3 +104,29 @@
 4. ✅ UnifiedPush/ntfy (`push.`).
 5. ⏸ TURN на отдельную ВМ — отложено по решению владельца (остаётся на текущей ВМ).
 6. ✅ Бэкапы: `/opt/jams` (CA/ключи), `/etc/turnserver.conf`, база dhtnode и БД новых сервисов — в restic.
+
+## Кастомизация клиентов: blueprint вместо дефолтов (30.09.2026)
+
+**Почему клиент показывает `bootstrap.jami.net` / `turn.jami.net`**: это встроенные дефолты Jami. Пока аккаунту не назначена политика с нашими серверами, клиент использует публичные bootstrap/DHT Proxy (`dhtproxy.jami.net`) и TURN (`turn.jami.net`). JAMS раздаёт настройки через **blueprints** (привязываются к группам).
+
+Сделано:
+- Blueprint **`MSPShield`**: `turnEnabled=true`, `turnServer=turn.msp-claude.online` (user `jami`), `proxyEnabled=true`, `proxyServer=dht.msp-claude.online`.
+- Группа **`MSPShield`** (blueprint = MSPShield); пользователи добавлены.
+- При следующем синке настроек клиент переключится на наши TURN/DHT Proxy (кнопка «Обновить настройки» в клиенте ускоряет; bootstrap-список перекрывается параметром DHT Proxy).
+
+Проверка в JAMS: разделы Blueprints → `MSPShield`, Groups → `MSPShield`.
+
+## Админка приглашений (веб) (30.09.2026)
+
+- <https://invite.msp-claude.online/admin?token=INVITE_ADMIN_TOKEN> — форма создания (имя, Jami ID, TTL, заметка), список со статусами, копирование ссылки, удаление; одноразовость и QR — как раньше.
+- Токен — в `~/msp-deploy-secrets.txt` [JamiServices]. CLI-скрипты остаются: `bin/jami-invite-create`, `bin/jami-name-add`.
+
+## Мониторинг Jami (30.09.2026)
+
+- **Blackbox**: внешние проверки `m.`, `names./health`, `invite./health`, `push./v1/health`, `dht./` + алерт `JamiEndpointDown`.
+- **jami-exporter** (контейнер в `jami-services`, :8892): `jami_jams_up`, `jami_jams_users_total`, `jami_jams_devices_total`, `jami_dht_up`, `jami_dht_peers_good`, `jami_service_up{name}`; scrape-джоб `jami` в Prometheus (сеть msp-monitoring).
+- **Host-метрики** (cron раз в минуту → node_exporter textfile): `jami_turn_sessions`, `jami_dht_proxy_clients`, `jami_daemon_up`.
+- **Grafana**: дашборд «Jami: сервисы и нагрузка» (папка MSPShield): пользователи, устройства, TURN-сессии, DHT Proxy клиенты, пиры DHT, health сервисов, внешние endpoint.
+- Алерты: `monitoring/prometheus/rules/jami.yml` (JamiServiceDown, JamsDown, JamiDhtDown, JamiDaemonDown, JamiEndpointDown).
+
+**Как считаются «онлайн-клиенты»**: прямого счётчика «онлайн» у JAMS API нет — используем три практичных показателя: активные **TURN-сессии** (медиа/звонки), установленные TCP-соединения к **DHT Proxy**, и общее число **устройств** в JAMS (`devices_total`). Вместе они дают картину нагрузки на инфраструктуру.

@@ -1,0 +1,59 @@
+name: jami-services
+
+services:
+  jami-pg:
+    image: postgres:16-alpine
+    container_name: jami-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: jami
+      POSTGRES_PASSWORD: ${JAMI_PG_PASSWORD:?set JAMI_PG_PASSWORD in .env}
+      POSTGRES_DB: names
+    volumes:
+      - /opt/jami-services/pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jami -d names"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  nameservice:
+    build: ./nameservice
+    container_name: jami-nameservice
+    restart: unless-stopped
+    depends_on:
+      jami-pg:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://jami:${JAMI_PG_PASSWORD}@jami-pg:5432/names
+      ADMIN_TOKEN: ${NAMES_ADMIN_TOKEN:?set NAMES_ADMIN_TOKEN in .env}
+    ports:
+      - "127.0.0.1:8889:8000"
+
+  invite:
+    build: ./invite
+    container_name: jami-invite
+    restart: unless-stopped
+    environment:
+      ADMIN_TOKEN: ${INVITE_ADMIN_TOKEN:?set INVITE_ADMIN_TOKEN in .env}
+      JAMS_URL: https://m.msp-claude.online
+      BRAND: MSPShield
+    volumes:
+      - /opt/jami-services/invite-data:/data
+    ports:
+      - "127.0.0.1:8890:8000"
+
+  ntfy:
+    image: binwiederhier/ntfy
+    container_name: jami-ntfy
+    restart: unless-stopped
+    command: serve
+    environment:
+      NTFY_BASE_URL: https://push.msp-claude.online
+      NTFY_CACHE_FILE: /var/cache/ntfy/cache.db
+      NTFY_BEHIND_PROXY: "true"
+      NTFY_LISTEN_HTTP: ":80"
+    volumes:
+      - /opt/jami-services/ntfy-cache:/var/cache/ntfy
+    ports:
+      - "127.0.0.1:8891:80"

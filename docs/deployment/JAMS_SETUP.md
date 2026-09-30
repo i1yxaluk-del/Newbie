@@ -72,11 +72,35 @@
 3. DHT Proxy: `https://dht.msp-claude.online`.
 4. TURN: `turn.msp-claude.online:3478` (user `jami`, пароль из secrets; TLS 5349).
 
-## Следующие этапы
+## Сервисы этапа 2–3 (реализовано 30.09.2026)
 
-1. **Always-online Jami daemon**: `apt install jami-daemon`; техаккаунт создаётся на Linux-ПК, затем `rsync` `~/.local/share/jami` и `~/.config/jami` на пользователя `jamiserver`, служба `launchjami` (шаблон — в плане внедрения от 30.09).
-2. **Name Service** (`names.`): мини-сервис Postgres + REST `GET /name/{username}` → Jami ID; регистрация только админом JAMS, аудит, rate-limit.
-3. **Портал приглашений** (`invite.`): одноразовые токены, QR, детект платформы; «Заявка использована» после подтверждения.
-4. **UnifiedPush** (`push.`) для Android.
-5. При росте (>30 юзеров): вынести TURN на отдельную ВМ; второй DHT/bootstrap.
-6. Бэкап: включить в restic `/opt/jams` (CA/ключи!), `/etc/turnserver.conf`, базы dhtnode и будущих сервисов.
+Стек `jami-services` (docker compose; код — `deploy/jami-services/`, развёрнут в `/opt/jami-services`):
+
+| Компонент | Порт (локально) | Домен |
+|---|---|---|
+| nameservice (FastAPI + Postgres) | 8889 | https://names.msp-claude.online |
+| invite portal (FastAPI + SQLite + QR) | 8890 | https://invite.msp-claude.online |
+| ntfy (UnifiedPush для Android) | 8891 | https://push.msp-claude.online |
+
+- **Name Service**: `GET /name/{username}` → Jami ID (`text/plain`; `?json=1` → JSON). Регистрация — только админом: `sudo /opt/jami-services/bin/jami-name-add <username> <jami-id>`. Аудит в таблице `audit`; rate-limit 60 req/min на GET и 10/min на записи.
+- **Invite portal**: `sudo /opt/jami-services/bin/jami-invite-create "Имя" <jami-id> [ttl_hours] [note]` → ссылка `/i/<token>`: детект iOS/Android, кнопки App Store / Google Play, QR (`/i/<token>/qr.png`, содержимое `jami://<id>`), кнопка «Я добавил(а) контакт» помечает токен использованным; истёкшие/использованные токены показывают понятный статус.
+- **UnifiedPush**: ntfy-сервер на `push.` — для Android-сборок Jami с UnifiedPush; дистрибутор ntfy указывает на `https://push.msp-claude.online`. На пилоте доступ открыт; ACL/токены — на этапе эксплуатации.
+- Креды: `~/msp-deploy-secrets.txt` → [JamiServices]. Данные: `/opt/jami-services/{pgdata,invite-data,ntfy-cache}` (в restic через `/opt`; `backup.sh` делает `pg_dump` nameservice).
+
+## Always-online Jami daemon (реализовано 30.09.2026)
+
+- Пакет `jami-daemon` из официального репо (`dl.jami.net/stable/ubuntu_22.04`, ключ 64CD5FA175348F84 с keyserver.ubuntu.com).
+- Пользователь `jamiserver`; служба `jamiserver.service` (`launchjami`: `dbus-launch` → `/usr/libexec/jamid`).
+- Техаккаунт создан **headless через D-Bus** (`ConfigurationManager.addAccount`): AccountId `386142fdf8b64c01`, **Jami ID: `7b1cf78913278f3b854286e36abf82b723ce971b`** (alias «MSPShield always-online»).
+  - Добавьте этот ID контактом в нужные группы (с телефона) — узел будет синхронизировать историю офлайн-участникам.
+- Данные: `/home/jamiserver/.local/share/jami` (бэкапится через `/home`).
+- Второй узел для резервирования — остаётся на этап эксплуатации.
+
+## Обновление этапов (статус на 30.09.2026)
+
+1. ✅ Always-online daemon — один узел работает (второй — позже).
+2. ✅ Name Service (`names.`).
+3. ✅ Портал приглашений (`invite.`).
+4. ✅ UnifiedPush/ntfy (`push.`).
+5. ⏸ TURN на отдельную ВМ — отложено по решению владельца (остаётся на текущей ВМ).
+6. ✅ Бэкапы: `/opt/jams` (CA/ключи), `/etc/turnserver.conf`, база dhtnode и БД новых сервисов — в restic.

@@ -41,6 +41,8 @@ services:
     environment:
       ADMIN_TOKEN: ${INVITE_ADMIN_TOKEN:?set INVITE_ADMIN_TOKEN in .env}
       JAMS_URL: https://m.msp-claude.online
+      JAMS_ADMIN_USER: ${JAMS_ADMIN_USER}
+      JAMS_ADMIN_PASS: ${JAMS_ADMIN_PASS}
       BRAND: MSPShield
     volumes:
       - /opt/jami-services/invite-data:/data

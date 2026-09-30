@@ -7,7 +7,7 @@
 | Сервис | Код | Порт (локально) | Домен |
 |---|---|---|---|
 | nameservice | `nameservice/` (FastAPI + Postgres) | 8889 | `names.msp-claude.online` |
-| invite | `invite/` (FastAPI + SQLite + QR) | 8890 | `invite.msp-claude.online` |
+| invite | `invite/` (FastAPI + SQLite + QR; саморегистрация и личный кабинет) | 8890 | `invite.msp-claude.online` |
 | ntfy | образ binwiederhier/ntfy | 8891 | `push.msp-claude.online` |
 | jami-exporter | `exporter/` (метрики JAMS/DHT для Prometheus) | 8892 | — (внутр., сеть `msp-monitoring`) |
 | postgres | postgres:16-alpine (БД `names`) | — | — |
@@ -32,6 +32,10 @@ sudo /opt/jami-services/bin/jami-name-add <username> <jami_id_40hex>
 # Создать одноразовое приглашение:
 # (можно передать JAMS-логин и пароль нового пользователя — покажутся на странице приглашения)
 sudo /opt/jami-services/bin/jami-invite-create "Имя приглашающего" <jami_id_40hex> [ttl_hours] [note] [jams_username] [jams_password]
+
+# Портал v3: получатель может сам создать учётку на странице /i/<token>; пользователь заводится в JAMS
+# через admin API (JAMS_ADMIN_USER/JAMS_ADMIN_PASS в .env). Кабинет: /u/<ctoken>; карточка: /c/<jami-id>;
+# QR: /qr/<jami-id>.png.
 ```
 
 ## Заметки
@@ -39,4 +43,5 @@ sudo /opt/jami-services/bin/jami-invite-create "Имя приглашающег�
 - Все данные — в `/opt/jami-services/{pgdata,invite-data,ntfy-cache}` (входят в restic-бэкап по `/opt`; `backup.sh` дополнительно делает `pg_dump` nameservice).
 - ntfy на пилоте открыт (чтение/подписка); ACL/токены — на этапе эксплуатации.
 - Веб-админка приглашений: `/admin?token=…` (создание/список/удаление); карточки контактов: `/c/<jami-id>`, QR: `/qr/<jami-id>.png` (payload `jami:<id>`).
+- Логины JAMS **не переиспользуются**: после revoke запись остаётся, занять то же имя повторно нельзя.
 - Name Service отдаёт `text/plain` (протокол Jami), `?json=1` — JSON.

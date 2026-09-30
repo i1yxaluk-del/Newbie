@@ -26,6 +26,7 @@ ADMIN_TOKEN = os.environ["ADMIN_TOKEN"]
 JAMS_URL = os.environ.get("JAMS_URL", "https://m.msp-claude.online")
 JAMS_ADMIN_USER = os.getenv("JAMS_ADMIN_USER", "admin")
 JAMS_ADMIN_PASS = os.getenv("JAMS_ADMIN_PASS", "")
+JAMS_GROUP = os.getenv("JAMS_GROUP", "MSPShield")
 INVITE_BASE = os.getenv("INVITE_BASE", "https://invite.msp-claude.online")
 BRAND = os.environ.get("BRAND", "MSPShield")
 
@@ -131,6 +132,22 @@ def _jams_user(username: str):
 def _jams_create_user(username: str, password: str) -> bool:
     r = _jams_admin("POST", "/api/admin/user", body={"username": username, "password": password})
     return r.status_code == 201
+
+
+def _jams_add_to_group(username: str) -> None:
+    try:
+        r = _jams_admin("GET", "/api/admin/groups")
+        if r.status_code != 200:
+            return
+        gid = None
+        for g in r.json():
+            if g.get("name") == JAMS_GROUP:
+                gid = g.get("id")
+                break
+        if gid:
+            _jams_admin("POST", "/api/admin/group/members/" + str(gid), body={"username": username})
+    except Exception:
+        pass
 
 
 def _get_setting(k: str) -> str:
@@ -299,6 +316,7 @@ def register(token: str, payload: dict) -> dict:
     if not _jams_create_user(username, password):
         c.close()
         return {"ok": False, "error": "jams", "message": "Не удалось создать учётную запись (логин занят или сервер недоступен)."}
+    _jams_add_to_group(username)
     ctoken = secrets.token_urlsafe(24)
     now_iso = datetime.now(timezone.utc).isoformat()
     c.execute(
@@ -620,7 +638,7 @@ def welcome_page(ctoken: str) -> HTMLResponse:
 <div class="card">
   <h2>Дальше</h2>
   <p><a class="btn btn-main" href="/u/{ctoken}">Открыть личный кабинет</a></p>
-  <p class="muted">В кабинете: ваш Jami ID с QR-кодом и приглашения для коллег.</p>
+  <p class="muted">В кабинете: ваш Jami ID с QR-кодом и приглашения для коллег. Учётная запись добавлена в группу MSPShield — после подключения клиент получит наши настройки связи (TURN/DHT).</p>
 </div>
 <script>
   function copyText(id) {{

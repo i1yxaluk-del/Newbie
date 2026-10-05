@@ -191,6 +191,31 @@ m.msp-claude.online {
 `CInstallFilter` отдаёт `404 "The server is already installed"` для всех `/api/install/*`,
 как только установка завершена. Ошибка в консоли браузера ожидаема и не является проблемой.
 
+### 13. Пользователь создан, но войти не может: `userProfile` is null
+Симптом: в клиенте Jami вход падает, в логе JAMS:
+```
+ERROR RegisterDeviceFlow - An error occurred while enrolling the device.
+NullPointerException: Cannot invoke "UserProfile.getFirstName()" because "userProfile" is null
+```
+
+Причина: JAMS создаёт пользователя и его **профиль двумя разными вызовами**. Штатный UI делает:
+1. `POST /api/admin/user` `{username, password}` — учётная запись;
+2. `POST /api/admin/directory/entry` `<UserProfile>` — профиль.
+
+`UserServlet.doPost` **профиль не создаёт** (читает только username/password), поэтому портал
+приглашений, вызывавший лишь первый эндпоинт, оставлял пользователей без профиля — и
+`RegisterDeviceFlow` падал, не давая зарегистрировать устройство (то есть войти в клиент).
+
+Лечение:
+- **существующим пользователям** — досоздать профили ([`cloudru-jams-profile-backfill.sh`](../../migration/cloudru-jams-profile-backfill.sh)):
+  `POST /api/admin/directory/entry` с телом `{"username":"…","firstName":"…","lastName":"","email":""}`;
+- **на будущее** — портал теперь создаёт профиль сам: функция `_jams_create_user_profile()`
+  в [`deploy/jami-services/invite/app.py`](../../deploy/jami-services/invite/app.py) вызывается
+  сразу после `_jams_create_user()`.
+
+> Проверка, что профиль на месте: `GET /api/auth/userprofile/<username>` → 200
+> (раньше отдавал 500 «User profile was not found!»).
+
 ## Проверки
 
 ```bash

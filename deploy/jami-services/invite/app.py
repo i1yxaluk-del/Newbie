@@ -134,6 +134,30 @@ def _jams_create_user(username: str, password: str) -> bool:
     return r.status_code == 201
 
 
+def _jams_create_user_profile(username: str, display_name: str = "") -> bool:
+    """Создать ПРОФИЛЬ пользователя в JAMS.
+
+    ВАЖНО: JAMS создаёт профиль отдельным вызовом POST /api/admin/directory/entry
+    (так делает и штатный UI: POST /api/admin/user -> POST /api/admin/directory/entry).
+    Без профиля регистрация устройства в клиенте Jami падает с
+    NullPointerException: UserProfile.getFirstName() ... "userProfile" is null,
+    и пользователь не может войти в систему.
+    """
+    name = (display_name or username or "").strip()
+    parts = name.split(" ", 1)
+    body = {
+        "username": username,
+        "firstName": parts[0] if parts and parts[0] else username,
+        "lastName": parts[1] if len(parts) > 1 else "",
+        "email": "",
+    }
+    try:
+        r = _jams_admin("POST", "/api/admin/directory/entry", body=body)
+        return r.status_code == 200
+    except Exception:
+        return False
+
+
 def _jams_add_to_group(username: str) -> None:
     try:
         r = _jams_admin("GET", "/api/admin/groups")
@@ -337,6 +361,7 @@ def register(token: str, payload: dict) -> dict:
         c.close()
         return {"ok": False, "error": "jams", "message": "Не удалось создать учётную запись (логин занят или сервер недоступен)."}
     _jams_add_to_group(username)
+    _jams_create_user_profile(username, display)
     ctoken = secrets.token_urlsafe(24)
     now_iso = datetime.now(timezone.utc).isoformat()
     c.execute(

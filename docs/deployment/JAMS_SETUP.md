@@ -90,9 +90,20 @@
 ## Always-online Jami daemon (реализовано 30.09.2026)
 
 - Пакет `jami-daemon` из официального репо (`dl.jami.net/stable/ubuntu_22.04`, ключ 64CD5FA175348F84 с keyserver.ubuntu.com).
-- Пользователь `jamiserver`; служба `jamiserver.service` (`launchjami`: `dbus-launch` → `/usr/libexec/jamid`).
-- Техаккаунт создан **headless через D-Bus** (`ConfigurationManager.addAccount`): AccountId `386142fdf8b64c01`, **Jami ID: `7b1cf78913278f3b854286e36abf82b723ce971b`** (alias «MSPShield always-online»).
-  - Добавьте этот ID контактом в нужные группы (с телефона) — узел будет синхронизировать историю офлайн-участникам.
+- Пользователь `jamiserver`; служба `jamiserver.service` → `/usr/local/bin/jami-alwaysonline.sh`
+  (поднимает сессионную D-Bus шину с известным адресом `/run/jami/bus.addr`, запускает `jamid -p`,
+  при первом старте создаёт аккаунт через `/usr/local/bin/jami-ensure-account.sh`).
+- Учётка узла в JAMS: **`always-online`** (пароль — `/etc/jami-alwaysonline.env`, режим 600),
+  состоит в группе `MSPShield` → получает нашу политику TURN/DHT.
+- Техаккаунт создан **headless через D-Bus** (`ConfigurationManager.addAccount`, шаблон типа `RING`
+  + `Account.hostname/username/password/alias`): AccountId `ff24075991468be3`,
+  **Jami ID: `c411a740567076504b776dc07b7b22d0d916034a`** (alias «MSPShield always-online»).
+  - **Добавьте этот ID контактом** на своих устройствах — узел синхронизирует историю
+    офлайн-участникам. Старый ID `7b1cf78913278f3b854286e36abf82b723ce971b` умер вместе со старой
+    ВМ: если он остался в контактах — удалите, иначе синхронизация диалогов не пойдёт.
+- ⚠️ **Логи только в journald.** Пользователь `jamiserver` не может писать в `/var/log`, а
+  `jamid -p > /var/log/jamid.log` из-за упавшего перенаправления **вообще не запускает демон**.
+  Смотреть вывод: `journalctl -u jamiserver -f`.
 - Данные: `/home/jamiserver/.local/share/jami` (бэкапится через `/home`).
 - Второй узел для резервирования — остаётся на этап эксплуатации.
 

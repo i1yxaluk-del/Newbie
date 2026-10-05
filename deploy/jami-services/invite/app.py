@@ -976,7 +976,7 @@ def admin_page(token: str = "") -> HTMLResponse:
   <label class="muted">Имя</label>
   <input id="s-name">
   <label class="muted">Jami ID (40 hex)</label>
-  <input id="s-id" placeholder="7b1cf78913278f3b854286e36abf82b723ce971b">
+  <input id="s-id" placeholder="c411a740567076504b776dc07b7b22d0d916034a">
   <button class="btn btn-sec" onclick="saveDefaults()">Сохранить</button>
   <p class="muted" id="s-res"></p>
 </div>
@@ -985,7 +985,7 @@ def admin_page(token: str = "") -> HTMLResponse:
   <label class="muted">Имя приглашающего (подставляется автоматически)</label>
   <input id="f-name" placeholder="Например: Максим">
   <label class="muted">Jami ID приглашающего (подставляется автоматически)</label>
-  <input id="f-id" placeholder="7b1cf78913278f3b854286e36abf82b723ce971b">
+  <input id="f-id" placeholder="c411a740567076504b776dc07b7b22d0d916034a">
   <label class="muted">Срок действия, часов</label>
   <input id="f-ttl" type="number" value="72" min="1" max="720">
   <label class="muted">Заметка (кто приглашён — для себя)</label>

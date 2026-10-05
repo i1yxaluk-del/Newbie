@@ -1,0 +1,47 @@
+; ============================================================
+; MSPShield — МИНИМАЛЬНЫЙ набор DNS-записей для почты
+; (прямая доставка Stalwart, без Yandex Cloud Postbox)
+; Домен: msp-claude.online · IP: 45.132.176.143
+;
+; Итого: 5 DNS-записей + 1 PTR. Всё остальное из сгенерированного
+; Stalwart набора (SRV/autoconfig/MTA-STS/TLS-RPT/CAA/iodef/…)
+; НЕ нужно для работы почты — см. DNS_RECORDS.md.
+; ============================================================
+
+; --- 1. Приём почты (MX) ---
+msp-claude.online.                    IN MX   10 mail.msp-claude.online.
+
+; --- 2. Адрес почтового хоста (уже существует) ---
+mail.msp-claude.online.               IN A    45.132.176.143
+
+; --- 3. SPF: отправлять вправе только наш MX (жёсткий -all) ---
+;     ЗАМЕНЯЕТ: "v=spf1 include:postbox.cloud.yandex.net ~all"
+msp-claude.online.                    IN TXT  "v=spf1 mx -all"
+
+; --- 4. DKIM (RSA-2048). СЕЛЕКТОР МЕНЯЕТСЯ ПРИ РОТАЦИИ (~90 дней)! ---
+v1-rsa-20260521._domainkey.msp-claude.online. IN TXT "v=DKIM1; k=rsa; h=sha256; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxTIIvVK0CaefVJQKaNeFYd5qH6eV1iMVxuiLfpnXzawdiqM0s4Kjgc55FFdgk3kkyukgHka8y/+blPlzbifU6Ax41BB6lQzQtnoS9GX8bR2iI+GFIml3+zQl6yKVrfwm45Xx7KGKc3WfDDiNp2UQbdsQOjvV2H33xX42bET1pg/t23Zdynnw4350ygW7uDJdrMEme15jqlzi6FGg00gj0rOFL+I1iaTw5OZkB3qGIdawkePE5xioLEjRQf/lbkhe//ItZJfkdR+dMnsdh1pGG74DN8CjmQBi4x5X+AR3TnMhAzSvRI0qSR77PLkpCU0lq8EirgJRPUZ3XjXA3w1MKQIDAQAB"
+
+; --- 5. DMARC: начать с quarantine, через 1-2 недели → reject ---
+;     rua = СУЩЕСТВУЮЩИЙ ящик (postmaster@ на сервере нет!)
+;     ЗАМЕНЯЕТ старую "v=DMARC1; p=none; ..."
+_dmarc.msp-claude.online.             IN TXT  "v=DMARC1; p=quarantine; rua=mailto:alert@msp-claude.online; adkim=r; aspf=r; fo=1"
+
+; --- 6. Обратная зона (PTR) — НЕ в этом файле, а в консоли Cloud.ru:
+;        Evolution DNS → Обратные зоны → 45.132.176.143 → mail.msp-claude.online
+
+
+; ============================================================
+; ОПЦИОНАЛЬНО (можно добавить позже):
+; ============================================================
+; Второй DKIM-селектор (ed25519):
+; v1-ed25519-20260521._domainkey.msp-claude.online. IN TXT "v=DKIM1; k=ed25519; h=sha256; p=kHbV3jCrleZN/kV6adnqctG9yZ0ucRQxSHCjhSxLlKo="
+;
+; CAA (запрет выпуска сертификата чужим CA) — БЕЗ accounturi:
+; msp-claude.online. IN CAA 0 issue "letsencrypt.org"
+
+; ============================================================
+; УДАЛИТЬ (осталось от Postbox):
+; ============================================================
+; egtn6ichfrjtq1kcmeki-1._domainkey  CNAME  …dkim.pstbx.ru
+; egtn6ichfrjtq1kcmeki-2._domainkey  CNAME  …dkim.pstbx.ru
+; _dmarc.msp-claude.online           TXT    (дубль — оставить один _dmarc)

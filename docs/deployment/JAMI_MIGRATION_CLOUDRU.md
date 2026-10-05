@@ -302,6 +302,29 @@ curl -s -X POST localhost:8081/api/auth/device -H 'Content-Type: application/jso
 > [#594 «wizard cannot be skipped»](https://git.jami.net/savoirfairelinux/jami-client-gnome/-/issues/594),
 > [#595 «previously used user name cannot be used»](https://git.jami.net/savoirfairelinux/jami-client-gnome/-/issues/595).
 
+### 17. Как за минуту понять, что аккаунт клиента «застрял» — считаем устройства
+Симптом: пользователь добавил контакт и отправил сообщение, но у получателя ничего нет.
+Частая причина — **аккаунт ОТПРАВИТЕЛЯ не оформлен**: клиент на каждом запуске заново
+проходит «обновление/миграцию» и регистрирует новое устройство, так и не выходя на связь.
+Сообщение остаётся на телефоне.
+
+Диагностика (нормальный клиент регистрирует устройство **один раз**):
+```bash
+TOKEN=$(curl -s -X POST localhost:8081/api/login -H 'Content-Type: application/json' \
+  -d '{"username":"mspadmin","password":"<пароль>"}' | python3 -c 'import json,sys;print(json.load(sys.stdin)["access_token"])')
+curl -s "http://127.0.0.1:8081/api/admin/devices?username=<логин>" -H "Authorization: Bearer $TOKEN" \
+  | python3 -c 'import json,sys; d=json.load(sys.stdin); print(len(d), [x["displayName"] for x in d])'
+```
+Реальный пример из миграции: `ilya` — **15 одинаковых** `Xiaomi 22081212UG` (зациклен, ничего не
+отправляет), `test2` после починки — 1–2, `run` — 6.
+
+> ⚠️ `/api/auth/devices` (без `/admin/`) бесполезен для диагностики: он читает
+> `req.getAttribute("username")` из сессии и отдаёт `[]`. Нужен именно `/api/admin/devices`.
+> `/api/admin/devices` **без** параметра `username` падает NPE (`DeviceDao.getByOwner(null)`).
+
+Лечение — как в уроке §10/§13: очистить данные приложения (настройки внутри не откроются, пока
+аккаунт в цикле) и добавить аккаунт заново, затем дождаться статуса «подключён» прежде чем писать.
+
 ## Проверки
 
 ```bash

@@ -1,0 +1,25 @@
+v1-ed25519-20260521._domainkey.msp-claude.online. IN TXT "v=DKIM1; k=ed25519; h=sha256; p=kHbV3jCrleZN/kV6adnqctG9yZ0ucRQxSHCjhSxLlKo="
+v1-rsa-20260521._domainkey.msp-claude.online. IN TXT (
+    "v=DKIM1; k=rsa; h=sha256; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxTIIvVK0CaefVJQKaNeFYd5qH6eV1iMVxuiLfpnXzawdiqM0s4Kjgc55FFdgk3kkyukgHka8y/+blPlzbifU6Ax41BB6lQzQtnoS9GX8bR2iI+GFIml3+zQl6yKVrfwm45Xx7KGKc3WfDDiNp2UQbdsQOjvV2H33xX42bET1pg/t23Zdynnw435"
+    "0ygW7uDJdrMEme15jqlzi6FGg00gj0rOFL+I1iaTw5OZkB3qGIdawkePE5xioLEjRQf/lbkhe//ItZJfkdR+dMnsdh1pGG74DN8CjmQBi4x5X+AR3TnMhAzSvRI0qSR77PLkpCU0lq8EirgJRPUZ3XjXA3w1MKQIDAQAB"
+)
+mail.msp-claude.online. IN TXT "v=spf1 a -all"
+msp-claude.online. IN TXT "v=spf1 mx -all"
+msp-claude.online. IN MX 10 mail.msp-claude.online.
+_dmarc.msp-claude.online. IN TXT "v=DMARC1; p=reject; rua=mailto:postmaster@msp-claude.online"
+_caldavs._tcp.msp-claude.online. IN SRV 0 1 443 mail.msp-claude.online.
+_carddavs._tcp.msp-claude.online. IN SRV 0 1 443 mail.msp-claude.online.
+_imaps._tcp.msp-claude.online. IN SRV 0 1 993 mail.msp-claude.online.
+_jmap._tcp.msp-claude.online. IN SRV 0 1 443 mail.msp-claude.online.
+_pop3s._tcp.msp-claude.online. IN SRV 0 1 995 mail.msp-claude.online.
+_submissions._tcp.msp-claude.online. IN SRV 0 1 465 mail.msp-claude.online.
+mta-sts.msp-claude.online. IN CNAME mail.msp-claude.online.
+_mta-sts.msp-claude.online. IN TXT "v=STSv1; id=18157764505609169360"
+_smtp._tls.msp-claude.online. IN TXT "v=TLSRPTv1; rua=mailto:postmaster@msp-claude.online"
+msp-claude.online. IN CAA 0 issue "letsencrypt.org;accounturi=https://acme-v02.api.letsencrypt.org/acme/acct/3357333296"
+msp-claude.online. IN CAA 0 iodef "mailto:postmaster@msp-claude.online"
+_validation-persist.msp-claude.online. IN TXT "letsencrypt.org; accounturi=https://acme-v02.api.letsencrypt.org/acme/acct/3357333296; policy=wildcard"
+ua-auto-config.msp-claude.online. IN CNAME mail.msp-claude.online.
+_ua-auto-config.msp-claude.online. IN TXT "v=UAAC1; a=sha256; d=t8C4Kb+U7zfTh1o7Mv1kM1Piu5WIS9El0Sqrdr+1cqw="
+autoconfig.msp-claude.online. IN CNAME mail.msp-claude.online.
+autodiscover.msp-claude.online. IN CNAME mail.msp-claude.online.

@@ -1,0 +1,4 @@
+# Скрипты миграции/деплоя исполняются на Ubuntu — держим LF,
+# чтобы checkout на Windows не превратил их в CRLF.
+*.sh  text eol=lf
+*.txt text eol=lf

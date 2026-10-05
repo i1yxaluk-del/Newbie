@@ -32,9 +32,11 @@ services:
       mongo:
         condition: service_healthy
 
-  # Optional legacy mail server. Production outbound mail uses Yandex Cloud
-  # Postbox directly. Start this profile only if inbound/IMAP is deliberately
-  # required and its public ports have been reviewed:
+  # Mail server. Since the Cloud.ru migration outbound mail is delivered
+  # DIRECTLY by MX lookup (route "mx"), without Yandex Cloud Postbox:
+  # Cloud.ru Evolution allows both inbound and outbound TCP/25, unlike
+  # Yandex Cloud. Requires SPF/DKIM/DMARC/MX and a matching PTR record.
+  # Start this profile only if inbound/IMAP is deliberately required:
   # docker compose --profile mail up -d stalwart
   stalwart:
     profiles: ["mail"]
@@ -42,13 +44,9 @@ services:
     restart: unless-stopped
     environment:
       STALWART_RECOVERY_ADMIN: "admin:${STALWART_ADMIN_PASSWORD:?set STALWART_ADMIN_PASSWORD}"
-      STALWART_QUEUE_DEFAULT_ROUTE: postbox-outbound
-      STALWART_ROUTES_POSTBOX_OUTBOUND_TYPE: relay
-      STALWART_ROUTES_POSTBOX_OUTBOUND_ADDRESS: postbox.cloud.yandex.net
-      STALWART_ROUTES_POSTBOX_OUTBOUND_PORT: "465"
-      STALWART_ROUTES_POSTBOX_OUTBOUND_TLS_IMPLICIT: "true"
-      STALWART_ROUTES_POSTBOX_OUTBOUND_AUTH_USERNAME: ${POSTBOX_API_KEY_ID:-}
-      STALWART_ROUTES_POSTBOX_OUTBOUND_AUTH_SECRET: ${POSTBOX_API_KEY_SECRET:-}
+      # Прямая доставка по MX получателя (внешний релей не используется).
+      # Исходящий порт 25 открыт в Cloud.ru Evolution.
+      STALWART_QUEUE_DEFAULT_ROUTE: mx
     volumes:
       - stalwart-etc:/etc/stalwart
       - stalwart-data:/var/lib/stalwart

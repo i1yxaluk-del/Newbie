@@ -216,6 +216,33 @@ NullPointerException: Cannot invoke "UserProfile.getFirstName()" because "userPr
 > Проверка, что профиль на месте: `GET /api/auth/userprofile/<username>` → 200
 > (раньше отдавал 500 «User profile was not found!»).
 
+### 14. Страница `/users` пуста: NPE на пользователе без сертификата
+Симптом: в админке JAMS список пользователей пустой, хотя учётки есть. В логе:
+```
+SEVERE: Servlet.service() for servlet [SearchDirectoryServlet] threw exception
+java.lang.NullPointerException: Cannot invoke "X509Certificate.getSerialNumber()"
+   because the return value of "User.getCertificate()" is null
+     at SearchDirectoryServlet.doGet(SearchDirectoryServlet.java:168)
+```
+
+Причина: страницу наполняет `/api/auth/directory/search`, и он для каждого профиля берёт
+сертификат пользователя. У `mspadmin` сертификата **нет** — его создал установщик JAMS **до**
+фикса `signingAlgorithm` (§10), когда подпись не работала. Один такой пользователь роняет
+весь список. Проверка: `queryString=ilya` → 200 с профилем, `queryString=*` → 500.
+
+Лечение — добавить проверку в условие (`user != null && user.getCertificate() != null`):
+```bash
+sudo bash cloudru-jams-certfix-patch.sh    # правит исходник, собирает класс
+sudo bash cloudru-jams-certfix-inject.sh   # внедряет класс в рабочий fat-jar + рестарт
+```
+> ⚠️ `mvn package -pl jams-server` даёт **тонкий** jar (~17 МБ) без зависимостей, а рабочий —
+> **fat** (~60 МБ). Замена рабочего jar тонким ломает JAMS целиком (служба висит в `activating`).
+> Поэтому патч внедряется через `jar uf <fat.jar> <class>` — правильный путь.
+
+Заодно найден баг апстрима в `UsersServlet`: он отдаёт **только первого** пользователя —
+`gson.toJson(dataStore.getUserDao().getAll().get(0))`. Список на странице формируется не им,
+а поиском по каталогу, поэтому на работу не влияет, но при доработках про это надо помнить.
+
 ## Проверки
 
 ```bash

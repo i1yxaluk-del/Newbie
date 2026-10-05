@@ -101,6 +101,49 @@ POST /api/admin/group                   # {"name":"MSPShield","blueprintName":"M
 `proxyEnabled`, `proxyServer`, `videoEnabled`, `accountDiscovery`, `peerDiscovery`,
 `rendezVous`, `upnpEnabled`, `publicInCalls`, `accountPublish`, `allowLookup`, `autoAnswer`.
 
+### 10. UI падает: `theme.spacing is not a function`
+В браузере на странице входа:
+`Uncaught TypeError: e.spacing is not a function at SignIn.tsx ... getStylesCreator.js ... makeStyles.js`.
+
+Причина — **два разных React-контекста темы**:
+- `@mui/material@9.3.0` использует `@mui/private-theming@9.3.0` (в `ThemeProvider`);
+- `@mui/styles@6.5.0` (из него `makeStyles` в `SignIn.tsx`) тянет **свою** копию
+  `@mui/private-theming@6.4.9` → вложенный `node_modules/@mui/styles/node_modules/...`.
+
+`ThemeProvider` кладёт тему в один контекст, `makeStyles` читает другой → тема `undefined` →
+`theme.spacing` не функция. Лечение — свести theming к одной копии через `overrides` в
+`jams-react-client/package.json`:
+```json
+"overrides": {
+  "@mui/styles": { "@mui/private-theming": "9.3.0" },
+  "@mui/private-theming": "9.3.0"
+}
+```
+затем `npm install --legacy-peer-deps` (проверить, что `find node_modules -path '*@mui/private-theming'`
+даёт **одну** запись) и пересобрать фронт + `mvn package`.
+
+### 11. Прямой переход на `/signin` отдаёт 404
+SPA у JAMS отдаётся Tomcat'ом без fallback: `/` работает, а `/signin`, `/signup` и прочие
+пути React Router → 404 (перезагрузка страницы ломается). Лечится в Caddy: пути без
+расширения переписываются на `index.html`, а `/api/*` проксируется как есть:
+```caddyfile
+m.msp-claude.online {
+    handle /api/* { reverse_proxy 127.0.0.1:8081 }
+    @spa {
+        not path /api/*
+        not path *.js *.css *.map *.png *.svg *.ico *.json *.txt *.woff *.woff2
+    }
+    handle @spa { rewrite * /index.html
+                  reverse_proxy 127.0.0.1:8081 }
+    handle { reverse_proxy 127.0.0.1:8081 }
+}
+```
+Скрипт — [`cloudru-caddy-spa.sh`](../../migration/cloudru-caddy-spa.sh).
+
+### 12. `/api/install/start` → 404 после установки — это НОРМА
+`CInstallFilter` отдаёт `404 "The server is already installed"` для всех `/api/install/*`,
+как только установка завершена. Ошибка в консоли браузера ожидаема и не является проблемой.
+
 ## Проверки
 
 ```bash

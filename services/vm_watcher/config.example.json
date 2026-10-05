@@ -1,8 +1,8 @@
 {
-  "target": "203.0.113.10",
+  "target": "45.132.176.143",
   "port": 443,
-  "vmId": "replace-with-yandex-cloud-vm-id",
-  "ycExe": "C:\\Program Files\\Yandex Cloud\\yc.exe",
+  "projectId": "e39dc535-25e8-4d64-9572-885b08a1f37e",
+  "vmId": "daf8cc7a-7a28-473e-9891-d4f3e3464b8f",
   "intervalSeconds": 300,
   "failThreshold": 5
 }

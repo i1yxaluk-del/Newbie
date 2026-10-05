@@ -1,73 +1,73 @@
-# РњРёРіСЂР°С†РёСЏ MSPShield в†’ Cloud.ru Evolution
+# Миграция MSPShield → Cloud.ru Evolution
 
-РџРµСЂРµРЅРѕСЃ production СЃРѕ single-VM Yandex Cloud РЅР° Cloud.ru Evolution.
-РљР°РЅРѕРЅРёС‡РµСЃРєРёР№ РїРѕСЂСЏРґРѕРє Рё gates вЂ” [`./README.md`](README.md) Рё [`../docs/deployment/MIGRATION_RUNBOOK.md`](../docs/deployment/MIGRATION_RUNBOOK.md).
-Р—РґРµСЃСЊ вЂ” С‚РѕР»СЊРєРѕ РѕС‚Р»РёС‡РёСЏ РґР»СЏ Cloud.ru Рё Р°РґР°РїС‚РёСЂРѕРІР°РЅРЅС‹Рµ РєРѕРјР°РЅРґС‹.
+Перенос production со single-VM Yandex Cloud на Cloud.ru Evolution.
+Канонический порядок и gates — [`./README.md`](README.md) и [`../docs/deployment/MIGRATION_RUNBOOK.md`](../docs/deployment/MIGRATION_RUNBOOK.md).
+Здесь — только отличия для Cloud.ru и адаптированные команды.
 
-## РР·РІРµСЃС‚РЅС‹Рµ С„Р°РєС‚С‹ (РёСЃС…РѕРґРЅС‹Рµ РґР°РЅРЅС‹Рµ)
+## Известные факты (исходные данные)
 
-| РџРѕР»Рµ | Р—РЅР°С‡РµРЅРёРµ |
+| Поле | Значение |
 |---|---|
-| РќРѕРІР°СЏ Р’Рњ | `vm-971aab`, Р·РѕРЅР° `ru.AZ-3`, СЃС‚Р°С‚СѓСЃ В«Р—Р°РїСѓСЃРєР°РµС‚СЃСЏВ» |
-| РџСѓР±Р»РёС‡РЅС‹Р№ IP | `45.132.177.214` |
-| Р’РЅСѓС‚СЂРµРЅРЅРёР№ IP | `10.0.0.5` |
+| Новая ВМ | `vm-971aab`, зона `ru.AZ-3`, статус «Запускается» |
+| Публичный IP | `45.132.177.214` |
+| Внутренний IP | `10.0.0.5` |
 | Security group | `Default` |
-| S3-РєР»СЋС‡Рё (restic-Р±СЌРєР°Рї) | Key ID + Key Secret (РёР· РєРѕРЅСЃРѕР»Рё Cloud.ru Object Storage) |
-| DNS A-Р·Р°РїРёСЃРё | СѓР¶Рµ РїСЂРѕРїРёСЃР°РЅС‹ (РїСЂРѕРІРµСЂРёС‚СЊ С„Р°РєС‚РёС‡РµСЃРєРёРµ Р·РЅР°С‡РµРЅРёСЏ РїРµСЂРµРґ switch) |
+| S3-ключи (restic-бэкап) | Key ID + Key Secret (из консоли Cloud.ru Object Storage) |
+| DNS A-записи | уже прописаны (проверить фактические значения перед switch) |
 
-Р›РѕРєР°Р»СЊРЅС‹Р№ Р±СЌРєР°Рї-РєРёС‚ РІ [`migration/`](.) :
+Локальный бэкап-кит в [`migration/`](.) :
 `mongodump.archive.gz`, `vaultwarden-data.tar.gz`, `stalwart-etc.tar.gz`,
 `stalwart-data.tar.gz`, `caddy-data.tar.gz`, `backend.env.bak`, `deploy.env.bak`,
 `awg-admin.conf`, `restic-env.sh`, `restic-excludes.txt`.
 
-РћС‚СЃСѓС‚СЃС‚РІСѓРµС‚ `max-session.tar.gz` в†’ MAX-СЃРµСЃСЃРёСЏ РїРѕС‚СЂРµР±СѓРµС‚ СЂСѓС‡РЅРѕР№ Р°РІС‚РѕСЂРёР·Р°С†РёРё
-(`docker exec -it msp-max-alerter python -m max_alerter.auth --authorize`) вЂ” СЌС‚Рѕ С€С‚Р°С‚РЅРѕ.
+Отсутствует `max-session.tar.gz` → MAX-сессия потребует ручной авторизации
+(`docker exec -it msp-max-alerter python -m max_alerter.auth --authorize`) — это штатно.
 
-## Р§РµРј Cloud.ru РѕС‚Р»РёС‡Р°РµС‚СЃСЏ РѕС‚ Yandex Cloud
+## Чем Cloud.ru отличается от Yandex Cloud
 
-- **РќРµС‚ `yc`-CLI.** РЈРїСЂР°РІР»РµРЅРёРµ вЂ” РєРѕРЅСЃРѕР»СЊ `console.cloud.ru`; IaC вЂ” Terraform-РїСЂРѕРІР°Р№РґРµСЂ
-  [`cloud-ru/evo-terraform`](https://github.com/cloud-ru/evo-terraform). Р”Р»СЏ РїРµСЂРµРЅРѕСЃР° СѓР¶Рµ
-  СЃРѕР·РґР°РЅРЅРѕР№ Р’Рњ CLI РЅРµ РЅСѓР¶РµРЅ вЂ” СЂР°Р±РѕС‚Р°РµРј РїРѕ SSH РЅР°РїСЂСЏРјСѓСЋ.
-- **Object Storage вЂ” S3-СЃРѕРІРјРµСЃС‚РёРјС‹Р№.** Р”Р»СЏ restic РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ С‚РѕС‚ Р¶Рµ `s3:`-backend,
-  РјРµРЅСЏРµС‚СЃСЏ endpoint Рё СЃС‚Р°С‚РёС‡РµСЃРєРёРµ РєР»СЋС‡Рё (СЃРј. РЅРёР¶Рµ).
-- **РџРѕСЂС‚ 25 РѕС‚РєСЂС‹С‚ РІ РѕР±Рµ СЃС‚РѕСЂРѕРЅС‹** (РІ РѕС‚Р»РёС‡РёРµ РѕС‚ Yandex Cloud, РіРґРµ 25/tcp Р·Р°Р±Р»РѕРєРёСЂРѕРІР°РЅ).
-  РџРѕСЌС‚РѕРјСѓ РїРѕС‡С‚Р° РјРѕР¶РµС‚ СЂР°Р±РѕС‚Р°С‚СЊ **РїРѕР»РЅРѕСЃС‚СЊСЋ СЃР°РјРѕСЃС‚РѕСЏС‚РµР»СЊРЅРѕ, Р±РµР· Postbox**: Stalwart
-  РґРѕСЃС‚Р°РІР»СЏРµС‚ РїРѕ MX РїРѕР»СѓС‡Р°С‚РµР»СЏ РЅР°РїСЂСЏРјСѓСЋ. РўСЂРµР±СѓРµС‚СЃСЏ Р»РёС€СЊ РєРѕСЂСЂРµРєС‚РЅС‹Р№ PTR (РІ Evolution DNS
-  РµСЃС‚СЊ PTR-Р·РѕРЅС‹) Рё Р·Р°РїРёСЃРё SPF/DKIM/DMARC/MX вЂ” Stalwart РіРµРЅРµСЂРёСЂСѓРµС‚ РіРѕС‚РѕРІС‹Р№ zone file СЃР°Рј.
-  РС‚РѕРі РїСЂР°РєС‚РёРєРё вЂ” [`../docs/deployment/POSTMORTEM_CLOUDRU_MIGRATION.md`](../docs/deployment/POSTMORTEM_CLOUDRU_MIGRATION.md).
-- **РћР±СЏР·Р°С‚РµР»СЊРЅРѕ: РјР°СЂС€СЂСѓС‚РёР·Р°С†РёСЏ РїСЂРё РґРІСѓС… РёРЅС‚РµСЂС„РµР№СЃР°С….** Р•СЃР»Рё Сѓ Р’Рњ РµСЃС‚СЊ Рё РІРЅСѓС‚СЂРµРЅРЅРёР№
-  (`enp3s0`, 10.0.0.6), Рё direct-IP (`enp8s0`), DHCP РІС‹РґР°С‘С‚ **РґРІР° default-РјР°СЂС€СЂСѓС‚Р° СЃ
-  РѕРґРёРЅР°РєРѕРІРѕР№ РјРµС‚СЂРёРєРѕР№** в†’ Р°СЃРёРјРјРµС‚СЂРёСЏ, СЃРѕРµРґРёРЅРµРЅРёСЏ СЂРІСѓС‚СЃСЏ (SSH/HTTP С‚Р°Р№РјР°СѓС‚СЏС‚, С…РѕС‚СЏ
-  СЃРµСЂРІРёСЃС‹ СЃР»СѓС€Р°СЋС‚). Р¤РёРєСЃ вЂ” РїСЂРёРѕСЂРёС‚РµС‚РЅС‹Р№ default С‡РµСЂРµР· direct-IP:
+- **Нет `yc`-CLI.** Управление — консоль `console.cloud.ru`; IaC — Terraform-провайдер
+  [`cloud-ru/evo-terraform`](https://github.com/cloud-ru/evo-terraform). Для переноса уже
+  созданной ВМ CLI не нужен — работаем по SSH напрямую.
+- **Object Storage — S3-совместимый.** Для restic используется тот же `s3:`-backend,
+  меняется endpoint и статические ключи (см. ниже).
+- **Порт 25 открыт в обе стороны** (в отличие от Yandex Cloud, где 25/tcp заблокирован).
+  Поэтому почта может работать **полностью самостоятельно, без Postbox**: Stalwart
+  доставляет по MX получателя напрямую. Требуется лишь корректный PTR (в Evolution DNS
+  есть PTR-зоны) и записи SPF/DKIM/DMARC/MX — Stalwart генерирует готовый zone file сам.
+  Итог практики — [`../docs/deployment/POSTMORTEM_CLOUDRU_MIGRATION.md`](../docs/deployment/POSTMORTEM_CLOUDRU_MIGRATION.md).
+- **Обязательно: маршрутизация при двух интерфейсах.** Если у ВМ есть и внутренний
+  (`enp3s0`, 10.0.0.6), и direct-IP (`enp8s0`), DHCP выдаёт **два default-маршрута с
+  одинаковой метрикой** → асимметрия, соединения рвутся (SSH/HTTP таймаутят, хотя
+  сервисы слушают). Фикс — приоритетный default через direct-IP:
   ```bash
   ip route replace default via <gw> dev enp8s0 metric 50
   ```
-  РџСЂРѕРІРµСЂРєР°: `ip route get 8.8.8.8` РґРѕР»Р¶РµРЅ РїРѕРєР°Р·Р°С‚СЊ `dev enp8s0`. РЎРєСЂРёРїС‚ вЂ”
-  [`cloudru-fix-routing.sh`](cloudru-fix-routing.sh) (СЃС‚Р°РІРёС‚СЃСЏ systemd-СЃРµСЂРІРёСЃРѕРј).
+  Проверка: `ip route get 8.8.8.8` должен показать `dev enp8s0`. Скрипт —
+  [`cloudru-fix-routing.sh`](cloudru-fix-routing.sh) (ставится systemd-сервисом).
 
-## РЁР°РіРё
+## Шаги
 
-### 0. РџСЂРµСЂРµРєРІРёР·РёС‚С‹ (РѕРїРµСЂР°С‚РѕСЂСЃРєР°СЏ Windows-СЃС‚Р°РЅС†РёСЏ)
+### 0. Пререквизиты (операторская Windows-станция)
 
-- SSH-РєР»СЋС‡ Рє РЅРѕРІРѕР№ Р’Рњ (РїСѓС‚СЊ; РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ РІ СЃРєСЂРёРїС‚Р°С… вЂ” `~\.ssh\id_ed25519_yc_new`).
-- TCP-РґРѕСЃС‚СѓРїРЅРѕСЃС‚СЊ `45.132.177.214` РЅР° 22/80/443 **РёР· Р Р¤** (РѕР±СЏР·Р°С‚РµР»СЊРЅС‹Р№ gate, СѓСЂРѕРє 28.09):
+- SSH-ключ к новой ВМ (путь; по умолчанию в скриптах — `~\.ssh\id_ed25519_yc_new`).
+- TCP-доступность `45.132.177.214` на 22/80/443 **из РФ** (обязательный gate, урок 28.09):
   ```bash
   nc -vz 45.132.177.214 22
   curl -sS --connect-timeout 5 -o /dev/null -w '%{http_code}\n' http://45.132.177.214/
   ```
-  Р•СЃР»Рё ICMP РїСЂРѕС…РѕРґРёС‚, Р° TCP вЂ” РЅРµС‚: СЃРјРµРЅРёС‚СЊ Р·Р°СЂРµР·РµСЂРІРёСЂРѕРІР°РЅРЅС‹Р№ Р°РґСЂРµСЃ, РЅРµ РїРµСЂРµРєР»СЋС‡Р°С‚СЊ DNS.
+  Если ICMP проходит, а TCP — нет: сменить зарезервированный адрес, не переключать DNS.
 
 ### 1. Security group (Cloud.ru console)
 
-Р’ SG `Default` (РёР»Рё РѕС‚РґРµР»СЊРЅРѕР№) СЂР°Р·СЂРµС€РёС‚СЊ ingress:
+В SG `Default` (или отдельной) разрешить ingress:
 `22/tcp`, `80/tcp`, `443/tcp`, `443/udp` (AmneziaWG), `465/587/143/993/4190/tcp`,
-Рё РІРµСЃСЊ egress. РђРЅР°Р»РѕРі РїСЂР°РІРёР» РёР· `deploy.ps1` (СЃС‚Р°РґРёРё 3вЂ“4) Рё `cloud-init.yaml` (ufw).
+и весь egress. Аналог правил из `deploy.ps1` (стадии 3–4) и `cloud-init.yaml` (ufw).
 
-Р”РѕРїРѕР»РЅРёС‚РµР»СЊРЅРѕ РґР»СЏ Jami/JAMS (СЃРј. [`../docs/deployment/JAMS_SETUP.md`](../docs/deployment/JAMS_SETUP.md) В«РџРѕСЂС‚С‹В»):
-`3478` tcp+udp, `5349` tcp+udp, СЂРµС‚СЂР°РЅСЃР»СЏС†РёСЏ `49160-49250/udp` (TURN),
-`4222` tcp+udp (OpenDHT). `8081` (JAMS) Рё `8888` (DHT Proxy) РЅР°СЂСѓР¶Сѓ РќР• РѕС‚РєСЂС‹РІР°СЋС‚СЃСЏ вЂ” С‚РѕР»СЊРєРѕ С‡РµСЂРµР· Caddy.
+Дополнительно для Jami/JAMS (см. [`../docs/deployment/JAMS_SETUP.md`](../docs/deployment/JAMS_SETUP.md) «Порты»):
+`3478` tcp+udp, `5349` tcp+udp, ретрансляция `49160-49250/udp` (TURN),
+`4222` tcp+udp (OpenDHT). `8081` (JAMS) и `8888` (DHT Proxy) наружу НЕ открываются — только через Caddy.
 
-### 2. РљРѕРґ РЅР° Р’Рњ
+### 2. Код на ВМ
 
 ```bash
 ssh -i <KEY> ubuntu@45.132.177.214
@@ -75,19 +75,19 @@ sudo mkdir -p /opt/msp/Newbie && sudo chown ubuntu:ubuntu /opt/msp/Newbie
 git clone https://github.com/i1yxaluk-del/Newbie.git /opt/msp/Newbie
 ```
 
-> Р‘Р°Р·РѕРІС‹Р№ РѕР±СЂР°Р· вЂ” Ubuntu 22.04 + Docker/Caddy/Node 20/unzip/restic. РќР° Cloud.ru
-> `cloud-init.yaml` РёР· `deploy/yandex/` РІ РѕР±С‰РµРј РїСЂРёРјРµРЅРёРј, РЅРѕ `deploy.ps1` (yc) РЅРµ
-> РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ вЂ” Cloud.ru Р’Рњ СЃРѕР·РґР°С‘С‚СЃСЏ РІ РєРѕРЅСЃРѕР»Рё. РњРёРЅРёРјР°Р»СЊРЅС‹Р№ РЅР°Р±РѕСЂ РїРѕСЃР»Рµ РѕР±СЂР°Р·Р°:
+> Базовый образ — Ubuntu 22.04 + Docker/Caddy/Node 20/unzip/restic. На Cloud.ru
+> `cloud-init.yaml` из `deploy/yandex/` в общем применим, но `deploy.ps1` (yc) не
+> используется — Cloud.ru ВМ создаётся в консоли. Минимальный набор после образа:
 > `docker`, `docker compose` (plugin), `caddy`, `node 20` + `yarn` (corepack), `unzip`, `restic`, `ufw`.
 
-### 3. Env-С„Р°Р№Р»С‹ (3 С€С‚., СЃРѕР·РґР°СЋС‚СЃСЏ Р·Р°РЅРѕРІРѕ вЂ” РЅРµ РєРѕРїРёСЂРѕРІР°С‚СЊ СЃС‚Р°СЂС‹Рµ cloud-РєСЂРµРґС‹)
+### 3. Env-файлы (3 шт., создаются заново — не копировать старые cloud-креды)
 
 `backend/.env`, `deploy/yandex/.env`, `deploy/yandex/monitoring/.env`.
-РћР±СЏР·Р°С‚РµР»СЊРЅС‹Рµ РєР»СЋС‡Рё вЂ” [`../docs/deployment/DEPLOY_RUNBOOK.md`](../docs/deployment/DEPLOY_RUNBOOK.md) В§3
-Рё `preflight.sh`. РР· `backend.env.bak`/`deploy.env.bak` РїРµСЂРµРЅРѕСЃСЏС‚СЃСЏ С‚РѕР»СЊРєРѕ РґРѕРјРµРЅ,
-Kaiten/Telegram/MAX-С‚РѕРєРµРЅС‹ Рё (РµСЃР»Рё Postbox РѕСЃС‚Р°С‘С‚СЃСЏ) Postbox-РєР»СЋС‡Рё.
+Обязательные ключи — [`../docs/deployment/DEPLOY_RUNBOOK.md`](../docs/deployment/DEPLOY_RUNBOOK.md) §3
+и `preflight.sh`. Из `backend.env.bak`/`deploy.env.bak` переносятся только домен,
+Kaiten/Telegram/MAX-токены и (если Postbox остаётся) Postbox-ключи.
 
-### 4. Р“РµР№С‚ Рё СЃС‚РµРєРё
+### 4. Гейт и стеки
 
 ```bash
 cd /opt/msp/Newbie && sudo bash scripts/deployment/preflight.sh --fix   # PRE-FLIGHT OK
@@ -95,20 +95,20 @@ cd deploy/yandex && docker compose up -d --build                         # mongo
 cd monitoring && docker compose up -d --build                           # prometheus, grafana, am, max-alerter
 ```
 
-### 5. Р’РѕСЃСЃС‚Р°РЅРѕРІР»РµРЅРёРµ РґР°РЅРЅС‹С…
+### 5. Восстановление данных
 
 ```powershell
-# РѕРїРµСЂР°С‚РѕСЂСЃРєР°СЏ Windows-СЃС‚Р°РЅС†РёСЏ (СЃРј. migration/migrate.ps1):
+# операторская Windows-станция (см. migration/migrate.ps1):
 .\migration\migrate.ps1 -NewVmIp 45.132.177.214 -SshKeyPath <KEY>
 ```
 
-`migrate.ps1` РєР»Р°РґС‘С‚ Р°СЂС‚РµС„Р°РєС‚С‹ РїР»РѕСЃРєРѕ РІ `/tmp/migration` Рё Р·Р°РїСѓСЃРєР°РµС‚ `restore-on-vm.sh`
-(mongo `mongorestore --drop` в†’ С‚РѕРјР° в†’ max-session в†’ СЃС‚РµРєРё в†’ healthcheck).
-РџРѕСЃР»Рµ вЂ” РїСЂРѕРІРµСЂРёС‚СЊ Stalwart РЅРµ РІ bootstrap: `docker logs msp-stalwart-1 | grep -c 'bootstrap mode'` в†’ `0`.
+`migrate.ps1` кладёт артефакты плоско в `/tmp/migration` и запускает `restore-on-vm.sh`
+(mongo `mongorestore --drop` → тома → max-session → стеки → healthcheck).
+После — проверить Stalwart не в bootstrap: `docker logs msp-stalwart-1 | grep -c 'bootstrap mode'` → `0`.
 
 ### 6. Caddy
 
-`setup-on-vm.sh` СЃС‚Р°РІРёС‚ Р±РѕРµРІРѕР№ `Caddyfile` СЃ `MSP_DOMAIN`, Р»РёР±Рѕ РІСЂСѓС‡РЅСѓСЋ:
+`setup-on-vm.sh` ставит боевой `Caddyfile` с `MSP_DOMAIN`, либо вручную:
 ```bash
 sudo install -m 0644 /opt/msp/Newbie/deploy/yandex/Caddyfile /etc/caddy/Caddyfile
 sudo sed -i 's/{$MSP_DOMAIN}/<DOMAIN>/g' /etc/caddy/Caddyfile
@@ -116,122 +116,165 @@ sudo mkdir -p /etc/systemd/system/caddy.service.d
 printf '[Service]\nEnvironment="MSP_DOMAIN=<DOMAIN>"\n' | sudo tee /etc/systemd/system/caddy.service.d/override.conf
 sudo systemctl daemon-reload && sudo systemctl restart caddy
 ```
-РџСЂРѕРІРµСЂРєР°: `grep -c provisioning /etc/caddy/Caddyfile` в†’ `0`.
+Проверка: `grep -c provisioning /etc/caddy/Caddyfile` → `0`.
 
-### 7. restic РЅР° Cloud.ru S3
+### 7. restic на Cloud.ru S3
 
-РќРѕРІС‹Р№ СЂРµРїРѕР·РёС‚РѕСЂРёР№ (СЃС‚Р°СЂС‹Рµ YC S3-РєР»СЋС‡Рё РЅРµ РїРѕРґС…РѕРґСЏС‚ Рє РЅРѕРІРѕРјСѓ Р±Р°РєРµС‚Сѓ вЂ” `SignatureDoesNotMatch`):
+Новый репозиторий (старые YC S3-ключи не подходят к новому бакету — `SignatureDoesNotMatch`):
 
 ```bash
 # /etc/restic/env.sh
 export AWS_ACCESS_KEY_ID=<Cloud.ru Key ID>
 export AWS_SECRET_ACCESS_KEY=<Cloud.ru Key Secret>
 export RESTIC_REPOSITORY=s3:https://<S3_ENDPOINT>/<bucket>
-export RESTIC_PASSWORD=<РЅРѕРІС‹Р№/РїРµСЂРµРЅРµСЃС‘РЅРЅС‹Р№ РїР°СЂРѕР»СЊ>
+export RESTIC_PASSWORD=<новый/перенесённый пароль>
 ```
 
-> S3-СЌРЅРґРїРѕР№РЅС‚ Рё РёРјСЏ Р±Р°РєРµС‚Р° РІР·СЏС‚СЊ РёР· РєРѕРЅСЃРѕР»Рё Cloud.ru Object Storage (РїСЂРѕРІРµСЂРёС‚СЊ:
-> `storage.cloud.ru` РґР»СЏ Evolution; С‚РѕС‡РЅРѕРµ Р·РЅР°С‡РµРЅРёРµ РїРѕРєР°Р·Р°РЅРѕ РїСЂРё СЃРѕР·РґР°РЅРёРё Р±Р°РєРµС‚Р°/РєР»СЋС‡Р°).
+> S3-эндпойнт и имя бакета взять из консоли Cloud.ru Object Storage (проверить:
+> `storage.cloud.ru` для Evolution; точное значение показано при создании бакета/ключа).
 
 ```bash
-restic init && sudo bash /opt/restic-scripts/backup.sh   # С‚РµСЃС‚РѕРІС‹Р№ СЃРЅР°РїС€РѕС‚
+restic init && sudo bash /opt/restic-scripts/backup.sh   # тестовый снапшот
 systemctl enable --now restic-backup.timer
 ```
 
 ### 8. AmneziaWG
 
-РЎРµСЂРІРµСЂРЅС‹Рµ РєР»СЋС‡Рё СЃРѕС…СЂР°РЅРµРЅС‹ (`migration/awg-admin.conf`) вЂ” РѕР±РЅРѕРІРёС‚СЊ `Endpoint` РЅР° РЅРѕРІС‹Р№ IP
-Рё СЂР°Р·РґР°С‚СЊ РєР»РёРµРЅС‚Р°Рј РѕР±РЅРѕРІР»С‘РЅРЅС‹Р№ С‚СѓРЅРЅРµР»СЊ. `net.ipv4.ip_forward=1`, MASQUERADE РЅР° eth0,
-ufw `allow 443/udp` + SSH РёР· `10.9.0.0/24`.
+Серверные ключи сохранены (`migration/awg-admin.conf`) — обновить `Endpoint` на новый IP
+и раздать клиентам обновлённый туннель. `net.ipv4.ip_forward=1`, MASQUERADE на eth0,
+ufw `allow 443/udp` + SSH из `10.9.0.0/24`.
 
-### 9. Gates РґРѕ DNS switch (Рё РїРѕСЃР»Рµ)
+### 9. Gates до DNS switch (и после)
 
-- TCP-РґРѕСЃС‚СѓРїРЅРѕСЃС‚СЊ РЅРѕРІРѕРіРѕ IP РёР· Р Р¤ (22/80/443);
-- `curl https://<domain>/api/health` в†’ ok (Р»РѕРєР°Р»СЊРЅРѕ, РґРѕ DNS);
-- Mongo count Рё РІС‹Р±РѕСЂРѕС‡РЅС‹Рµ Р·Р°РїРёСЃРё; Vaultwarden login; Stalwart РЅРµ РІ bootstrap;
-- MAX: `docker exec msp-max-alerter python -m max_alerter.auth` в†’ exit 0;
-- С‚РµСЃС‚РѕРІС‹Р№ P1 в†’ MAX + email; РїРёСЃСЊРјРѕ РІРЅСѓС‚СЂСЊ/РЅР°СЂСѓР¶Сѓ;
-- РЅРѕРІС‹Р№ restic snapshot; `du -sh` С‚РѕРјРѕРІ в‰€ Р±СЌРєР°Рї; РІРЅРµС€РЅРёР№ СЃРєР°РЅ РЅРµ РїРѕРєР°Р·С‹РІР°РµС‚ internal ports.
+- TCP-доступность нового IP из РФ (22/80/443);
+- `curl https://<domain>/api/health` → ok (локально, до DNS);
+- Mongo count и выборочные записи; Vaultwarden login; Stalwart не в bootstrap;
+- MAX: `docker exec msp-max-alerter python -m max_alerter.auth` → exit 0;
+- тестовый P1 → MAX + email; письмо внутрь/наружу;
+- новый restic snapshot; `du -sh` томов ≈ бэкап; внешний скан не показывает internal ports.
 
-РЎС‚Р°СЂР°СЏ Р’Рњ вЂ” РІС‹РєР»СЋС‡РµРЅР° РґРѕ acceptance, СѓРґР°Р»СЏРµС‚СЃСЏ РїРѕСЃР»Рµ РїРѕРґС‚РІРµСЂР¶РґС‘РЅРЅРѕРіРѕ Р±СЌРєР°РїР° РЅРѕРІРѕР№ СЃСЂРµРґС‹.
+Старая ВМ — выключена до acceptance, удаляется после подтверждённого бэкапа новой среды.
 
-### 10. Jami / JAMS-РёРЅС„СЂР°СЃС‚СЂСѓРєС‚СѓСЂР° (РїРёР»РѕС‚, 30.09.2026)
+### 10. Jami / JAMS-инфраструктура (пилот, 30.09.2026)
 
-Р Р°Р·РІС‘СЂРЅСѓС‚Р° РЅР° С‚РѕР№ Р¶Рµ Р’Рњ РїРѕСЃР»Рµ РјРёРіСЂР°С†РёРё 28.09; РµС‘ РґР°РЅРЅС‹Рµ **РЅРµ РІС…РѕРґСЏС‚ РІ Р»РѕРєР°Р»СЊРЅС‹Р№ РєРёС‚
-`migration/`** (С‚Р°Рј С‚РѕР»СЊРєРѕ pre-Jami Р°СЂС‚РµС„Р°РєС‚С‹). РСЃС‚РѕС‡РЅРёРє РґР°РЅРЅС‹С… вЂ” restic-СЃРЅР°РїС€РѕС‚С‹ СЃС‚Р°СЂРѕРіРѕ
-YC-Р±Р°РєРµС‚Р° (`/opt`, `/etc`, `/home`) Р»РёР±Рѕ РїРµСЂРµСЃР±РѕСЂРєР° РїРѕ [`../docs/deployment/JAMS_SETUP.md`](../docs/deployment/JAMS_SETUP.md).
+Развёрнута на той же ВМ после миграции 28.09; её данные **не входят в локальный кит
+`migration/`** (там только pre-Jami артефакты). Источник данных — restic-снапшоты старого
+YC-бакета (`/opt`, `/etc`, `/home`) либо пересборка по [`../docs/deployment/JAMS_SETUP.md`](../docs/deployment/JAMS_SETUP.md).
 
-РљРѕРјРїРѕРЅРµРЅС‚С‹ Рё РёС… РґР°РЅРЅС‹Рµ:
+Компоненты и их данные:
 
-| РљРѕРјРїРѕРЅРµРЅС‚ | Р Р°Р·РјРµС‰РµРЅРёРµ/РґР°РЅРЅС‹Рµ | РСЃС‚РѕС‡РЅРёРє РїСЂРё РїРµСЂРµРЅРѕСЃРµ |
+| Компонент | Размещение/данные | Источник при переносе |
 |---|---|---|
-| JAMS (8081, `m.`) | `/opt/jams/{CA.pem,keystore.jks,config.json,oauth.key,jams.crl}` + `jams.service` | restic `/opt/jams`, РёРЅР°С‡Рµ РїРµСЂРµСЃР±РѕСЂРєР° (JDK 26 + Maven + `git.jami.net/jami-jams`) |
+| JAMS (8081, `m.`) | `/opt/jams/{CA.pem,keystore.jks,config.json,oauth.key,jams.crl}` + `jams.service` | restic `/opt/jams`, иначе пересборка (JDK 26 + Maven + `git.jami.net/jami-jams`) |
 | coturn (`turn.`, 3478/5349) | `/etc/turnserver.conf`, user `jami` | restic `/etc` + `turnadmin -a` |
-| OpenDHT dhtnode (4222, `dht.`) | `dhtnode.service`, Р‘Р” dhtnode | РїРµСЂРµСЃР±РѕСЂРєР°: `apt install dhtnode` + unit (`tail -f /dev/null | dhtnode -v -p 4222 -b bootstrap.jami.net --proxyserver 8888`) |
-| jami-services (compose `deploy/jami-services/`) | `/opt/jami-services/{pgdata,invite-data,ntfy-cache}` | restic `/opt/jami-services` + `pg_dump` nameservice (РІ `backup.sh`) |
-| always-online jamid | `/home/jamiserver/.local/share/jami`, `jamiserver.service` | restic `/home` (РёРЅР°С‡Рµ headless D-Bus addAccount Р·Р°РЅРѕРІРѕ) |
+| OpenDHT dhtnode (4222, `dht.`) | `dhtnode.service`, БД dhtnode | пересборка: `apt install dhtnode` + unit (`tail -f /dev/null | dhtnode -v -p 4222 -b bootstrap.jami.net --proxyserver 8888`) |
+| jami-services (compose `deploy/jami-services/`) | `/opt/jami-services/{pgdata,invite-data,ntfy-cache}` | restic `/opt/jami-services` + `pg_dump` nameservice (в `backup.sh`) |
+| always-online jamid | `/home/jamiserver/.local/share/jami`, `jamiserver.service` | restic `/home` (иначе headless D-Bus addAccount заново) |
 
-- Р”РѕРї. DNS A-Р·Р°РїРёСЃРё (РІСЃРµ в†’ РЅРѕРІС‹Р№ IP): `m.`, `dht.`, `turn.`, `names.`, `invite.`, `push.`.
-- Р”РѕРї. Caddy-Р±Р»РѕРєРё `m./dht./turn./names./invite./push.` (СЃС‚РёР»СЊ `{$MSP_DOMAIN}`) вЂ” `setup-on-vm.sh` РёС… РЅРµ СЃС‚Р°РІРёС‚, РґРѕР±Р°РІРёС‚СЊ РІ `/etc/caddy/Caddyfile` РІСЂСѓС‡РЅСѓСЋ.
-- `jami-services` `.env`: `JAMI_PG_PASSWORD`, `JAMS_ADMIN_USER`, `JAMS_ADMIN_PASS`, `JAMS_ADMIN_PASSWORD` (Р·РЅР°С‡РµРЅРёСЏ вЂ” РёР· СЃРµРєСЂРµС‚РѕРІ/`~/msp-deploy-secrets.txt`, РєРѕС‚РѕСЂС‹С… РЅРµС‚ РІ Р»РѕРєР°Р»СЊРЅРѕРј РєРёС‚Рµ).
-- РџР°СЂРѕР»Рё/CA JAMS Рё TURN вЂ” РІРѕСЃСЃС‚Р°РЅРѕРІРёС‚СЊ РёР· restic `/opt/jams`, `/etc/turnserver.conf`, `/home`; РїСЂРё РЅРµРґРѕСЃС‚СѓРїРЅРѕСЃС‚Рё restic вЂ” РїРµСЂРµСЃР±РѕСЂРєР° Рё РїРµСЂРµРІС‹РїСѓСЃРє (Р»РѕРіРёРЅС‹ JAMS РЅРµ РїРµСЂРµРёСЃРїРѕР»СЊР·СѓСЋС‚СЃСЏ РїРѕСЃР»Рµ revoke).
+- Доп. DNS A-записи (все → новый IP): `m.`, `dht.`, `turn.`, `names.`, `invite.`, `push.`.
+- Доп. Caddy-блоки `m./dht./turn./names./invite./push.` (стиль `{$MSP_DOMAIN}`) — `setup-on-vm.sh` их не ставит, добавить в `/etc/caddy/Caddyfile` вручную.
+- `jami-services` `.env`: `JAMI_PG_PASSWORD`, `JAMS_ADMIN_USER`, `JAMS_ADMIN_PASS`, `JAMS_ADMIN_PASSWORD` (значения — из секретов/`~/msp-deploy-secrets.txt`, которых нет в локальном ките).
+- Пароли/CA JAMS и TURN — восстановить из restic `/opt/jams`, `/etc/turnserver.conf`, `/home`; при недоступности restic — пересборка и перевыпуск (логины JAMS не переиспользуются после revoke).
 
-## РџРѕС‡С‚Р° Р±РµР· Postbox (РїСЂСЏРјР°СЏ РґРѕСЃС‚Р°РІРєР° РїРѕ MX)
+## Почта без Postbox (прямая доставка по MX)
 
-Cloud.ru РЅРµ Р±Р»РѕРєРёСЂСѓРµС‚ 25/tcp, РїРѕСЌС‚РѕРјСѓ РІРЅРµС€РЅРёР№ СЂРµР»РµР№ РЅРµ РЅСѓР¶РµРЅ. РџРѕСЂСЏРґРѕРє:
+Cloud.ru не блокирует 25/tcp, поэтому внешний релей не нужен. Порядок:
 
-1. **РЈР±РµРґРёС‚СЊСЃСЏ, С‡С‚Рѕ 25/tcp СЂР°Р·СЂРµС€С‘РЅ** РІ SG (ingress) Рё РІ ufw; РїСЂРѕРІРµСЂРёС‚СЊ РёСЃС…РѕРґСЏС‰РёР№:
+1. **Убедиться, что 25/tcp разрешён** в SG (ingress) и в ufw; проверить исходящий:
    `python3 -c "import socket;socket.create_connection(('gmail-smtp-in.l.google.com',25),8)"`.
-2. **РџРµСЂРµРєР»СЋС‡РёС‚СЊ Stalwart РЅР° РїСЂСЏРјСѓСЋ РґРѕСЃС‚Р°РІРєСѓ.** Р’ РµРіРѕ РєРѕРЅС„РёРіРµ (RocksDB, С‚РѕРј
-   `stalwart-data`) РјР°СЂС€СЂСѓС‚ `mx` СѓР¶Рµ РµСЃС‚СЊ; СѓРґР°Р»РёС‚СЊ СЂРµР»РµР№ Postbox С‡РµСЂРµР· JMAP:
+2. **Переключить Stalwart на прямую доставку.** В его конфиге (RocksDB, том
+   `stalwart-data`) маршрут `mx` уже есть; удалить релей Postbox через JMAP:
    ```bash
    PW=$(sudo grep '^STALWART_ADMIN_PASSWORD=' deploy/yandex/.env | cut -d= -f2-)
-   # СЃРїРёСЃРѕРє: x:MtaRoute/get ; СѓРґР°Р»РёС‚СЊ СЂРµР»РµР№ (РёРјСЏ РѕР±С‹С‡РЅРѕ BaseYandex/postbox-outbound):
+   # список: x:MtaRoute/get ; удалить релей (имя обычно BaseYandex/postbox-outbound):
    curl -s -u "admin:$PW" -H 'Content-Type: application/json' \
      -d '{"using":["urn:ietf:params:jmap:core","urn:stalwart:jmap"],"methodCalls":[["x:MtaRoute/set",{"destroy":["<route-id>"]},"0"]]}' \
      http://127.0.0.1:8080/jmap/
    ```
-   > env-РїРµСЂРµРјРµРЅРЅС‹Рµ Stalwart РїСЂРёРјРµРЅСЏСЋС‚СЃСЏ **С‚РѕР»СЊРєРѕ РїСЂРё РїРµСЂРІРѕРј Р·Р°РїСѓСЃРєРµ**; РїРѕСЃР»Рµ
-   > РІРѕСЃСЃС‚Р°РЅРѕРІР»РµРЅРёСЏ РєРѕРЅС„РёРіР° РёР· Р±СЌРєР°РїР° РїСЂР°РІРєРё вЂ” С‚РѕР»СЊРєРѕ С‡РµСЂРµР· JMAP/Admin UI.
-3. **РћРїСѓР±Р»РёРєРѕРІР°С‚СЊ DNS-Р·Р°РїРёСЃРё.** Stalwart РіРµРЅРµСЂРёСЂСѓРµС‚ РїРѕР»РЅС‹Р№ zone file:
-   `x:Domain/get` в†’ `dnsZoneFile` (СЃРѕС…СЂР°РЅС‘РЅ РІ [`../deploy/yandex/dns-zone-stalwart.txt`](../deploy/yandex/dns-zone-stalwart.txt)):
+   > env-переменные Stalwart применяются **только при первом запуске**; после
+   > восстановления конфига из бэкапа правки — только через JMAP/Admin UI.
+3. **Опубликовать DNS-записи.** Stalwart генерирует полный zone file:
+   `x:Domain/get` → `dnsZoneFile` (сохранён в [`../deploy/yandex/dns-zone-stalwart.txt`](../deploy/yandex/dns-zone-stalwart.txt)):
    DKIM (ed25519+rsa), `mail.` SPF (`v=spf1 a -all`), apex SPF (`v=spf1 mx -all`),
-   MX в†’ `mail.<domain>`, DMARC (`p=reject`), SRV (imaps/submissions/jmap/caldav/carddav/pop3s),
+   MX → `mail.<domain>`, DMARC (`p=reject`), SRV (imaps/submissions/jmap/caldav/carddav/pop3s),
    MTA-STS + TLS-RPT, CAA, autoconfig/autodiscover.
    > **Минимизация:** для почты реально нужны лишь 5 DNS-записей + PTR;
-   > полный разбор и готовый набор — [../deploy/yandex/DNS_RECORDS.md](../deploy/yandex/DNS_RECORDS.md) и [../deploy/yandex/dns-zone-minimal.txt](../deploy/yandex/dns-zone-minimal.txt).
-4. **PTR:** РІ РєРѕРЅСЃРѕР»Рё Cloud.ru в†’ **Evolution DNS в†’ РћР±СЂР°С‚РЅС‹Рµ Р·РѕРЅС‹** СЃРѕР·РґР°С‚СЊ PTR-Р·РѕРЅСѓ РґР»СЏ
-   РїСѓР±Р»РёС‡РЅРѕРіРѕ IP в†’ `mail.<domain>` (РІР°Р¶РЅРѕ РґР»СЏ РґРѕСЃС‚Р°РІР»СЏРµРјРѕСЃС‚Рё; С‚РµРєСѓС‰РёР№ PTR РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ
-   СЂР°РІРµРЅ РёРјРµРЅРё Р’Рњ).
-5. **TLS РїРѕС‡С‚С‹:** РёРјРїРѕСЂС‚РёСЂРѕРІР°С‚СЊ Р°РєС‚СѓР°Р»СЊРЅС‹Р№ СЃРµСЂС‚РёС„РёРєР°С‚ Caddy РІ Stalwart Рё **РїРµСЂРµР·Р°РїСѓСЃС‚РёС‚СЊ**
-   РєРѕРЅС‚РµР№РЅРµСЂ (Р±РµР· СЂРµСЃС‚Р°СЂС‚Р° listener РѕС‚РґР°С‘С‚ СЃС‚Р°СЂС‹Р№/self-signed):
+   > полный разбор и готовый набор — [`../deploy/yandex/DNS_RECORDS.md`](../deploy/yandex/DNS_RECORDS.md)
+   > и [`../deploy/yandex/NAMECHEAP_DNS_SETUP.md`](../deploy/yandex/NAMECHEAP_DNS_SETUP.md).
+4. **PTR:** в консоли Cloud.ru → **Evolution DNS → Обратные зоны** создать PTR-зону для
+   публичного IP → `mail.<domain>` (важно для доставляемости; текущий PTR по умолчанию
+   равен имени ВМ).
+5. **TLS почты:** импортировать актуальный сертификат Caddy в Stalwart и **перезапустить**
+   контейнер (без рестарта listener отдаёт старый/self-signed):
    ```bash
-   # x:Certificate/set СЃ certificate/privateKey РёР· /var/lib/caddy/.../mail.<domain>.{crt,key}
+   # x:Certificate/set с certificate/privateKey из /var/lib/caddy/.../mail.<domain>.{crt,key}
    sudo docker restart msp-stalwart-1
    echo | openssl s_client -connect 127.0.0.1:465 -servername mail.<domain> 2>/dev/null | openssl x509 -noout -dates
    ```
-   РЎРєСЂРёРїС‚ вЂ” [`cloudru-mail-cert.sh`](cloudru-mail-cert.sh).
-6. **РџСЂРѕРІРµСЂРєР°:** РїРёСЃСЊРјРѕ РЅР°СЂСѓР¶Сѓ (Gmail/РЇРЅРґРµРєСЃ) вЂ” РґРѕСЃС‚Р°РІР»РµРЅРѕ, DKIM `pass`; РїРёСЃСЊРјРѕ РІРЅСѓС‚СЂСЊ РЅР°
-   `admin@<domain>` вЂ” РїРѕСЏРІРёР»РѕСЃСЊ РІ СЏС‰РёРєРµ; `openssl s_client` РѕС‚РґР°С‘С‚ LE-СЃРµСЂС‚РёС„РёРєР°С‚.
+   Скрипт — [`cloudru-mail-cert.sh`](cloudru-mail-cert.sh).
+6. **Проверка:** письмо наружу (Gmail/Яндекс) — доставлено, DKIM `pass`; письмо внутрь на
+   `admin@<domain>` — появилось в ящике; `openssl s_client` отдаёт LE-сертификат.
 
-> РџРѕСЂС‚ 587/143 (STARTTLS) СЃРЅР°СЂСѓР¶Рё С„РёР»СЊС‚СЂСѓРµС‚СЃСЏ РѕР±Р»Р°РєРѕРј вЂ” РєР»РёРµРЅС‚Р°Рј СѓРєР°Р·С‹РІР°С‚СЊ implicit-TLS
+> Порт 587/143 (STARTTLS) снаружи фильтруется облаком — клиентам указывать implicit-TLS
 > (`465` submission, `993` IMAP).
 
-## РЎС‚Р°С‚СѓСЃ Рё С‡С‚Рѕ РѕСЃС‚Р°Р»РѕСЃСЊ
+## VPN (AmneziaWG) и SSH только через туннель
 
-Р’С‹РїРѕР»РЅРµРЅРѕ:
-- [x] pwsh РЅР° СЃС‚Р°РЅС†РёРё вЂ” РІРѕСЃСЃС‚Р°РЅРѕРІР»РµРЅ РїРµСЂРµР·Р°РїСѓСЃРєРѕРј Harness (СЂР°Р±РѕС‚Р°РµРј РІ PowerShell 5.1).
-- [x] SSH вЂ” `ubuntu@45.132.176.143`, РєР»СЋС‡ `~/.ssh/id_ed25519_yc_new`.
-- [x] Р’Рњ/РґРёСЃРє/РёРЅС‚РµСЂС„РµР№СЃС‹/IP Рё РїРѕСЂС‚С‹ СЃРѕР·РґР°РЅС‹ С‡РµСЂРµР· API Cloud.ru Evolution.
-- [x] РљРѕРґ, env, `preflight` в†’ OK; РґР°РЅРЅС‹Рµ РІРѕСЃСЃС‚Р°РЅРѕРІР»РµРЅС‹; СЃС‚РµРє healthy.
-- [x] DNS A-Р·Р°РїРёСЃРё в†’ `45.132.176.143`; TLS РІС‹РїСѓС‰РµРЅ РґР»СЏ РІСЃРµС… РґРѕРјРµРЅРѕРІ.
-- [x] РђСЃРёРјРјРµС‚СЂРёС‡РЅР°СЏ РјР°СЂС€СЂСѓС‚РёР·Р°С†РёСЏ РёСЃРїСЂР°РІР»РµРЅР° Рё Р·Р°РєСЂРµРїР»РµРЅР° systemd-СЃРµСЂРІРёСЃРѕРј.
-- [x] РџРѕС‡С‚Р° РїРµСЂРµРІРµРґРµРЅР° РЅР° РїСЂСЏРјСѓСЋ РґРѕСЃС‚Р°РІРєСѓ Р±РµР· Postbox; TLS РїРѕС‡С‚С‹ РІР°Р»РёРґРµРЅ.
+VPN-сервер AmneziaWG поднят **на той же ВМ**, что и прод (функция bastion).
 
-РћСЃС‚Р°Р»РѕСЃСЊ:
-- [ ] **PTR** в†’ `mail.msp-claude.online` (Evolution DNS в†’ РћР±СЂР°С‚РЅС‹Рµ Р·РѕРЅС‹, РєРѕРЅСЃРѕР»СЊ).
-- [ ] **РћРїСѓР±Р»РёРєРѕРІР°С‚СЊ DNS-Р·Р°РїРёСЃРё** РёР· [`../deploy/yandex/dns-zone-stalwart.txt`](../deploy/yandex/dns-zone-stalwart.txt) (SPF/DKIM/DMARC/MX/SRV/MTA-STS).
-- [ ] **S3-СЃС‚Р°С‚РёС‡РµСЃРєРёРµ РєР»СЋС‡Рё** Object Storage + РёРјСЏ Р±Р°РєРµС‚Р° в†’ restic (`/etc/restic/env.sh`, `restic init`).
-- [ ] AmneziaWG (`Endpoint` в†’ `45.132.176.143`), MAX re-auth, Jami/JAMS.
-- [ ] РЎС‚Р°СЂС‹Р№ YC Object Storage вЂ” РЅСѓР¶РµРЅ Р»Рё (РёСЃС‚РѕСЂРёСЏ/Jami).
-- [ ] РЈРґР°Р»РёС‚СЊ СЃС‚Р°СЂСѓСЋ Р’Рњ РїРѕСЃР»Рµ РїРµСЂРёРѕРґР° РЅР°Р±Р»СЋРґРµРЅРёСЏ.
+1. **Установка** ([`cloudru-awg-install.sh`](cloudru-awg-install.sh)):
+   `add-apt-repository -y ppa:amnezia/ppa && apt-get install -y amneziawg-dkms amneziawg-tools qrencode`.
+   Проверка: `awg --version`, `dkms status` → `amneziawg/1.0.0 ... installed`.
+2. **Bootstrap сервера** ([`../technical/0_Common/amneziawg/awg_bootstrap.sh`](../technical/0_Common/amneziawg/awg_bootstrap.sh)):
+   ключи сервера, `awg0` = `10.9.0.1/24`, слушает **UDP/443** (не конфликтует с Caddy TCP/443),
+   обфускация `Jc/Jmin/Jmax/S1/S2/H1..H4`. В SG уже есть ingress `udp 443` («AmneziaWG»).
+3. **Пир админа** ([`cloudru-awg-add-admin-peer.sh`](cloudru-awg-add-admin-peer.sh)): добавляет нашу
+   станцию `10.9.0.2` с **существующим** клиентским ключом — в клиентском конфиге меняются только
+   `Endpoint` и `PublicKey` сервера.
+4. **Клиент** ([`awg-admin.conf.example`](awg-admin.conf.example) — шаблон; рабочий файл
+   `migration/awg-admin.conf` в `.gitignore`, т.к. содержит приватный ключ): `Endpoint = 45.132.176.143:443`,
+   `PublicKey = ZWvrjrDSsMQShEKXjZoD/TiTa1dQ07AIGLugWerXRyU=`. Импорт в AmneziaWG for Windows:
+   ```powershell
+   & "C:\Program Files\AmneziaWG\amneziawg.exe" /uninstalltunnelservice awg-msp
+   & "C:\Program Files\AmneziaWG\amneziawg.exe" /installtunnelservice C:\path\awg-msp.conf  # .conf БЕЗ BOM!
+   & "C:\Program Files\AmneziaWG\awg.exe" show   # latest handshake = туннель поднят
+   ```
+   Конфиг **обязательно без BOM** — Windows-клиент иначе не принимает файл.
+5. **Проверка:** `ssh -i <key> ubuntu@10.9.0.1` (адрес сервера внутри туннеля).
+   Если менялся хост-ключ — `ssh-keygen -R 10.9.0.1`.
+
+**Закрытие SSH снаружи** ([`cloudru-ssh-lockdown-ufw.sh`](cloudru-ssh-lockdown-ufw.sh)):
+- ufw: удалить `allow 22/tcp`, оставить `allow from 10.9.0.0/24 to any port 22 proto tcp`.
+- Security Group: удалить ingress-правило `tcp 22:22 from 0.0.0.0/0` — API
+  `GET/DELETE /api/v1/security-groups/{sg}/rules[/{rule}]` (**без** `project_id` в query,
+  иначе `extra_forbidden`).
+- Итог: `45.132.176.143:22` → timeout; SSH через `10.9.0.1` → работает; 80/443/465/993/25 снаружи живы.
+
+> **Порядок критичен:** сначала поднять туннель и убедиться, что SSH через `10.9.0.1` работает,
+> и только потом закрывать 22. Все изменения применять **через туннель**, не через публичный IP.
+> Аварийный доступ — веб-консоль Cloud.ru (`is_serial_ready: true`).
+
+## Статус и что осталось
+
+Выполнено:
+- [x] pwsh на станции — восстановлен перезапуском Harness (работаем в PowerShell 5.1).
+- [x] SSH — `ubuntu@45.132.176.143`, ключ `~/.ssh/id_ed25519_yc_new`.
+- [x] ВМ/диск/интерфейсы/IP и порты созданы через API Cloud.ru Evolution.
+- [x] Код, env, `preflight` → OK; данные восстановлены; стек healthy.
+- [x] DNS A-записи → `45.132.176.143`; TLS выпущен для всех доменов.
+- [x] Асимметричная маршрутизация исправлена и закреплена systemd-сервисом.
+- [x] Почта переведена на прямую доставку без Postbox; TLS почты валиден.
+- [x] Ящик `postmaster@` создан ([`cloudru-create-postmaster.sh`](cloudru-create-postmaster.sh)).
+- [x] Логи Stalwart починены (`/var/lib/stalwart/logs/` — раньше писались в несуществующий каталог).
+- [x] AmneziaWG на новой ВМ + туннель `awg-msp` (`latest handshake` OK).
+- [x] SSH снаружи закрыт (ufw + SG), доступ только через туннель `10.9.0.1`.
+- [x] VM watcher переведён на Cloud.ru API ([`../services/vm_watcher/`](../services/vm_watcher/)).
+
+Осталось:
+- [ ] **PTR** → `mail.msp-claude.online` (Evolution DNS → Обратные зоны, консоль; API недоступен).
+- [ ] **DKIM RSA в DNS**: во втором фрагменте TXT лишний пробел → `dkim=fail` (проверено на обоих NS).
+- [ ] **Vaultwarden SMTP** всё ещё смотрит на `postbox.cloud.yandex.net` — перевести на локальный Stalwart.
+- [ ] **S3-статические ключи** Object Storage + имя бакета → restic (`/etc/restic/env.sh`, `restic init`).
+- [ ] MAX re-auth, Jami/JAMS.
+- [ ] Старый YC Object Storage — нужен ли (история/Jami).
+- [ ] Удалить старую ВМ после периода наблюдения.

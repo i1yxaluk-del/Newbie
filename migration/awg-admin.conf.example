@@ -1,0 +1,25 @@
+# MSPShield admin · AmneziaWG client config — ШАБЛОН (без секретов)
+# Реальный файл — `migration/awg-admin.conf` (в .gitignore: содержит приватный ключ).
+# Импорт в AmneziaWG for Windows — файл обязан быть БЕЗ BOM.
+[Interface]
+PrivateKey = <приватный ключ клиента>
+Address    = 10.9.0.2/32
+DNS        = 1.1.1.1
+
+# AmneziaWG обфускация — должна совпадать с сервером.
+Jc   = 4
+Jmin = 50
+Jmax = 1000
+S1   = 86
+S2   = 574
+H1   = 1779539752
+H2   = 1138729192
+H3   = 2050378563
+H4   = 8345423
+
+[Peer]
+PublicKey           = <публичный ключ сервера: awg show → public key>
+PresharedKey        = <preshared key из серверного awg0.conf>
+Endpoint            = 45.132.176.143:443
+AllowedIPs          = 10.9.0.0/24
+PersistentKeepalive = 25

@@ -1,0 +1,69 @@
+# ═══════════════════════════════════════════════════════════════════
+# Matrix-стек MSPShield: Synapse (homeserver) + PostgreSQL + Element Web
+# ═══════════════════════════════════════════════════════════════════
+# Домен homeserver: m.msp-claude.online   (ID пользователей @user:m.msp-claude.online)
+# Веб-клиент:       e.msp-claude.online
+#
+# Принципы:
+#   * ФЕДЕРАЦИЯ ВЫКЛЮЧЕНА — наш сервер не общается ни с одним чужим сервером
+#     (federation_domain_whitelist пуст, порт 8448 наружу не открываем);
+#   * публичная регистрация выключена — учётки создаёт администратор
+#     (registration_shared_secret + register_new_matrix_user, тот же подход в портале);
+#   * звонки — через наш coturn (turn_uris в homeserver.yaml);
+#   * медиа — на нашем сервере, но с автоочисткой (media_retention) и лимитом загрузки;
+#   * push — UnifiedPush через ntfy (не Google).
+#
+# Порты: 8008 (Synapse) и 80 (Element) — только внутрь, наружу через Caddy.
+# ═══════════════════════════════════════════════════════════════════
+services:
+  synapse-db:
+    image: postgres:16-alpine
+    container_name: msp-synapse-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: synapse
+      POSTGRES_USER: synapse
+      POSTGRES_PASSWORD: __DB_PASSWORD__
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - synapse-db:/var/lib/postgresql/data
+    networks:
+      - msp-matrix
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U synapse"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  synapse:
+    image: matrixdotorg/synapse:latest
+    container_name: msp-synapse
+    restart: unless-stopped
+    depends_on:
+      synapse-db:
+        condition: service_healthy
+    volumes:
+      - ./data:/data
+      - ./homeserver.yaml:/data/homeserver.yaml:ro
+    networks:
+      - msp-matrix
+    expose:
+      - "8008"
+
+  element:
+    image: vectorim/element-web:latest
+    container_name: msp-element
+    restart: unless-stopped
+    volumes:
+      - ./element-config.json:/app/config.json:ro
+    networks:
+      - msp-matrix
+    expose:
+      - "80"
+
+volumes:
+  synapse-db:
+
+networks:
+  msp-matrix:
+    name: msp-matrix

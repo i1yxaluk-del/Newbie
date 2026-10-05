@@ -1,0 +1,40 @@
+# ═══════════════════════════════════════════════════════════════════
+# XMPP-стек MSPShield: Prosody (свой образ, актуальная версия)
+# ═══════════════════════════════════════════════════════════════════
+# Порты:
+#   5222  — клиенты (STARTTLS)      → публикуется наружу
+#   5280  — HTTP (upload/websocket) → только 127.0.0.1, наружу через Caddy
+#
+# Учётки создаются администратором (публичная регистрация выключена):
+#   docker exec msp-prosody prosodyctl register <логин> x.msp-claude.online <пароль>
+# ═══════════════════════════════════════════════════════════════════
+services:
+  prosody:
+    build: .
+    image: msp-prosody:local
+    container_name: msp-prosody
+    restart: unless-stopped
+    ports:
+      - "5222:5222"              # клиенты (STARTTLS)
+      - "127.0.0.1:5280:5280"    # HTTP-модули (upload/websocket) — только для Caddy
+    volumes:
+      - ./prosody.cfg.lua:/etc/prosody/prosody.cfg.lua:ro
+      - ./certs:/etc/prosody/certs
+      - prosody-data:/var/lib/prosody
+      - prosody-uploads:/var/lib/prosody/http_upload
+    networks:
+      - msp-xmpp
+    healthcheck:
+      test: ["CMD-SHELL", "prosodyctl status | grep -q running"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  prosody-data:
+  prosody-uploads:
+
+networks:
+  msp-xmpp:
+    name: msp-xmpp

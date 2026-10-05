@@ -1,0 +1,89 @@
+# ═══════════════════════════════════════════════════════════════════
+# Synapse (Matrix homeserver) для MSPShield — автономная установка
+# ═══════════════════════════════════════════════════════════════════
+# Сервер: m.msp-claude.online
+# Федерация ВЫКЛЮЧЕНА, публичная регистрация ВЫКЛЮЧЕНА.
+# Секреты подставляет deploy.sh (__...__ больше не должно встречаться в файле).
+# ═══════════════════════════════════════════════════════════════════
+
+server_name: "m.msp-claude.online"
+pid_file: /data/homeserver.pid
+public_baseurl: "https://m.msp-claude.online/"
+
+listeners:
+  - port: 8008
+    tls: false
+    type: http
+    x_forwarded: true          # за Caddy — доверяем X-Forwarded-For
+    bind_addresses: ["0.0.0.0"]
+    resources:
+      - names: [client, federation]
+        compress: false
+
+# ── База данных (PostgreSQL в контейнере msp-synapse-db) ───────────
+database:
+  name: psycopg2
+  args:
+    user: synapse
+    password: __DB_PASSWORD__
+    database: synapse
+    host: synapse-db
+    port: 5432
+    cp_min: 2
+    cp_max: 5
+
+# ── ФЕДЕРАЦИЯ ВЫКЛЮЧЕНА ───────────────────────────────────────────
+# Пустой whitelist = сервер не принимает и не отправляет никуда данные.
+federation_domain_whitelist: []
+trusted_key_servers: []
+suppress_key_server_warning: true
+allow_public_rooms_over_federation: false
+allow_profile_lookup_over_federation: false
+
+# ── Регистрация ───────────────────────────────────────────────────
+enable_registration: false
+registration_shared_secret: "__REG_SHARED_SECRET__"
+enable_registration_without_verification: false
+allow_guest_access: false
+
+# ── Медиа: не забиваем сервер ─────────────────────────────────────
+max_upload_size: 100M
+media_retention:
+  local_media_lifetime: 30d      # своя медиа живёт 30 дней, потом удаляется
+  remote_media_lifetime: 7d
+
+# ── Звонки через наш coturn ───────────────────────────────────────
+turn_uris:
+  - "turn:turn.msp-claude.online:3478?transport=udp"
+  - "turn:turn.msp-claude.online:3478?transport=tcp"
+turn_shared_secret: "__TURN_SECRET__"
+turn_user_lifetime: 86400000
+turn_allow_guests: false
+
+# ── Прочее ────────────────────────────────────────────────────────
+report_stats: false
+enable_metrics: true
+log_config: /data/log.config
+signing_key_path: /data/m.msp-claude.online.signing.key
+macaroon_secret_key: "__MACAROON_SECRET__"
+form_secret: "__FORM_SECRET__"
+password_config:
+  enabled: true
+  localdb_enabled: true
+
+# Приглашения и поиск — только внутри нашего сервера
+user_directory:
+  enabled: true
+  search_all_users: true
+  prefer_local_users: true
+
+rc_login:
+  address:
+    per_second: 0.5
+    burst_count: 10
+  account:
+    per_second: 0.5
+    burst_count: 10
+  failed_attempts:
+    per_second: 0.5
+    burst_count: 10

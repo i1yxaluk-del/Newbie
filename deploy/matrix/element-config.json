@@ -1,0 +1,28 @@
+{
+  "default_server_config": {
+    "m.homeserver": {
+      "base_url": "https://m.msp-claude.online",
+      "server_name": "m.msp-claude.online"
+    }
+  },
+  "brand": "MSPShield",
+  "disable_custom_urls": true,
+  "disable_guests": true,
+  "default_country_code": "RU",
+  "show_labs_settings": false,
+  "features": {
+    "feature_video_rooms": true,
+    "feature_group_calls": false,
+    "feature_voice_broadcast": false
+  },
+  "setting_defaults": {
+    "breadcrumbs": true,
+    "MessageComposer": true,
+    "UIFeature.registration": false,
+    "UIFeature.passwordReset": false,
+    "UIFeature.feedback": false
+  },
+  "room_directory": {
+    "servers": ["m.msp-claude.online"]
+  }
+}

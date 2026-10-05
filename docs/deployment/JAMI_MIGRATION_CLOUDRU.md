@@ -265,6 +265,43 @@ sudo bash cloudru-jams-certfix-inject.sh   # внедряет класс в ра
 > Если узел пересоздавали — ID мог поменяться, берите его из
 > `getAccountDetails` (см. `cloudru-jami-alwaysonline-setup.sh`).
 
+### 16. Сертификат пользователя — это sub-CA (так задумано), не пугайтесь
+Проверяя жалобу «клиент вечно мигрирует», легко решить, что сертификаты сломаны: у
+**пользователя** в цепочке `CA:TRUE, pathlen:10` и `Key Usage: Certificate Sign, CRL Sign`.
+Это **корректно по замыслу JAMS** — в исходнике так и написано:
+
+```java
+// User extensions (the user is a sub-CA)
+userExtensions.getExtensions().add(new Object[]{Extension.basicConstraints, true, new BasicConstraints(10)});
+userExtensions.getExtensions().add(new Object[]{Extension.keyUsage, false, new KeyUsage(cRLSign | keyCertSign)});
+```
+
+Роли сертификатов:
+
+| Сертификат | Расширения | Назначение |
+|---|---|---|
+| CA (`MSPShield JAMS CA`) | `CA:TRUE, pathlen:10`, `keyCertSign` | корень |
+| **пользователь** | `CA:TRUE, pathlen:10`, `keyCertSign` | **sub-CA: подписывает устройства пользователя** |
+| **устройство** | `CA:FALSE`, `Digital Signature, Key Agreement` | им клиент и аутентифицируется |
+
+Аккаунт клиента ломается не из-за цепочки. Проверить, что сервер отдаёт клиенту, можно
+вручную (полный успешный цикл выглядит так):
+```bash
+openssl req -new -newkey rsa:2048 -nodes -keyout dev.key -out dev.csr -subj "/CN=test-device"
+TOKEN=$(curl -s -X POST localhost:8081/api/login -H 'Content-Type: application/json' \
+  -d '{"username":"test2","password":"<пароль>"}' | python3 -c 'import json,sys;print(json.load(sys.stdin)["access_token"])')
+curl -s -X POST localhost:8081/api/auth/device -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" \
+  -d "{\"csr\": $(python3 -c 'import json;print(json.dumps(open("dev.csr").read()))'), \"deviceName\":\"test-device\"}"
+```
+В успешном ответе: `certificateChain` (3 сертификата), `nameServer`, `deviceReceipt`,
+`receiptSignature` и поля политики (`TURN.server`, `Account.proxyServer` и т.д.).
+Если это приходит — сервер исправен, и причину надо искать в клиенте (версия/состояние аккаунта).
+
+> Известные баги миграции на стороне клиента:
+> [#594 «wizard cannot be skipped»](https://git.jami.net/savoirfairelinux/jami-client-gnome/-/issues/594),
+> [#595 «previously used user name cannot be used»](https://git.jami.net/savoirfairelinux/jami-client-gnome/-/issues/595).
+
 ## Проверки
 
 ```bash

@@ -243,6 +243,28 @@ sudo bash cloudru-jams-certfix-inject.sh   # внедряет класс в ра
 `gson.toJson(dataStore.getUserDao().getAll().get(0))`. Список на странице формируется не им,
 а поиском по каталогу, поэтому на работу не влияет, но при доработках про это надо помнить.
 
+### 15. У always-online узла СВОЙ Jami ID — он не совпадает с записью в JAMS
+При создании учётки через админ-API JAMS сам генерирует ключ и Jami ID
+(`RegisterUserFlow` → `ETHAddressGenerator.generateAddress()`), а D-Bus-аккаунт демона создаёт
+**свою** пару ключей. В итоге:
+
+| Где | Jami ID |
+|---|---|
+| запись пользователя `always-online` в JAMS (и его встроенный nameserver) | `db70df69875caa4a42cea0c7b6c051f639ede7a1` |
+| **реальный аккаунт демона** (тот, что живёт в DHT и синхронизирует историю) | **`c411a740567076504b776dc07b7b22d0d916034a`** |
+
+Поэтому:
+- **контактом добавлять надо ID демона** (`c411a740…`) — именно у него есть живое устройство;
+- обратный резолв `/api/nameserver/addr/c411a740…` → `Address not found` — это **нормально**,
+  имя в JAMS-nameserver привязано к другому ID; клиент покажет просто ID;
+- портал приглашений умеет регистрировать имена в **своём** nameservice
+  (`jami-name-add` → `POST :8889/admin/names`, токен `NAMES_ADMIN_TOKEN`), но JAMS его не
+  использует — у JAMS свой nameserver.
+
+> Проверка резолва: `curl localhost:8081/api/nameserver/addr/<jami-id>`.
+> Если узел пересоздавали — ID мог поменяться, берите его из
+> `getAccountDetails` (см. `cloudru-jami-alwaysonline-setup.sh`).
+
 ## Проверки
 
 ```bash

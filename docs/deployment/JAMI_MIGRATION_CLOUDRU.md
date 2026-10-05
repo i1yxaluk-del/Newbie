@@ -126,14 +126,28 @@ POST /api/admin/group                   # {"name":"MSPShield","blueprintName":"M
 > Этот же коммит менял и исходники (`api.tsx`, `auth.tsx`, компоненты), поэтому откатывать
 > только package.json назад к v5 нельзя.
 
-**Лечение — согласовать мажор:** вернуть `@mui/material` и `@mui/icons-material` на ветку **v6**
-(тогда `@mui/styles@6` и `@mui/material@6` используют одну копию `@mui/private-theming@6.4.9`):
-```json
-"@mui/material": "^6.5.0",
-"@mui/icons-material": "^6.5.0"
+**Лечение — откатить только фронтенд на коммит до бампа.** Промежуточная попытка
+«согласовать на v6» (`@mui/material@^6.5.0` + `@mui/icons-material@^6.5.0`) **проваливается**:
+исходники после бампа завязаны на API v7+/v9, и `tsc --noEmit` даёт **72 ошибки** —
+`TS2769: No overload matches this call` в `TextField`/`Autocomplete` и
+`TS2339: Property 'slotProps' does not exist on type 'AutocompleteRenderInputParams'`.
+Переписывать 43 файла с `makeStyles` на новый API тоже нереально.
+
+Зато `ee62171` — **последний коммит в JAMS**, и он трогал **только `jams-react-client/`**
+(бэкенд `jams-server` не изменялся). Поэтому достаточно откатить **один каталог** на
+`ee62171~1` (коммит `48376317` «refactor: upgrade to JDK 26 and update dependencies», 31.07.2026),
+где стек согласован: `@mui/material 5.13.6` + `@mui/icons-material 5.11.16` +
+`@mui/styles 5.13.2` + React 17.
+```bash
+cd /opt/jams-src
+git checkout ee62171~1 -- jams-react-client/   # ТОЛЬКО фронтенд
+cd jams-react-client && rm -rf node_modules build
+npm ci --legacy-peer-deps                      # по РОДНОМУ lock-файлу той версии
+NODE_OPTIONS="--openssl-legacy-provider --max-old-space-size=3072" npx react-scripts build
 ```
-Это ровно тот приём, которым JAMS уже пользовались: коммит `feee4cdc`
-«mui: fix version to avoid compilation error».
+Проверка успеха: в дереве **ровно одна** копия `@mui/private-theming` (5.15.9), сборка
+`exit 0`, а `makeStyles` получает настоящую тему. Скрипт —
+[`cloudru-jams-frontend-rollback.sh`](../../migration/cloudru-jams-frontend-rollback.sh).
 
 ⚠️ **`package-lock.json` удалять нельзя.** В нём лежит рабочая комбинация транзитивных
 зависимостей. Если удалить lock и сделать `npm install`, npm подберёт `ajv-keywords@5` к

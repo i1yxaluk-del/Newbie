@@ -271,10 +271,17 @@ VPN-сервер AmneziaWG поднят **на той же ВМ**, что и п�
 - [x] VM watcher переведён на Cloud.ru API ([`../services/vm_watcher/`](../services/vm_watcher/)).
 
 Осталось:
+- [x] **DKIM RSA в DNS** исправлен и проверен на обоих NS (420 симв., пробелов в base64 — 0).
+- [x] **Jami/JAMS пересобраны** на новой ВМ: JAMS (свой CA), coturn, OpenDHT, `jami-services`,
+      blueprint+группа `MSPShield`, always-online демон — см. [`../docs/deployment/JAMI_MIGRATION_CLOUDRU.md`](../docs/deployment/JAMI_MIGRATION_CLOUDRU.md).
+- [x] **Docker DNS** на ВМ: `8.8.8.8` из cloud.ru недоступен → в `daemon.json` прописаны `1.1.1.1`/`8.8.4.4`.
+- [x] **Экспорт секретов** в Vaultwarden: 16 элементов (13 инфра + 3 Jami).
+
+Осталось:
 - [ ] **PTR** → `mail.msp-claude.online` (Evolution DNS → Обратные зоны, консоль; API недоступен).
-- [ ] **DKIM RSA в DNS**: во втором фрагменте TXT лишний пробел → `dkim=fail` (проверено на обоих NS).
+- [ ] **Дубль `_dmarc`**: удалить запись `_dmarc.msp-claude.online` (создаёт `_dmarc.msp-claude.online.msp-claude.online`).
 - [ ] **Vaultwarden SMTP** всё ещё смотрит на `postbox.cloud.yandex.net` — перевести на локальный Stalwart.
+- [ ] **Jami ID** для always-online узла (демон работает, техаккаунт через D-Bus не создан).
 - [ ] **S3-статические ключи** Object Storage + имя бакета → restic (`/etc/restic/env.sh`, `restic init`).
-- [ ] MAX re-auth, Jami/JAMS.
-- [ ] Старый YC Object Storage — нужен ли (история/Jami).
+- [ ] MAX re-auth.
 - [ ] Удалить старую ВМ после периода наблюдения.

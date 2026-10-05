@@ -30,14 +30,36 @@
 Сначала в панели: **Add New Record** → Type `TXT Record`.
 
 **1) RSA (основной, поддерживают все).** Host: `v1-rsa-20260521._domainkey`
-Значение — **вставьте ровно так, двумя фрагментами в кавычках** (это одна TXT-запись):
+
+Значение вставляйте **одной строкой, БЕЗ кавычек и БЕЗ пробелов**. Панель сама разобьёт
+его на две строки по 255 символов:
 
 ```
-"v=DKIM1; k=rsa; h=sha256; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxTIIvVK0CaefVJQKaNeFYd5qH6eV1iMVxuiLfpnXzawdiqM0s4Kjgc55FFdgk3kkyukgHka8y/+blPlzbifU6Ax41BB6lQzQtnoS9GX8bR2iI+GFIml3+zQl6yKVrfwm45Xx7KGKc3WfDDiNp2UQbdsQOjvV2H33xX42bET1pg/t23Zdynnw435" "0ygW7uDJdrMEme15jqlzi6FGg00gj0rOFL+I1iaTw5OZkB3qGIdawkePE5xioLEjRQf/lbkhe//ItZJfkdR+dMnsdh1pGG74DN8CjmQBi4x5X+AR3TnMhAzSvRI0qSR77PLkpCU0lq8EirgJRPUZ3XjXA3w1MKQIDAQAB"
+v=DKIM1; k=rsa; h=sha256; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxTIIvVK0CaefVJQKaNeFYd5qH6eV1iMVxuiLfpnXzawdiqM0s4Kjgc55FFdgk3kkyukgHka8y/+blPlzbifU6Ax41BB6lQzQtnoS9GX8bR2iI+GFIml3+zQl6yKVrfwm45Xx7KGKc3WfDDiNp2UQbdsQOjvV2H33xX42bET1pg/t23Zdynnw4350ygW7uDJdrMEme15jqlzi6FGg00gj0rOFL+I1iaTw5OZkB3qGIdawkePE5xioLEjRQf/lbkhe//ItZJfkdR+dMnsdh1pGG74DN8CjmQBi4x5X+AR3TnMhAzSvRI0qSR77PLkpCU0lq8EirgJRPUZ3XjXA3w1MKQIDAQAB
 ```
 
-> Если панель всё же примет длинную строку целиком — можно без разбивки:
-> `v=DKIM1; k=rsa; h=sha256; p=<те же 392 символа подряд>`
+⚠️ **Главная ошибка (проверено на живом NS):** если вписать значение в виде
+`"фрагмент1" "фрагмент2"` (с кавычками), Namecheap сохраняет кавычки и пробел
+между ними **как часть значения** — пробел попадает внутрь base64-ключа, и запись
+ломается. В итоге DNS отдаёт 421 символ вместо 420, а вторая строка начинается с пробела:
+
+```
+"…Zdynnw435"        ← 255 символов, последние 3: w435
+" 0ygW7uDJ…"        ← 166 символов, ПЕРВЫЙ символ — пробел  ❌
+```
+
+Правильно — 420 символов, вторая строка начинается сразу с `0`:
+
+```
+"…Zdynnw435"        ← 255 символов
+"0ygW7uDJ…MKQIDAQAB" ← 165 символов, начинается с цифры 0   ✅
+```
+
+> В значении допустимы ровно **3 пробела** — все в служебной части `v=DKIM1; k=rsa; h=sha256; p=`.
+> Внутри base64-ключа пробелов быть не должно **ни одного**.
+> Проверка после сохранения: `nslookup -type=TXT v1-rsa-20260521._domainkey.msp-claude.online`
+> — во второй строке не должно быть ведущего пробела.
+
 
 **2) ed25519 (современный, короче).** Host: `v1-ed25519-20260521._domainkey`
 Значение:

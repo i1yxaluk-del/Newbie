@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+# ═══════════════════════════════════════════════════════════════════
+# НАЗНАЧЕНИЕ (для junior): Собирает UI JAMS из согласованного стека MUI v5 (коммит ee62171~1).
+# КОГДА ЗАПУСКАТЬ:         На ВМ от root, когда UI падает с 'theme.spacing is not a function'.
+# КАК ЗАПУСКАТЬ:           sudo bash cloudru-jams-frontend-rollback.sh
+# ПРОВЕРКА УСПЕХА:         Сборка exit 0; в node_modules РОВНО одна копия @mui/private-theming.
+# ОТКАТ:                   git checkout ee62171 -- jams-react-client/ и пересобрать (вернуть сломанную версию).
+# ═══════════════════════════════════════════════════════════════════
 # ВЫВОД ПО АНАЛИЗУ: коммит JAMS ee621710 "update dependencies to latest" сломал UI
 # (@mui/material -> v9 при @mui/styles v6; исходники завязаны на API v7+/v9).
 # Он же — ПОСЛЕДНИЙ коммит в репозитории и трогал ТОЛЬКО jams-react-client/.

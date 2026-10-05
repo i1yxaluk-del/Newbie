@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+# ═══════════════════════════════════════════════════════════════════
+# НАЗНАЧЕНИЕ (для junior): Чинит DNS внутри Docker-контейнеров (8.8.8.8 из cloud.ru не отвечает).
+# КОГДА ЗАПУСКАТЬ:         На чистой ВМ ДО первой сборки контейнеров.
+# КАК ЗАПУСКАТЬ:           sudo bash cloudru-docker-dns-fix.sh
+# ПРОВЕРКА УСПЕХА:         docker run --rm python:3.12-slim getent hosts pypi.org -> имя резолвится.
+# ОТКАТ:                   Убрать ключ dns из /etc/docker/daemon.json и перезапустить docker.
+# ═══════════════════════════════════════════════════════════════════
 # Docker раздаёт контейнерам 8.8.8.8, который из cloud.ru не отвечает -> ставим рабочие резолверы.
 set -uo pipefail
 cp /etc/docker/daemon.json /etc/docker/daemon.json.bak.$(date +%s) 2>/dev/null || true

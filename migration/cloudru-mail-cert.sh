@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+# ═══════════════════════════════════════════════════════════════════
+# НАЗНАЧЕНИЕ (для junior): Импортирует сертификат Caddy в Stalwart и перезапускает его.
+# КОГДА ЗАПУСКАТЬ:         После выпуска сертификата для mail.<домен>.
+# КАК ЗАПУСКАТЬ:           sudo bash cloudru-mail-cert.sh
+# ПРОВЕРКА УСПЕХА:         openssl s_client -connect 127.0.0.1:465 -> не self-signed, issuer Let's Encrypt.
+# ОТКАТ:                   Перезаписать сертификат в x:Certificate заново (старый останется в конфиге).
+# ═══════════════════════════════════════════════════════════════════
 # Импорт актуального сертификата Caddy (mail.msp-claude.online) в Stalwart.
 set -uo pipefail
 PW=$(sudo grep '^STALWART_ADMIN_PASSWORD=' /opt/msp/Newbie/deploy/yandex/.env | cut -d= -f2-)

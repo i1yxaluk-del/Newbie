@@ -96,6 +96,75 @@ floating IP — NAT на внутренний адрес. У нас работа
 - На операторской станции `pwsh` может падать с `0xC0000142` (DLL init) — лечится
   перезапуском Harness; работать через PowerShell 5.1.
 
+### 7. Имя сетевого интерфейса НЕ стабильно между перезагрузками
+После перезагрузки ВМ direct-IP интерфейс переименовался **`enp8s0` → `enp4s0`** (предсказуемые
+имена зависят от порядка перечисления PCI). Из-за этого:
+- `msp-policy-route.service` падал с `Cannot find device "enp8s0"` — приоритетный default-маршрут
+  (metric 50) не применялся;
+- `PostUp` AmneziaWG делал `MASQUERADE` через **внутренний** `enp3s0`, из-за чего VPN-клиенты
+  не выходили в интернет.
+
+**Правило: никогда не хардкодить имя интерфейса.** Искать его по публичному IP:
+```bash
+IFACE=$(ip -4 -o addr show | awk -v ip=45.132.176.143 'index($4, ip"/")==1 {print $2; exit}')
+```
+Скрипт: [`../../migration/cloudru-fix-iface-name.sh`](../../migration/cloudru-fix-iface-name.sh).
+
+### 8. У ВМ 4 ГБ и НЕ БЫЛО swap — из-за этого «ничего не собиралось»
+Сборка фронтенда (webpack/CRA) уходила в жёсткий thrash: процесс жив, но SSH не отвечает,
+сборка не завершается, `npm` в контейнере висит. Лечится одним разом:
+```bash
+fallocate -l 4G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+echo '/swapfile none swap sw 0 0' >> /etc/fstab
+```
+**Перед любой тяжёлой сборкой на этой ВМ проверять `free -m`.**
+
+### 9. Docker раздавал контейнерам нерабочий DNS (8.8.8.8)
+Провайдер отдаёт в DHCP `8.8.4.4`/`8.8.8.8`, но **`8.8.8.8` из cloud.ru не отвечает**
+(`1.1.1.1` и `77.88.8.8` работают). Docker прописывал контейнерам именно 8.8.8.8 →
+`pip install` в сборке висел до таймаута, `jami-services` не собирался, а Stalwart сыпал
+`DNS error: Server Failure`. Лечение: `{"dns":["1.1.1.1","8.8.4.4"]}` в
+`/etc/docker/daemon.json` + рестарт Docker (⚠️ после рестарта поднять прод-стек заново).
+
+### 10. JAMS: `install/settings` без `signingAlgorithm` ломает создание пользователей
+`/api/install/settings` парсит **`CertificateAuthorityConfig`**
+(`serverDomain`, `reverseProxy`, **`signingAlgorithm`**, `crlLifetime`, `userLifetime`,
+`deviceLifetime`). Если `signingAlgorithm` не передан, он сохраняется как `null` →
+`JamsCA.signingAlgorithm = null` → `CertificateSigner` падает
+(`NullPointerException: String.toCharArray() ... is null`) → сертификат пользователя не
+подписывается → `RegisterUserFlow` получает `user = null` → **HTTP 500 на создание пользователя**.
+Лечение без переустановки — дописать поле в `/opt/jams/config.json` и перезапустить службу:
+```json
+{"caConfiguration":"{\"serverDomain\":\"…\",\"signingAlgorithm\":\"SHA512WITHRSA\", …}"}
+```
+Скрипт: [`../../migration/cloudru-jams-signfix.sh`](../../migration/cloudru-jams-signfix.sh).
+
+### 11. JAMS UI: `theme.spacing is not a function` — рассинхрон мажоров MUI
+Коммит JAMS `ee621710` «update dependencies to latest» поднял `@mui/material` до **v9**, а
+`@mui/styles` остался на **v6** (последняя ветка). Разные копии `@mui/private-theming` →
+разные React-контексты темы → `makeStyles` получает пустую тему. Согласовать обратно на v6
+**нельзя** (72 ошибки TS — исходники завязаны на API v7+/v9), переписать 43 файла с
+`makeStyles` тоже. Решение: откатить **только каталог `jams-react-client/`** на `ee62171~1`
+(там стек v5 согласован) — бэкенд этот коммит не трогал. Подробно:
+[`JAMI_MIGRATION_CLOUDRU.md`](JAMI_MIGRATION_CLOUDRU.md) §10.
+
+### 12. Бэкапы: не тот каталог метрик = «в Grafana пусто»
+node-exporter смонтирован на `/var/lib/node_exporter/textfile_collector`, а `restic-metrics.sh`
+по умолчанию писал в `/var/lib/node_exporter/textfile` (без `_collector`) — метрики не попадали
+в Prometheus. Для MSPShield используем `migration/restic-backup.sh`: он пишет в правильный
+каталог и с метками, которые ждёт дашборд `MSPShield — Backups`
+(`host="node-01"`, `repo="mspshield-backups-new"`).
+Пока нет статических S3-ключей — репозиторий локальный (`/var/backups/restic`); для off-site
+достаточно поменять `RESTIC_REPOSITORY` в `/etc/restic/env.sh`.
+
+### 13. Доставляемость почты: остаётся PTR
+SPF/DKIM/DMARC настроены и проверены (DKIM-RSA 420 символов без лишних пробелов), но
+**PTR публичного IP = `msp-cloud-vm`**, а это не FQDN и он **не подтверждается обратным
+резолвом** (FCrDNS не проходит) — главный фактор попадания в спам. Через API Cloud.ru
+обратную зону создать не удалось (Evolution DNS API отдаёт `Not Found` на `/v1/*`);
+менять PTR нужно в консоли (Evolution DNS → Обратные зоны) или через тикет в поддержку.
+Дополнительно HELO приведён к валидному FQDN: hostname ВМ → `mail.msp-claude.online`.
+
 ## Что улучшить в следующий раз
 
 1. Сразу после создания ВМ с двумя интерфейсами — проверить `ip route get 8.8.8.8`

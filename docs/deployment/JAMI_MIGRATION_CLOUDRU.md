@@ -101,26 +101,59 @@ POST /api/admin/group                   # {"name":"MSPShield","blueprintName":"M
 `proxyEnabled`, `proxyServer`, `videoEnabled`, `accountDiscovery`, `peerDiscovery`,
 `rendezVous`, `upnpEnabled`, `publicInCalls`, `accountPublish`, `allowLookup`, `autoAnswer`.
 
-### 10. UI падает: `theme.spacing is not a function`
+### 10. UI падает: `theme.spacing is not a function` (главная грабля)
 В браузере на странице входа:
 `Uncaught TypeError: e.spacing is not a function at SignIn.tsx ... getStylesCreator.js ... makeStyles.js`.
 
-Причина — **два разных React-контекста темы**:
-- `@mui/material@9.3.0` использует `@mui/private-theming@9.3.0` (в `ThemeProvider`);
-- `@mui/styles@6.5.0` (из него `makeStyles` в `SignIn.tsx`) тянет **свою** копию
-  `@mui/private-theming@6.4.9` → вложенный `node_modules/@mui/styles/node_modules/...`.
+**Причина — рассинхрон мажорных версий MUI в самом JAMS.** `SignIn.tsx` использует
+`makeStyles` из `@mui/styles`, а `<ThemeProvider>` приходит из `@mui/material`. Это должны быть
+пакеты одного мажора, иначе тему не видит никто:
 
-`ThemeProvider` кладёт тему в один контекст, `makeStyles` читает другой → тема `undefined` →
-`theme.spacing` не функция. Лечение — свести theming к одной копии через `overrides` в
-`jams-react-client/package.json`:
+| | до коммита `ee62171` | после `ee62171` |
+|---|---|---|
+| `@mui/material` | `5.13.6` | **`^9.3.0`** |
+| `@mui/icons-material` | `5.11.16` | `^9.3.0` |
+| `@mui/styles` | `5.13.2` | `^6.5.0` |
+| react / react-dom | `^17` | `^19` |
+
+Коммит JAMS `ee621710` «jams-react-client: update dependencies to latest» (06.08.2026) поднял
+`@mui/material` до **v9**, а `@mui/styles` остался на **v6** (последняя существующая ветка —
+в v7+ MUI эту устаревшую библиотеку просто нет). Пакеты начинают тянуть **разные копии**
+`@mui/private-theming` (v9 и v6.4.9) → `ThemeProvider` кладёт тему в один React-контекст,
+`makeStyles` читает другой → `useTheme()` возвращает пустую `defaultTheme` → `theme.spacing`
+не функция.
+
+> Этот же коммит менял и исходники (`api.tsx`, `auth.tsx`, компоненты), поэтому откатывать
+> только package.json назад к v5 нельзя.
+
+**Лечение — согласовать мажор:** вернуть `@mui/material` и `@mui/icons-material` на ветку **v6**
+(тогда `@mui/styles@6` и `@mui/material@6` используют одну копию `@mui/private-theming@6.4.9`):
 ```json
-"overrides": {
-  "@mui/styles": { "@mui/private-theming": "9.3.0" },
-  "@mui/private-theming": "9.3.0"
-}
+"@mui/material": "^6.5.0",
+"@mui/icons-material": "^6.5.0"
 ```
-затем `npm install --legacy-peer-deps` (проверить, что `find node_modules -path '*@mui/private-theming'`
-даёт **одну** запись) и пересобрать фронт + `mvn package`.
+Это ровно тот приём, которым JAMS уже пользовались: коммит `feee4cdc`
+«mui: fix version to avoid compilation error».
+
+⚠️ **`package-lock.json` удалять нельзя.** В нём лежит рабочая комбинация транзитивных
+зависимостей. Если удалить lock и сделать `npm install`, npm подберёт `ajv-keywords@5` к
+`ajv@6` и сборка упадёт с `Cannot find module 'ajv/dist/compile/codegen'`
+(в lock зафиксирована совместимая пара `ajv 6.15.0` + `ajv-keywords 3.5.2`).
+Правильный порядок:
+```bash
+git checkout -- jams-react-client/package-lock.json      # вернуть lock
+python3 - <<'PY'                                          # поправить только диапазоны
+import json; p="jams-react-client/package.json"; d=json.load(open(p))
+d["dependencies"]["@mui/material"]="^6.5.0"
+d["dependencies"]["@mui/icons-material"]="^6.5.0"
+json.dump(d, open(p,"w"), indent=2)
+PY
+cd jams-react-client && rm -rf node_modules
+npm install --legacy-peer-deps        # обновит MUI, остальное оставит по lock
+# проверить: find node_modules -maxdepth 4 -type d -path '*@mui/private-theming' -> РОВНО одна
+npx react-scripts build
+```
+Скрипт — [`cloudru-jams-mui-v6b.sh`](../../migration/cloudru-jams-mui-v6b.sh).
 
 ### 11. Прямой переход на `/signin` отдаёт 404
 SPA у JAMS отдаётся Tomcat'ом без fallback: `/` работает, а `/signin`, `/signup` и прочие

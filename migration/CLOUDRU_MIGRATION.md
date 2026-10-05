@@ -36,14 +36,30 @@
   есть PTR-зоны) и записи SPF/DKIM/DMARC/MX — Stalwart генерирует готовый zone file сам.
   Итог практики — [`../docs/deployment/POSTMORTEM_CLOUDRU_MIGRATION.md`](../docs/deployment/POSTMORTEM_CLOUDRU_MIGRATION.md).
 - **Обязательно: маршрутизация при двух интерфейсах.** Если у ВМ есть и внутренний
-  (`enp3s0`, 10.0.0.6), и direct-IP (`enp8s0`), DHCP выдаёт **два default-маршрута с
-  одинаковой метрикой** → асимметрия, соединения рвутся (SSH/HTTP таймаутят, хотя
-  сервисы слушают). Фикс — приоритетный default через direct-IP:
+  (`enp3s0`, 10.0.0.6), и direct-IP, DHCP выдаёт **два default-маршрута с одинаковой
+  метрикой** → асимметрия, соединения рвутся (SSH/HTTP таймаутят, хотя сервисы слушают).
+  Фикс — приоритетный default через direct-IP с metric 50.
+  ⚠️ **Имя интерфейса НЕ стабильно между перезагрузками** (наблюдали `enp8s0` → `enp4s0`:
+  предсказуемые имена зависят от порядка перечисления PCI). Поэтому **нельзя хардкодить имя** —
+  интерфейс надо искать по публичному IP:
   ```bash
-  ip route replace default via <gw> dev enp8s0 metric 50
+  IFACE=$(ip -4 -o addr show | awk -v ip=45.132.176.143 'index($4, ip"/")==1 {print $2; exit}')
+  GW=$(ip route | awk -v i="$IFACE" '$1=="default" && $5==i {print $3; exit}')
+  ip route replace default via "$GW" dev "$IFACE" metric 50
   ```
-  Проверка: `ip route get 8.8.8.8` должен показать `dev enp8s0`. Скрипт —
-  [`cloudru-fix-routing.sh`](cloudru-fix-routing.sh) (ставится systemd-сервисом).
+  Проверка: `ip route get 8.8.8.8` → `dev <direct-IP iface>`. Скрипты —
+  [`cloudru-fix-iface-name.sh`](cloudru-fix-iface-name.sh) (systemd-сервис
+  `msp-policy-route` + AUTO-DETECT) и [`cloudru-fix-routing.sh`](cloudru-fix-routing.sh).
+  Симптом «сервис `msp-policy-route` failed: Cannot find device enp8s0» после перезагрузки —
+  ровно этот случай. Тот же приём нужен и в `PostUp` AmneziaWG (иначе MASQUERADE уходит
+  в несуществующий интерфейс и VPN-клиенты не выходят в интернет).
+- **Swap на ВМ.** У инстанса 4 ГБ RAM и **нет swap** — тяжёлые сборки (webpack/CRA) уходят
+  в жёсткий thrash, SSH перестаёт отвечать, сборка не завершается. Перед сборкой фронта
+  добавить swap:
+  ```bash
+  fallocate -l 4G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+  echo '/swapfile none swap sw 0 0' >> /etc/fstab
+  ```
 
 ## Шаги
 

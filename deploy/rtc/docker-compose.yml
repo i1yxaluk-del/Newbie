@@ -1,0 +1,46 @@
+name: msp-rtc
+services:
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: msp-livekit
+    restart: unless-stopped
+    command: ["--config", "/etc/livekit.yaml"]
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+    ports:
+      - "127.0.0.1:7880:7880"
+      - "7881:7881"
+      - "7882:7882/udp"
+      - "49200-49250:49200-49250/udp"
+    networks:
+      - msp-rtc
+
+  lk-jwt:
+    image: ghcr.io/element-hq/lk-jwt-service:latest
+    container_name: msp-lk-jwt
+    restart: unless-stopped
+    environment:
+      LIVEKIT_URL: wss://dht.msp-claude.online/livekit/sfu
+      LIVEKIT_KEY: __LK_KEY__
+      LIVEKIT_SECRET: __LK_SECRET__
+      LIVEKIT_FULL_ACCESS_HOMESERVERS: m.msp-claude.online
+      LIVEKIT_JWT_BIND: ":8080"
+    ports:
+      - "127.0.0.1:8088:8080"
+    networks:
+      - msp-rtc
+
+  element-call:
+    image: ghcr.io/element-hq/element-call:latest
+    container_name: msp-element-call
+    restart: unless-stopped
+    volumes:
+      - ./element-call-config.json:/app/config.json:ro
+    ports:
+      - "127.0.0.1:8083:8080"
+    networks:
+      - msp-rtc
+
+networks:
+  msp-rtc:
+    name: msp-rtc

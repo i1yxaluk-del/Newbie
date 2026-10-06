@@ -19,6 +19,10 @@ Caddy (dht.msp-claude.online): `/livekit/jwt/*` → 8088 (strip prefix), `/livek
 - **Медиа-порты**: LiveKit использует диапазон UDP **49200–49250** (уже открыт в SG/ufw вместе с TURN-relay),
   coturn сужен до **49160–49199** (не пересекаются). TCP-фолбэк LiveKit (7881) в ufw открыт, но в cloud.ru SG
   нужно правило — на 06.10.2026 API правил cloud.ru отдаёт 403, добавить через консоль при необходимости.
+- **Грабли (мостовая сеть)**: при bridge-режиме диапазон ОБЯЗАН публиковаться в compose
+  (`"49200-49250:49200-49250/udp"`) — без этого ICE-проверки умирают (Element X: «Failed to connect to LiveKit
+  server / Internal Error»), т.к. UDP на этих портах не попадает в контейнер. DNAT-правила проверять:
+  `iptables -t nat -S DOCKER | grep -c "dport 492"` (ожидаем 51).
 - **lk-jwt → Synapse**: сервис валидирует openid через федерацию. Нужен `.well-known/matrix/server` на m. домене
   (`{"m.server":"m.msp-claude.online:443"}`); после добавления — **перезапустить msp-lk-jwt** (кэш discovery).
   Дополнительно в Caddy есть листенер `m.msp-claude.online:8448` (внутренний фолбэк).

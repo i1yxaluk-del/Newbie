@@ -9,6 +9,7 @@
 server_name: "m.msp-claude.online"
 pid_file: /data/homeserver.pid
 public_baseurl: "https://m.msp-claude.online/"
+media_store_path: "/data/media_store"
 
 listeners:
   - port: 8008
@@ -69,8 +70,8 @@ signing_key_path: /data/m.msp-claude.online.signing.key
 macaroon_secret_key: "__MACAROON_SECRET__"
 form_secret: "__FORM_SECRET__"
 password_config:
-  enabled: true
-  localdb_enabled: true
+  enabled: false
+  localdb_enabled: false
 
 # Приглашения и поиск — только внутри нашего сервера
 user_directory:
@@ -90,8 +91,16 @@ rc_login:
     burst_count: 10
 
 # ── MatrixRTC / Element Call (06.10.2026) ────────────────────────
+# --- MAS: делегированная авторизация (06.10.2026) ---
+matrix_authentication_service:
+  enabled: true
+  endpoint: http://mas:8080/
+  secret: "__MAS_SECRET__"
+
 experimental_features:
   msc3266_enabled: true
+  msc4108_enabled: true
+  msc4388_mode: "authenticated"
   msc4143_enabled: true
   msc4222_enabled: true
 

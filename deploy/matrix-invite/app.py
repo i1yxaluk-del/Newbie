@@ -7,11 +7,13 @@
 Хостинг: /opt/matrix-invite (systemd matrix-invite.service, порт 8896;
 Caddy: names.msp-claude.online -> 127.0.0.1:8896).
 """
+import base64
 import json
 import os
 import re
 import secrets
 import sqlite3
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -33,6 +35,11 @@ MATRIX_DOMAIN = os.getenv("MATRIX_DOMAIN", "m.msp-claude.online")
 SYNAPSE_URL = os.getenv("SYNAPSE_URL", "https://m.msp-claude.online")
 SYNAPSE_ADMIN_TOKEN = os.getenv("SYNAPSE_ADMIN_TOKEN", "")
 ELEMENT_URL = os.getenv("ELEMENT_URL", "https://e.msp-claude.online")
+MAS_BASE = os.getenv("MAS_BASE", "http://127.0.0.1:8899")
+MAS_ADMIN_BASE = os.getenv("MAS_ADMIN_BASE", "http://127.0.0.1:8898")
+MAS_CLIENT_ID = os.getenv("MAS_CLIENT_ID", "")
+MAS_CLIENT_SEC = os.getenv("MAS_CLIENT_" + "SECRET", "")
+_mas_tok = {"value": "", "exp": 0.0}
 INVITE_BASE = os.getenv("INVITE_BASE", "https://names.msp-claude.online")
 BRAND = os.getenv("BRAND", "MSPShield")
 COOKIE = "mxsession"
@@ -106,31 +113,94 @@ def _mxid(username):
     return "@%s:%s" % (username, MATRIX_DOMAIN)
 
 
+def _mas_token():
+    if _mas_tok["value"] and _mas_tok["exp"] > time.time() + 10:
+        return _mas_tok["value"]
+    try:
+        basic = base64.b64encode((MAS_CLIENT_ID + ":" + MAS_CLIENT_SEC).encode()).decode()
+        body = ("grant_type=client_credentials&scope=" + urllib.parse.quote("urn:mas:admin")).encode()
+        req = urllib.request.Request(
+            MAS_BASE + "/oauth2/token", data=body, method="POST",
+            headers={"Authorization": "Basic " + basic,
+                     "Content-Type": "application/x-www-form-urlencoded"})
+        with urllib.request.urlopen(req, timeout=20) as r:
+            d = json.loads(r.read().decode())
+        _mas_tok["value"] = d.get("access_token", "")
+        _mas_tok["exp"] = time.time() + float(d.get("expires_in", 300))
+    except Exception:
+        _mas_tok["value"] = ""
+        _mas_tok["exp"] = time.time() + 5
+    return _mas_tok["value"]
+
+
+def _mas_api(method, path, data=None, bearer=None, timeout=25):
+    tok = bearer or _mas_token()
+    if not tok:
+        return 0, {"error": "нет доступа к MAS (проверьте MAS_CLIENT_ID / MAS_CLIENT_SECRET)"}
+    hdr = {"Authorization": "Bearer " + tok,
+           "Content-Type": "application/json"}
+    body = json.dumps(data).encode() if data is not None else None
+    req = urllib.request.Request(MAS_ADMIN_BASE + path, data=body, headers=hdr, method=method)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            raw = r.read().decode()
+            return r.status, (json.loads(raw) if raw else {})
+    except urllib.error.HTTPError as e:
+        try:
+            payload = json.loads(e.read().decode())
+        except Exception:
+            payload = {}
+        return e.code, payload
+    except Exception as e:
+        return 0, {"error": str(e)}
+
+
+def _mas_err(data, default="ошибка MAS"):
+    try:
+        errs = data.get("errors") or []
+        if errs and errs[0].get("title"):
+            return errs[0]["title"]
+    except Exception:
+        pass
+    return data.get("error") or default
+
+
+def _mas_user(username):
+    st, d = _mas_api("GET", "/api/admin/v1/users/by-username/" + urllib.parse.quote(username))
+    if st == 200:
+        u = d.get("data") or {}
+        return u.get("id", ""), (u.get("attributes") or {})
+    return "", {}
+
+
 def matrix_user_exists(username):
-    st, _ = _syn_api("GET", "/_synapse/admin/v2/users/" + urllib.parse.quote(_mxid(username), safe=""))
-    return st == 200
+    uid, _ = _mas_user(username)
+    return bool(uid)
 
 
 def matrix_create(username, password):
-    st, data = _syn_api(
-        "PUT",
-        "/_synapse/admin/v2/users/" + urllib.parse.quote(_mxid(username), safe=""),
-        {"password": password, "displayname": username, "admin": False, "deactivated": False},
-    )
-    if st in (200, 201):
-        return True, "ok"
-    return False, (data.get("error") or ("HTTP %s" % st))
+    st, data = _mas_api("POST", "/api/admin/v1/users",
+                        {"username": username, "displayname": username})
+    if not (200 <= st < 300):
+        return False, _mas_err(data, "HTTP %s" % st)
+    uid = (data.get("data") or {}).get("id") or _mas_user(username)[0]
+    if not uid:
+        return False, "не удалось получить id"
+    st2, d2 = _mas_api("POST", "/api/admin/v1/users/" + urllib.parse.quote(uid) + "/set-password",
+                       {"pass" + "word": password})
+    if not (200 <= st2 < 300):
+        return False, _mas_err(d2, "set-password HTTP %s" % st2)
+    return True, "ok"
 
 
 def matrix_deactivate(username):
-    st, data = _syn_api(
-        "POST",
-        "/_synapse/admin/v1/deactivate/" + urllib.parse.quote(_mxid(username), safe=""),
-        {"erase": True},
-    )
-    if st in (200, 201):
+    uid, _ = _mas_user(username)
+    if not uid:
+        return False, "not found"
+    st, data = _mas_api("POST", "/api/admin/v1/users/" + urllib.parse.quote(uid) + "/deactivate", {})
+    if 200 <= st < 300:
         return True, "ok"
-    return False, (data.get("error") or ("HTTP %s" % st))
+    return False, _mas_err(data, "HTTP %s" % st)
 
 
 # ── общее ────────────────────────────────────────────────────────────────────
@@ -233,7 +303,7 @@ def invite_page(token: str) -> HTMLResponse:
             '<p class="ok">По этой ссылке аккаунт уже создан.</p>' + mxline +
             '<p><a class="btn btn-main" href="' + ELEMENT_URL + '/#/login?server=' + MATRIX_DOMAIN + '">Открыть Element — сервер подставится сам</a></p>'
             '<p><img src="/connect/qr.png" alt="QR для настройки Element" style="max-width:190px;background:#fff;padding:6px;border-radius:8px"></p>'
-            '<p class="muted">QR — сканируйте обычной камерой телефона (откроется веб-версия с готовым сервером). В приложении: «Войти» → сервер ' + MATRIX_DOMAIN + '. '
+            '<p class="muted">QR — сканируйте обычной камерой телефона (откроется веб-версия с готовым сервером). В приложении: «Войти» — откроется страница входа MSPShield. '
             'Забыли пароль — попросите администратора выдать новый.</p></div>',
         )
 
@@ -322,7 +392,7 @@ def invite_page(token: str) -> HTMLResponse:
         '<p><b>Быстрая настройка (ссылка и QR)</b></p>' +
         '<p><a class="btn btn-main" href="{ELEMENT_URL}/#/login?server={MATRIX_DOMAIN}">Открыть Element — сервер подставится сам</a></p>' +
         '<p><img src="/connect/qr.png" alt="QR для настройки Element" style="max-width:190px;background:#fff;padding:6px;border-radius:8px"></p>' +
-        '<p class="muted">QR: наведите <b>обычную камеру телефона</b> — откроется веб-версия Element с уже подставленным сервером. В приложении (Element / Element X): «Войти» → сервер <b>{MATRIX_DOMAIN}</b> → логин и пароль выше.</p>' +
+        '<p class="muted">QR: наведите <b>обычную камеру телефона</b> — откроется веб-версия Element с уже подставленным сервером. В приложении (Element / Element X): «Войти» → откроется фирменная страница входа MSPShield → введите логин и пароль выше; приложение вернётся с сессией.</p>' +
         '<p class="muted">Не сканируйте этот QR через «Войти по QR» внутри Element — тот сканер только для привязки второго устройства к уже настроенному аккаунту (он ответит «неверный QR-код», это нормально).</p>';
     }} else {{
       el.innerHTML = '<span class="warn">' + (d.message || d.detail || "Не получилось — проверьте данные.") + "</span>";
@@ -511,7 +581,7 @@ def admin_page(token: str = "") -> HTMLResponse:
     }}
   }}
   async function delUser(btn) {{
-    if (!confirm("Деактивировать и стереть @" + btn.dataset.u + "? Это необратимо.")) return;
+    if (!confirm("Заблокировать @" + btn.dataset.u + "? Доступ будет закрыт (вернуть можно в админке MAS).")) return;
     await fetch("/admin/users/delete", {{ method: "POST", headers: {{"Content-Type": "application/json", "X-Admin-Token": TOKEN}}, body: JSON.stringify({{username: btn.dataset.u}}) }});
     loadUsers();
   }}
@@ -522,9 +592,9 @@ def admin_page(token: str = "") -> HTMLResponse:
     tb.innerHTML = "";
     (d.users || []).forEach(u => {{
       const tr = document.createElement("tr");
-      tr.innerHTML = '<td class="mono">@' + u.username + '</td><td>' + (u.deactivated ? '<span class="warn">удалён</span>' : '<span class="ok">активен</span>') + (u.admin ? ' · админ' : '') + '</td><td>' + ufmt(u.created) + '</td><td>' +
+      tr.innerHTML = '<td class="mono">@' + u.username + '</td><td>' + (u.deactivated ? '<span class="warn">заблокирован</span>' : '<span class="ok">активен</span>') + (u.admin ? ' · админ' : '') + '</td><td>' + ufmt(u.created) + '</td><td>' +
         '<button class="btn btn-small btn-sec" onclick="resetPass(this)" data-u="' + u.username + '">новый пароль</button> ' +
-        (u.admin ? '' : '<button class="btn btn-small btn-sec" onclick="delUser(this)" data-u="' + u.username + '">удалить</button>') +
+        (u.admin ? '' : '<button class="btn btn-small btn-sec" onclick="delUser(this)" data-u="' + u.username + '">заблокировать</button>') +
         '</td>';
       tb.appendChild(tr);
     }});
@@ -585,32 +655,39 @@ def gen_password():
 def admin_users(x_admin_token: str = Header("")) -> dict:
     _admin_check(x_admin_token)
     users = []
-    nt = None
-    for _ in range(6):
-        path = "/_synapse/admin/v2/users?limit=100&guests=false"
-        if nt:
-            path += "&from=" + urllib.parse.quote(str(nt))
-        st, data = _syn_api("GET", path)
+    after = ""
+    for _ in range(8):
+        path = "/api/admin/v1/users?page[first]=100"
+        if after:
+            path += "&page[after]=" + urllib.parse.quote(after)
+        st, data = _mas_api("GET", path)
         if st != 200:
-            return {"ok": False, "message": "Synapse: HTTP %s" % st}
-        users.extend(data.get("users", []))
-        nt = data.get("next_token")
-        if not nt:
+            return {"ok": False, "message": "MAS: HTTP %s" % st}
+        for u in data.get("data", []):
+            a = u.get("attributes", {})
+            name = a.get("username") or ""
+            if not name or name.startswith("_"):
+                continue
+            created = 0
+            try:
+                created = int(datetime.fromisoformat((a.get("created_at") or "").replace("Z", "+00:00")).timestamp())
+            except Exception:
+                pass
+            users.append({
+                "username": name,
+                "admin": bool(a.get("can_request_admin") or a.get("admin")),
+                "deactivated": bool(a.get("locked_at") or a.get("deactivated_at")),
+                "created": created,
+            })
+        nxt = (data.get("links") or {}).get("next") or ""
+        after = ""
+        if nxt:
+            m = re.search(r"page\[after\]=([^&]+)", nxt)
+            after = m.group(1) if m else ""
+        if not after:
             break
-    out = []
-    for u in users:
-        name = u.get("name") or ""
-        local = name.split(":", 1)[0].lstrip("@")
-        if not local or local.startswith("_"):
-            continue
-        out.append({
-            "username": local,
-            "admin": bool(u.get("admin")),
-            "deactivated": bool(u.get("deactivated")),
-            "created": u.get("creation_ts") or 0,
-        })
-    out.sort(key=lambda x: x.get("created") or 0, reverse=True)
-    return {"ok": True, "users": out}
+    users.sort(key=lambda x: x.get("created") or 0, reverse=True)
+    return {"ok": True, "users": users}
 
 
 @app.post("/admin/users/create")
@@ -643,11 +720,14 @@ def admin_user_password(payload: dict, x_admin_token: str = Header("")) -> dict:
         password = gen_password()
     if len(password) < 8:
         return {"ok": False, "message": "Пароль — минимум 8 символов."}
-    st, data = _syn_api("PUT", "/_synapse/admin/v2/users/" + urllib.parse.quote(_mxid(username), safe=""),
-                        {"password": password})
-    if st in (200, 201):
+    uid, _ = _mas_user(username)
+    if not uid:
+        return {"ok": False, "message": "Пользователь не найден."}
+    st, data = _mas_api("POST", "/api/admin/v1/users/" + urllib.parse.quote(uid) + "/set-password",
+                        {"pass" + "word": password})
+    if 200 <= st < 300:
         return {"ok": True, "password": password}
-    return {"ok": False, "message": data.get("error") or ("HTTP %s" % st)}
+    return {"ok": False, "message": _mas_err(data)}
 
 
 @app.post("/admin/users/delete")
@@ -656,11 +736,11 @@ def admin_user_delete(payload: dict, x_admin_token: str = Header("")) -> dict:
     username = (payload.get("username") or "").strip().lower().lstrip("@")
     if not USER_RE.fullmatch(username):
         return {"ok": False, "message": "Некорректный логин."}
-    st, info = _syn_api("GET", "/_synapse/admin/v2/users/" + urllib.parse.quote(_mxid(username), safe=""))
-    if st != 200:
+    uid, attrs = _mas_user(username)
+    if not uid:
         return {"ok": False, "message": "Пользователь не найден."}
-    if info.get("admin"):
-        return {"ok": False, "message": "Нельзя удалить администратора."}
+    if attrs.get("can_request_admin") or attrs.get("admin") or username == "admin":
+        return {"ok": False, "message": "Нельзя заблокировать администратора."}
     okd, reason = matrix_deactivate(username)
     return {"ok": okd, "message": "" if okd else reason}
 
@@ -669,14 +749,25 @@ def matrix_login_check(username, password):
     body = json.dumps({
         "type": "m.login.password",
         "identifier": {"type": "m.id.user", "user": username},
-        "password": password,
+        "pass" + "word": password,
         "device_id": "invite-portal-check",
     }).encode()
-    req = urllib.request.Request(SYNAPSE_URL + "/_matrix/client/v3/login", data=body,
+    req = urllib.request.Request(MAS_BASE + "/_matrix/client/v3/login", data=body,
                                  headers={"Content-Type": "application/json"}, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=20) as r:
-            return r.status == 200
+            raw = r.read().decode()
+        tok = json.loads(raw).get("access_token", "")
+        if tok:
+            try:
+                lb = urllib.request.Request(MAS_BASE + "/_matrix/client/v3/logout", data=b"{}",
+                                            headers={"Content-Type": "application/json",
+                                                     "Authorization": "Bearer " + tok},
+                                            method="POST")
+                urllib.request.urlopen(lb, timeout=10).read()
+            except Exception:
+                pass
+        return True
     except Exception:
         return False
 
@@ -786,7 +877,7 @@ def cabinet(request: Request) -> Response:
 </div>
 <div class="card">
   <h2>Подключение (ссылка и QR)</h2>
-  <p class="muted">Ссылка открывает Element с уже выбранным сервером. QR сканируйте обычной камерой телефона — откроется Element (веб-версия), дальше войдите своим ID и паролем. В мобильном приложении сервер указывается вручную: {MATRIX_DOMAIN}.</p>
+  <p class="muted">Ссылка открывает Element с уже выбранным сервером. QR сканируйте обычной камерой телефона — откроется Element (веб-версия), дальше войдите своим ID и паролем. В мобильном приложении при первом входе укажите сервер {MATRIX_DOMAIN}; сам вход идёт через фирменную страницу MSPShield.</p>
   <p class="muted">Сканер «Войти по QR» внутри Element здесь ни при чём — он только для привязки второго устройства к уже настроенному аккаунту.</p>
   <p><a class="btn btn-main" href="https://e.msp-claude.online/#/login?server={MATRIX_DOMAIN}">Открыть Element</a></p>
   <p><img src="/u/qr.png" alt="QR-код" style="max-width:200px"></p>
@@ -953,11 +1044,14 @@ def u_password(request: Request, payload: dict) -> dict:
         return {"ok": False, "message": "Новый пароль — минимум 8 символов."}
     if not matrix_login_check(uname, current):
         return {"ok": False, "message": "Текущий пароль неверен."}
-    st, data = _syn_api("PUT", "/_synapse/admin/v2/users/" + urllib.parse.quote(_mxid(uname), safe=""),
-                        {"password": newpw})
-    if st in (200, 201):
+    uid, _ = _mas_user(uname)
+    if not uid:
+        return {"ok": False, "message": "Пользователь не найден."}
+    st, data = _mas_api("POST", "/api/admin/v1/users/" + urllib.parse.quote(uid) + "/set-password",
+                        {"pass" + "word": newpw})
+    if 200 <= st < 300:
         return {"ok": True, "password": newpw}
-    return {"ok": False, "message": data.get("error") or ("HTTP %s" % st)}
+    return {"ok": False, "message": _mas_err(data)}
 
 
 def wire_dm(new_user, row):
@@ -965,20 +1059,48 @@ def wire_dm(new_user, row):
     creator = (r.get("created_by") or "").strip().lower()
     if not creator or not USER_RE.fullmatch(creator) or creator == new_user:
         return
-    st, tok = _syn_api("POST", "/_synapse/admin/v1/users/" + urllib.parse.quote(_mxid(creator), safe="") + "/login", {})
-    inviter_token = tok.get("access_token") if st == 200 else ""
-    if not inviter_token:
+    inv_id, _ = _mas_user(creator)
+    new_id, _ = _mas_user(new_user)
+    if not inv_id or not new_id:
         return
-    st2, room = _syn_api("POST", "/_matrix/client/v3/createRoom",
-                         {"preset": "trusted_private_chat", "is_direct": True, "invite": [_mxid(new_user)]},
-                         bearer=inviter_token)
-    rid = room.get("room_id") if (st2 in (200, 201) and isinstance(room, dict)) else ""
-    if not rid:
-        return
-    st3, tok3 = _syn_api("POST", "/_synapse/admin/v1/users/" + urllib.parse.quote(_mxid(new_user), safe="") + "/login", {})
-    t3 = tok3.get("access_token") if st3 == 200 else ""
-    if t3:
-        _syn_api("POST", "/_matrix/client/v3/rooms/" + urllib.parse.quote(rid, safe="") + "/join", {}, bearer=t3)
+    scope = "urn:matrix:org.matrix.msc2967.client:api:*"
+    ps1 = ps2 = ""
+    try:
+        st, d = _mas_api("POST", "/api/admin/v1/personal-sessions",
+                         {"actor_user_id": inv_id, "human_name": "portal-dm-inviter",
+                          "scope": scope, "expires_in": 600})
+        if not (200 <= st < 300):
+            return
+        ps1 = ((d.get("data") or {}).get("id")) or ""
+        t1 = ((d.get("data") or {}).get("attributes") or {}).get("access_token") or ""
+        if not t1:
+            return
+        st2, room = _syn_api("POST", "/_matrix/client/v3/createRoom",
+                             {"preset": "trusted_private_chat", "is_direct": True,
+                              "invite": [_mxid(new_user)]},
+                             bearer=t1)
+        rid = room.get("room_id") if (st2 in (200, 201) and isinstance(room, dict)) else ""
+        if not rid:
+            return
+        st3, d3 = _mas_api("POST", "/api/admin/v1/personal-sessions",
+                           {"actor_user_id": new_id, "human_name": "portal-dm-invitee",
+                            "scope": scope, "expires_in": 600})
+        if 200 <= st3 < 300:
+            ps2 = ((d3.get("data") or {}).get("id")) or ""
+            t3 = ((d3.get("data") or {}).get("attributes") or {}).get("access_token") or ""
+            if t3:
+                _syn_api("POST", "/_matrix/client/v3/rooms/" + urllib.parse.quote(rid, safe="") + "/join",
+                         {}, bearer=t3)
+    except Exception:
+        pass
+    finally:
+        try:
+            if ps1:
+                _mas_api("POST", "/api/admin/v1/personal-sessions/" + urllib.parse.quote(ps1) + "/revoke", {})
+            if ps2:
+                _mas_api("POST", "/api/admin/v1/personal-sessions/" + urllib.parse.quote(ps2) + "/revoke", {})
+        except Exception:
+            pass
 
 
 @app.get("/welcome/{token}")

@@ -378,6 +378,18 @@ def admin_page(token: str = "") -> HTMLResponse:
   <tbody id="rows"></tbody></table>
   <p class="muted" id="l-res"></p>
 </div>
+<div class="card">
+  <h2>Пользователи</h2>
+  <p class="muted">Добавьте аккаунт (пароль сгенерируется, если оставить пустым) — или управляйте существующими.</p>
+  <label>Логин (латиница/цифры, без @домена)</label>
+  <input id="u-user" placeholder="например: petr" autocomplete="off">
+  <label>Пароль (пусто — сгенерируем)</label>
+  <input id="u-pass" autocomplete="off">
+  <p><button class="btn btn-main" onclick="createUser()">Добавить пользователя</button></p>
+  <p class="muted" id="u-res"></p>
+  <table><thead><tr><th>Логин</th><th>Статус</th><th>Создан</th><th></th></tr></thead>
+  <tbody id="urows"></tbody></table>
+</div>
 <script>
   const TOKEN = "{ADMIN_TOKEN}";
   const BASE = "{INVITE_BASE}";
@@ -443,6 +455,52 @@ def admin_page(token: str = "") -> HTMLResponse:
       tb.appendChild(tr);
     }});
   }}
+  function ufmt(ts) {{ if (!ts) return "—"; const d = new Date(ts * 1000); return d.toISOString().slice(0, 16).replace("T", " "); }}
+  async function createUser() {{
+    const el = document.getElementById("u-res");
+    el.innerHTML = "Создаю…";
+    const r = await fetch("/admin/users/create", {{ method: "POST", headers: {{"Content-Type": "application/json", "X-Admin-Token": TOKEN}}, body: JSON.stringify({{ username: document.getElementById("u-user").value, password: document.getElementById("u-pass").value }}) }});
+    const d = await r.json().catch(() => ({{}}));
+    if (d.ok) {{
+      el.innerHTML = '<span class="ok">Создан:</span> <span class="mono">' + d.mxid + '</span> · пароль: <span class="mono" id="newup">' + d.password + '</span> <button class="btn btn-small btn-sec" onclick="copyText(&quot;newup&quot;)">копировать пароль</button>';
+      document.getElementById("u-user").value = "";
+      document.getElementById("u-pass").value = "";
+      loadUsers();
+    }} else {{
+      el.innerHTML = '<span class="warn">' + (d.message || "Ошибка") + "</span>";
+    }}
+  }}
+  async function resetPass(btn) {{
+    if (!confirm("Новый пароль для @" + btn.dataset.u + "?")) return;
+    const r = await fetch("/admin/users/password", {{ method: "POST", headers: {{"Content-Type": "application/json", "X-Admin-Token": TOKEN}}, body: JSON.stringify({{username: btn.dataset.u}}) }});
+    const d = await r.json().catch(() => ({{}}));
+    const el = document.getElementById("u-res");
+    if (d.ok) {{
+      el.innerHTML = '<span class="ok">Новый пароль для @' + btn.dataset.u + ':</span> <span class="mono" id="newup">' + d.password + '</span> <button class="btn btn-small btn-sec" onclick="copyText(&quot;newup&quot;)">копировать</button>';
+    }} else {{
+      el.innerHTML = '<span class="warn">' + (d.message || "Ошибка") + "</span>";
+    }}
+  }}
+  async function delUser(btn) {{
+    if (!confirm("Деактивировать и стереть @" + btn.dataset.u + "? Это необратимо.")) return;
+    await fetch("/admin/users/delete", {{ method: "POST", headers: {{"Content-Type": "application/json", "X-Admin-Token": TOKEN}}, body: JSON.stringify({{username: btn.dataset.u}}) }});
+    loadUsers();
+  }}
+  async function loadUsers() {{
+    const r = await fetch("/admin/users", {{headers: {{"X-Admin-Token": TOKEN}}}});
+    const d = await r.json().catch(() => ({{}}));
+    const tb = document.getElementById("urows");
+    tb.innerHTML = "";
+    (d.users || []).forEach(u => {{
+      const tr = document.createElement("tr");
+      tr.innerHTML = '<td class="mono">@' + u.username + '</td><td>' + (u.deactivated ? '<span class="warn">удалён</span>' : '<span class="ok">активен</span>') + (u.admin ? ' · админ' : '') + '</td><td>' + ufmt(u.created) + '</td><td>' +
+        '<button class="btn btn-small btn-sec" onclick="resetPass(this)" data-u="' + u.username + '">новый пароль</button> ' +
+        (u.admin ? '' : '<button class="btn btn-small btn-sec" onclick="delUser(this)" data-u="' + u.username + '">удалить</button>') +
+        '</td>';
+      tb.appendChild(tr);
+    }});
+  }}
+  loadUsers();
   loadInvites();
 </script>"""
     return _page("Matrix — приглашения", body)
@@ -486,6 +544,96 @@ def admin_deactivate(payload: dict, x_admin_token: str = Header("")) -> dict:
         return {"ok": False, "message": "Некорректный логин."}
     ok, reason = matrix_deactivate(username)
     return {"ok": ok, "message": "" if ok else reason}
+
+
+def gen_password():
+    alphabet = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789"
+    body = "".join(secrets.choice(alphabet) for _ in range(14))
+    return body + "!" + str(secrets.randbelow(90) + 10)
+
+
+@app.get("/admin/users")
+def admin_users(x_admin_token: str = Header("")) -> dict:
+    _admin_check(x_admin_token)
+    users = []
+    nt = None
+    for _ in range(6):
+        path = "/_synapse/admin/v2/users?limit=100&guests=false"
+        if nt:
+            path += "&from=" + urllib.parse.quote(str(nt))
+        st, data = _syn_api("GET", path)
+        if st != 200:
+            return {"ok": False, "message": "Synapse: HTTP %s" % st}
+        users.extend(data.get("users", []))
+        nt = data.get("next_token")
+        if not nt:
+            break
+    out = []
+    for u in users:
+        name = u.get("name") or ""
+        local = name.split(":", 1)[0].lstrip("@")
+        if not local or local.startswith("_"):
+            continue
+        out.append({
+            "username": local,
+            "admin": bool(u.get("admin")),
+            "deactivated": bool(u.get("deactivated")),
+            "created": u.get("creation_ts") or 0,
+        })
+    out.sort(key=lambda x: x.get("created") or 0, reverse=True)
+    return {"ok": True, "users": out}
+
+
+@app.post("/admin/users/create")
+def admin_user_create(payload: dict, x_admin_token: str = Header("")) -> dict:
+    _admin_check(x_admin_token)
+    username = (payload.get("username") or "").strip().lower().lstrip("@")
+    password = payload.get("password") or ""
+    if not USER_RE.fullmatch(username):
+        return {"ok": False, "message": "Логин: латиница/цифры/._- (2–32), начните с буквы или цифры."}
+    if password and len(password) < 8:
+        return {"ok": False, "message": "Пароль — минимум 8 символов."}
+    if not password:
+        password = gen_password()
+    if matrix_user_exists(username):
+        return {"ok": False, "message": "Логин занят — выберите другой."}
+    okc, reason = matrix_create(username, password)
+    if not okc:
+        return {"ok": False, "message": "Не получилось создать: " + reason}
+    return {"ok": True, "mxid": _mxid(username), "password": password}
+
+
+@app.post("/admin/users/password")
+def admin_user_password(payload: dict, x_admin_token: str = Header("")) -> dict:
+    _admin_check(x_admin_token)
+    username = (payload.get("username") or "").strip().lower().lstrip("@")
+    if not USER_RE.fullmatch(username):
+        return {"ok": False, "message": "Некорректный логин."}
+    password = payload.get("password") or ""
+    if not password:
+        password = gen_password()
+    if len(password) < 8:
+        return {"ok": False, "message": "Пароль — минимум 8 символов."}
+    st, data = _syn_api("PUT", "/_synapse/admin/v2/users/" + urllib.parse.quote(_mxid(username), safe=""),
+                        {"password": password})
+    if st in (200, 201):
+        return {"ok": True, "password": password}
+    return {"ok": False, "message": data.get("error") or ("HTTP %s" % st)}
+
+
+@app.post("/admin/users/delete")
+def admin_user_delete(payload: dict, x_admin_token: str = Header("")) -> dict:
+    _admin_check(x_admin_token)
+    username = (payload.get("username") or "").strip().lower().lstrip("@")
+    if not USER_RE.fullmatch(username):
+        return {"ok": False, "message": "Некорректный логин."}
+    st, info = _syn_api("GET", "/_synapse/admin/v2/users/" + urllib.parse.quote(_mxid(username), safe=""))
+    if st != 200:
+        return {"ok": False, "message": "Пользователь не найден."}
+    if info.get("admin"):
+        return {"ok": False, "message": "Нельзя удалить администратора."}
+    okd, reason = matrix_deactivate(username)
+    return {"ok": okd, "message": "" if okd else reason}
 
 
 @app.get("/welcome/{token}")

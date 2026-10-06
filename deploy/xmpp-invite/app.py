@@ -16,6 +16,8 @@ import socket
 import sqlite3
 import ssl
 import subprocess
+import urllib.parse
+import urllib.request
 from datetime import datetime, timedelta, timezone
 
 import qrcode
@@ -28,6 +30,8 @@ ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
 XMPP_DOMAIN = os.getenv("XMPP_DOMAIN", "x.msp-claude.online")
 PROSODY_CONTAINER = os.getenv("PROSODY_CONTAINER", "msp-prosody")
 INVITE_BASE = os.getenv("INVITE_BASE", "https://invite.msp-claude.online")
+PROSODY_INVITE_API = os.getenv("PROSODY_INVITE_API", "")
+PROSODY_INVITE_KEY = os.getenv("PROSODY_INVITE_" + "KEY", "")
 BRAND = os.getenv("BRAND", "MSPShield Chat")
 
 USER_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{1,31}$")
@@ -59,6 +63,10 @@ def init():
     )
     try:
         c.execute("ALTER TABLE invites ADD COLUMN created_by TEXT DEFAULT 'admin'")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        c.execute("ALTER TABLE invites ADD COLUMN xuri TEXT DEFAULT ''")
     except sqlite3.OperationalError:
         pass
     c.execute(
@@ -298,6 +306,15 @@ def invite_page(token: str) -> HTMLResponse:
             '<div class="card"><h1>Приглашение истекло</h1>'
             '<p class="muted">Попросите администратора создать новое.</p></div>',
         )
+    xuri = row["xuri"] if "xuri" in row.keys() else ""
+    xblock = ("""<div class="card">
+  <h2>Быстрая настройка в приложении (ссылка / QR)</h2>
+  <p class="muted">Если приложение поддерживает приглашения: откройте ссылку или отсканируйте QR — приложение само создаст аккаунт и подключит его к нашему серверу. Если не поддерживает — заполните форму ниже.</p>
+  <p><a class="btn btn-main" href="@XURI@">Открыть в приложении</a></p>
+  <p class="qr"><img src="/i/@TOKEN@/qr.png" alt="QR-код"></p>
+  <p class="muted mono">@XURI@</p>
+</div>
+""").replace("@XURI@", xuri).replace("@TOKEN@", token) if xuri else ""
     body = f"""<div class="card">
   <h1>Вас приглашают в MSPShield Chat</h1>
   <p class="muted">Приватный мессенджер на нашем сервере: сообщения, голосовые, файлы и звонки — всё внутри контура.</p>
@@ -309,7 +326,7 @@ def invite_page(token: str) -> HTMLResponse:
   <a class="btn btn-main" href="https://apps.apple.com/app/monal-xmpp-chat/id317711500">Monal — App Store (iPhone / iPad)</a>
   <a class="btn btn-sec" href="https://gajim.org/">Gajim — Windows / macOS / Linux</a>
 </div>
-<div class="card">
+{xblock}<div class="card">
   <h2>2. Создайте аккаунт</h2>
   <div id="reg-form">
     <p class="muted">Придумайте логин — его увидят коллеги (латиница/цифры, 2–32 символа). Логин создаётся здесь; регистрация в приложении не нужна.</p>
@@ -430,12 +447,14 @@ def welcome_redirect(token: str) -> Response:
 @app.get("/i/{token}/qr.png")
 def invite_qr(token: str) -> Response:
     c = db()
-    row = c.execute("SELECT username FROM invites WHERE token=?", (token,)).fetchone()
+    row = c.execute("SELECT username, xuri FROM invites WHERE token=?", (token,)).fetchone()
     c.close()
     if not row:
         raise HTTPException(status_code=404, detail="not found")
-    jid = "%s@%s" % (row["username"], XMPP_DOMAIN)
-    return Response(_qr_png("xmpp:" + jid), media_type="image/png")
+    data = (row["xuri"] or "") if "xuri" in row.keys() else ""
+    if not data:
+        data = "xmpp:" + (("%s@%s" % (row["username"], XMPP_DOMAIN)) if row["username"] else XMPP_DOMAIN)
+    return Response(_qr_png(data), media_type="image/png")
 
 
 @app.post("/i/{token}/confirm")
@@ -697,16 +716,29 @@ def admin_invites(x_admin_token: str = Header("")) -> dict:
     return {"invites": rows}
 
 
+def prosody_create_invite():
+    if not PROSODY_INVITE_API or not PROSODY_INVITE_KEY:
+        return ""
+    url = PROSODY_INVITE_API + "?key=" + urllib.parse.quote(PROSODY_INVITE_KEY, safe="")
+    req = urllib.request.Request(url, headers={"Host": XMPP_DOMAIN}, method="GET")
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            return r.headers.get("Location") or ""
+    except Exception:
+        return ""
+
+
 def _create_invite(username, note, ttl, created_by, password=None):
     ttl = max(1, min(720, int(ttl or 72)))
     tok = secrets.token_urlsafe(24)
+    xuri = prosody_create_invite()
     now = datetime.now(timezone.utc)
     c = db()
     c.execute(
-        "INSERT INTO invites (token, username, password, note, created_at, expires_at, used_at, created_by) "
-        "VALUES (?,?,?,?,?,?,?,?)",
+        "INSERT INTO invites (token, username, password, note, created_at, expires_at, used_at, created_by, xuri) "
+        "VALUES (?,?,?,?,?,?,?,?,?)",
         (tok, "", "", note or "", now.isoformat(),
-         (now + timedelta(hours=ttl)).isoformat(), None, created_by or "admin"),
+         (now + timedelta(hours=ttl)).isoformat(), None, created_by or "admin", xuri),
     )
     c.commit()
     c.close()

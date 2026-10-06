@@ -8,17 +8,20 @@
 Деплой: /opt/xmpp-invite (systemd xmpp-invite.service, порт 8895,
 Caddy: invite.msp-claude.online → 127.0.0.1:8895).
 """
+import base64
 import io
 import os
 import re
 import secrets
+import socket
 import sqlite3
+import ssl
 import subprocess
 from datetime import datetime, timedelta, timezone
 
 import qrcode
-from fastapi import FastAPI, Header, HTTPException
-from fastapi.responses import HTMLResponse, Response
+from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 DB_DIR = os.getenv("DB_DIR", "/opt/xmpp-invite/data")
 DB = os.path.join(DB_DIR, "invites.db")
@@ -53,6 +56,18 @@ def init():
              created_at  TEXT,
              expires_at  TEXT,
              used_at     TEXT
+           )"""
+    )
+    try:
+        c.execute("ALTER TABLE invites ADD COLUMN created_by TEXT DEFAULT 'admin'")
+    except sqlite3.OperationalError:
+        pass
+    c.execute(
+        """CREATE TABLE IF NOT EXISTS sessions (
+             token      TEXT PRIMARY KEY,
+             jid        TEXT,
+             created_at TEXT,
+             expires_at TEXT
            )"""
     )
     c.commit()
@@ -119,6 +134,76 @@ def _qr_png(data):
     return buf.getvalue()
 
 
+COOKIE = "xmpp_cab"
+
+
+def sasl_check(username, password):
+    host = XMPP_DOMAIN
+    try:
+        s = socket.create_connection((host, 5222), timeout=12)
+        s.settimeout(12)
+        s.sendall(("<stream:stream to='%s' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams' version='1.0'>" % host).encode())
+        data = s.recv(8192)
+        if b"starttls" in data:
+            s.sendall(b"<starttls xmlns='urn:ietf:params:xml:ns:xmpp-tls'/>")
+            s.recv(1024)
+            ctx = ssl.create_default_context()
+            s = ctx.wrap_socket(s, server_hostname=host)
+            s.sendall(("<stream:stream to='%s' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams' version='1.0'>" % host).encode())
+            s.recv(8192)
+        auth = base64.b64encode(("\x00%s\x00%s" % (username, password)).encode()).decode()
+        s.sendall(("<auth xmlns='urn:ietf:params:xml:ns:xmpp-sasl' mechanism='PLAIN'>%s</auth>" % auth).encode())
+        r = s.recv(2048)
+        s.close()
+        return b"success" in r
+    except Exception:
+        return False
+
+
+def _unescape_name(n):
+    return re.sub(r"%([0-9a-f]{2})", lambda m: chr(int(m.group(1), 16)), n)
+
+
+def list_accounts():
+    enc = _enc_path(XMPP_DOMAIN)
+    rc, out = _run(["docker", "exec", PROSODY_CONTAINER, "sh", "-c",
+                    "stat -c '%%Y %%n' /var/lib/prosody/%s/accounts/*.dat 2>/dev/null" % enc])
+    users = []
+    for line in out.splitlines():
+        parts = line.strip().split()
+        if len(parts) >= 2 and parts[1].endswith(".dat"):
+            try:
+                mt = int(parts[0])
+            except Exception:
+                mt = 0
+            users.append({"username": _unescape_name(parts[1].split("/")[-1][:-4]), "mtime": mt})
+    users.sort(key=lambda x: -x["mtime"])
+    return users
+
+
+def _get_session(request):
+    tok = request.cookies.get(COOKIE, "")
+    if not tok:
+        return None
+    c = db()
+    r = c.execute("SELECT * FROM sessions WHERE token=?", (tok,)).fetchone()
+    c.close()
+    if not r or datetime.fromisoformat(r["expires_at"]) < datetime.now(timezone.utc):
+        return None
+    return r
+
+
+def _new_session(jid):
+    tok = secrets.token_urlsafe(24)
+    now = datetime.now(timezone.utc)
+    c = db()
+    c.execute("INSERT INTO sessions (token, jid, created_at, expires_at) VALUES (?,?,?,?)",
+              (tok, jid, now.isoformat(), (now + timedelta(days=30)).isoformat()))
+    c.commit()
+    c.close()
+    return tok
+
+
 _HTML = """<!doctype html>
 <html lang="ru"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -183,7 +268,7 @@ def index() -> HTMLResponse:
         "MSPShield · Приглашения",
         '<div class="card"><h1>MSPShield · Приглашения</h1>'
         '<p class="muted">Сервис приглашений в чат MSPShield (XMPP). '
-        'Откройте персональную ссылку вида /i/… или войдите в админку.</p></div>',
+        'Персональная ссылка: /i/… · личный кабинет: /login · админка: /admin.</p></div>',
     )
 
 
@@ -247,6 +332,7 @@ def invite_page(token: str) -> HTMLResponse:
   <h2>4. Всё получилось?</h2>
   <button class="btn btn-main" onclick="markUsed()">Я подключился(ась)</button>
   <p class="muted" id="res"></p>
+  <p class="muted">Уже подключились? <a href="/login">Войти в личный кабинет</a>.</p>
 </div>
 <script>
   function copyText(id) {{
@@ -289,6 +375,236 @@ def invite_confirm(token: str) -> dict:
     return {"ok": True}
 
 
+# ─── личный кабинет пользователя ──────────────────────────────────────────
+
+@app.get("/login")
+def login_page() -> HTMLResponse:
+    body = f"""<div class="card">
+  <h1>Вход в личный кабинет</h1>
+  <p class="muted">Логин и пароль — от вашего аккаунта MSPShield Chat (JID вида имя@{XMPP_DOMAIN}).</p>
+  <label>Логин или JID</label>
+  <input id="lu" placeholder="ivan или ivan@{XMPP_DOMAIN}" autocomplete="username">
+  <label>Пароль</label>
+  <input id="lp" type="password" autocomplete="current-password">
+  <button class="btn btn-main" onclick="doLogin()">Войти</button>
+  <p class="muted" id="lres"></p>
+</div>
+<script>
+  async function doLogin() {{
+    const el = document.getElementById("lres");
+    el.innerHTML = "Проверяю…";
+    const r = await fetch("/login", {{
+      method: "POST",
+      headers: {{"Content-Type": "application/json"}},
+      body: JSON.stringify({{username: document.getElementById("lu").value, password: document.getElementById("lp").value}}),
+    }});
+    const d = await r.json().catch(() => ({{}}));
+    if (d.ok) {{ window.location.href = "/u"; return; }}
+    el.innerHTML = '<span class="warn">' + (d.message || "Не получилось войти — проверьте логин и пароль.") + "</span>";
+  }}
+</script>"""
+    return _page("Вход — MSPShield Chat", body)
+
+
+@app.post("/login")
+def login_submit(payload: dict) -> Response:
+    raw = (payload.get("username") or "").strip().lower()
+    password = payload.get("password") or ""
+    username = raw.split("@")[0] if "@" in raw else raw
+    if not username or not password:
+        return JSONResponse({"ok": False, "message": "Заполните логин и пароль."}, status_code=400)
+    if not USER_RE.fullmatch(username):
+        return JSONResponse({"ok": False, "message": "Проверьте логин."}, status_code=400)
+    if not sasl_check(username, password):
+        return JSONResponse({"ok": False, "message": "Неверный логин или пароль."}, status_code=401)
+    tok = _new_session("%s@%s" % (username, XMPP_DOMAIN))
+    resp = JSONResponse({"ok": True})
+    resp.set_cookie(COOKIE, tok, max_age=30 * 24 * 3600, httponly=True, samesite="lax")
+    return resp
+
+
+@app.get("/logout")
+def logout_page() -> Response:
+    resp = RedirectResponse("/login")
+    resp.delete_cookie(COOKIE)
+    return resp
+
+
+@app.get("/u")
+def cabinet(request: Request) -> Response:
+    sess = _get_session(request)
+    if not sess:
+        return RedirectResponse("/login")
+    jid = sess["jid"]
+    body = f"""<div class="card">
+  <h1>Личный кабинет</h1>
+  <p class="muted">Вы вошли как <b>{jid}</b>. <a href="/logout">Выйти</a></p>
+</div>
+<div class="card">
+  <h2>Мои данные</h2>
+  <div class="kv"><span class="k">Сервер</span> <span class="mono" id="srv">{XMPP_DOMAIN}</span>
+    <button class="btn btn-small btn-sec" onclick="copyText('srv')">копировать</button></div>
+  <div class="kv"><span class="k">Адрес (JID)</span> <span class="mono" id="jad">{jid}</span>
+    <button class="btn btn-small btn-sec" onclick="copyText('jad')">копировать</button></div>
+  <p class="qr"><img src="/u/qr.png" alt="QR-код"></p>
+  <p class="muted">Чтобы подключить новое устройство — установите приложение и войдите этим JID и паролем. Пароль можно сменить ниже.</p>
+</div>
+<div class="card">
+  <h2>Пригласить коллег</h2>
+  <p class="muted">Создайте ссылку — человек по ней получит готовые доступы (аккаунт заведётся сразу).</p>
+  <label>Логин для нового пользователя</label>
+  <input id="iv-user" placeholder="например: petr" autocomplete="off">
+  <label>Заметка (кому)</label>
+  <input id="iv-note" placeholder="Пётр, отдел продаж…">
+  <button class="btn btn-main" onclick="createInvite()">Создать приглашение</button>
+  <p class="muted" id="iv-res"></p>
+  <table>
+    <thead><tr><th>Создано</th><th>Логин</th><th>Заметка</th><th>Статус</th><th></th></tr></thead>
+    <tbody id="iv-rows"><tr><td colspan="5" class="muted">Загрузка…</td></tr></tbody>
+  </table>
+</div>
+<div class="card">
+  <h2>Смена пароля</h2>
+  <label>Текущий пароль</label>
+  <input id="p-old" type="password" autocomplete="current-password">
+  <label>Новый пароль (минимум 8 символов)</label>
+  <input id="p-new" type="password" autocomplete="new-password">
+  <button class="btn btn-main" onclick="changePass()">Сменить пароль</button>
+  <p class="muted" id="pw-res"></p>
+</div>
+<script>
+  function copyText(id) {{
+    const el = document.getElementById(id);
+    if (el) {{ navigator.clipboard.writeText(el.textContent.trim()); }}
+  }}
+  function fmt(ts) {{ return ts ? new Date(ts).toLocaleString("ru-RU") : ""; }}
+  function status(i) {{
+    if (i.used_at) return '<span class="ok">использовано</span>';
+    if (new Date(i.expires_at) < new Date()) return '<span class="warn">истекло</span>';
+    return "активно";
+  }}
+  async function loadInvites() {{
+    const r = await fetch("/u/invites");
+    const d = await r.json().catch(() => ({{invites: []}}));
+    const rows = document.getElementById("iv-rows");
+    rows.innerHTML = "";
+    (d.invites || []).forEach(i => {{
+      const tr = document.createElement("tr");
+      tr.innerHTML = "<td>" + fmt(i.created_at) + "</td><td class=\\"mono\\">" + i.username +
+        "</td><td>" + (i.note || "") + "</td><td>" + status(i) +
+        '</td><td><a href="/i/' + i.token + '" target="_blank">открыть</a> ' +
+        '<button class="btn btn-small btn-sec" onclick="delInvite(' + i.id + ')">удалить</button></td>';
+      rows.appendChild(tr);
+    }});
+  }}
+  async function createInvite() {{
+    const el = document.getElementById("iv-res");
+    el.innerHTML = "Создаю…";
+    const r = await fetch("/u/invites", {{
+      method: "POST",
+      headers: {{"Content-Type": "application/json"}},
+      body: JSON.stringify({{username: document.getElementById("iv-user").value, note: document.getElementById("iv-note").value}}),
+    }});
+    const d = await r.json().catch(() => ({{}}));
+    if (d.ok) {{
+      el.innerHTML = '<span class="ok">Создано:</span> <span class="mono">' + d.url + "</span><br><span class=\\"muted\\">Пароль: <b>" + d.password + "</b> (сообщите лично)</span>";
+      document.getElementById("iv-user").value = "";
+      document.getElementById("iv-note").value = "";
+    }} else {{
+      el.innerHTML = '<span class="warn">' + (d.message || "Ошибка") + "</span>";
+    }}
+    loadInvites();
+  }}
+  async function delInvite(id) {{
+    if (!confirm("Удалить приглашение?")) return;
+    await fetch("/u/invites/" + id, {{method: "DELETE"}});
+    loadInvites();
+  }}
+  async function changePass() {{
+    const el = document.getElementById("pw-res");
+    el.innerHTML = "Меняю…";
+    const r = await fetch("/u/password", {{
+      method: "POST",
+      headers: {{"Content-Type": "application/json"}},
+      body: JSON.stringify({{old_password: document.getElementById("p-old").value, new_password: document.getElementById("p-new").value}}),
+    }});
+    const d = await r.json().catch(() => ({{}}));
+    el.innerHTML = d.ok ? '<span class="ok">Пароль изменён — на новых устройствах вводите его.</span>' : '<span class="warn">' + (d.message || "Ошибка") + "</span>";
+  }}
+  loadInvites();
+</script>"""
+    return _page("Личный кабинет — MSPShield Chat", body)
+
+
+@app.get("/u/qr.png")
+def cabinet_qr(request: Request) -> Response:
+    sess = _get_session(request)
+    if not sess:
+        raise HTTPException(status_code=401, detail="unauthorized")
+    return Response(_qr_png("xmpp:" + sess["jid"]), media_type="image/png")
+
+
+@app.get("/u/invites")
+def cabinet_invites(request: Request) -> dict:
+    sess = _get_session(request)
+    if not sess:
+        raise HTTPException(status_code=401, detail="unauthorized")
+    uname = sess["jid"].split("@")[0]
+    c = db()
+    rows = []
+    for r in c.execute("SELECT * FROM invites WHERE created_by=? ORDER BY id DESC LIMIT 100", (uname,)):
+        d = dict(r)
+        d.pop("password", None)
+        rows.append(d)
+    c.close()
+    return {"invites": rows}
+
+
+@app.post("/u/invites")
+def cabinet_create(request: Request, payload: dict) -> dict:
+    sess = _get_session(request)
+    if not sess:
+        raise HTTPException(status_code=401, detail="unauthorized")
+    uname = sess["jid"].split("@")[0]
+    return _create_invite(
+        username=(payload.get("username") or "").strip().lower(),
+        note=payload.get("note", ""),
+        ttl=int(payload.get("ttl_hours") or 72),
+        created_by=uname,
+    )
+
+
+@app.delete("/u/invites/{inv_id}")
+def cabinet_delete(request: Request, inv_id: int) -> dict:
+    sess = _get_session(request)
+    if not sess:
+        raise HTTPException(status_code=401, detail="unauthorized")
+    uname = sess["jid"].split("@")[0]
+    c = db()
+    cur = c.execute("DELETE FROM invites WHERE id=? AND created_by=?", (inv_id, uname))
+    c.commit()
+    c.close()
+    return {"ok": cur.rowcount > 0}
+
+
+@app.post("/u/password")
+def cabinet_password(request: Request, payload: dict) -> dict:
+    sess = _get_session(request)
+    if not sess:
+        raise HTTPException(status_code=401, detail="unauthorized")
+    uname = sess["jid"].split("@")[0]
+    old = payload.get("old_password") or ""
+    new = payload.get("new_password") or ""
+    if len(new) < 8:
+        return {"ok": False, "message": "Новый пароль — минимум 8 символов."}
+    if not sasl_check(uname, old):
+        return {"ok": False, "message": "Текущий пароль неверный."}
+    ok, reason = prosody_register(uname, new)
+    if not ok:
+        return {"ok": False, "message": "Prosody: " + reason}
+    return {"ok": True}
+
+
 # ─── админка ────────────────────────────────────────────────────────────────
 
 def _admin_check(token):
@@ -307,17 +623,13 @@ def admin_invites(x_admin_token: str = Header("")) -> dict:
     return {"invites": rows}
 
 
-@app.post("/admin/invites")
-def admin_create(payload: dict, x_admin_token: str = Header("")) -> dict:
-    _admin_check(x_admin_token)
-    username = (payload.get("username") or "").strip().lower()
-    if not USER_RE.fullmatch(username):
+def _create_invite(username, note, ttl, created_by, password=None):
+    if not USER_RE.fullmatch(username or ""):
         return {"ok": False, "message": "Логин: латиница/цифры/._- (2–32), начните с буквы или цифры."}
-    password = (payload.get("password") or "").strip() or gen_password()
+    password = (password or "").strip() or gen_password()
     if len(password) < 8:
         return {"ok": False, "message": "Пароль — минимум 8 символов."}
-    ttl = int(payload.get("ttl_hours") or 72)
-    ttl = max(1, min(720, ttl))
+    ttl = max(1, min(720, int(ttl or 72)))
     if account_exists(username):
         return {"ok": False, "message": "Логин занят — выберите другой."}
     ok, reason = prosody_register(username, password)
@@ -327,15 +639,27 @@ def admin_create(payload: dict, x_admin_token: str = Header("")) -> dict:
     now = datetime.now(timezone.utc)
     c = db()
     c.execute(
-        "INSERT INTO invites (token, username, password, note, created_at, expires_at, used_at) "
-        "VALUES (?,?,?,?,?,?,?)",
-        (tok, username, password, payload.get("note", ""), now.isoformat(),
-         (now + timedelta(hours=ttl)).isoformat(), None),
+        "INSERT INTO invites (token, username, password, note, created_at, expires_at, used_at, created_by) "
+        "VALUES (?,?,?,?,?,?,?,?)",
+        (tok, username, password, note or "", now.isoformat(),
+         (now + timedelta(hours=ttl)).isoformat(), None, created_by or "admin"),
     )
     c.commit()
     c.close()
     return {"ok": True, "url": f"{INVITE_BASE}/i/{tok}", "token": tok,
             "jid": "%s@%s" % (username, XMPP_DOMAIN), "password": password}
+
+
+@app.post("/admin/invites")
+def admin_create(payload: dict, x_admin_token: str = Header("")) -> dict:
+    _admin_check(x_admin_token)
+    return _create_invite(
+        username=(payload.get("username") or "").strip().lower(),
+        note=payload.get("note", ""),
+        ttl=int(payload.get("ttl_hours") or 72),
+        created_by="admin",
+        password=payload.get("password") or "",
+    )
 
 
 @app.delete("/admin/invites/{inv_id}")
@@ -356,6 +680,41 @@ def admin_account_delete(payload: dict, x_admin_token: str = Header("")) -> dict
         return {"ok": False, "message": "bad username"}
     ok, out = prosody_delete(username)
     return {"ok": ok, "message": out if not ok else "Аккаунт удалён (Prosody перезапущен)."}
+
+
+@app.get("/admin/users")
+def admin_users(x_admin_token: str = Header("")) -> dict:
+    _admin_check(x_admin_token)
+    users = list_accounts()
+    c = db()
+    for u in users:
+        r = c.execute("SELECT used_at, expires_at FROM invites WHERE username=? ORDER BY id DESC LIMIT 1",
+                      (u["username"],)).fetchone()
+        if r and r["used_at"]:
+            u["invite"] = "использовано"
+        elif r and datetime.fromisoformat(r["expires_at"]) > datetime.now(timezone.utc):
+            u["invite"] = "активно"
+        elif r:
+            u["invite"] = "истекло"
+        else:
+            u["invite"] = ""
+    c.close()
+    return {"users": users}
+
+
+@app.post("/admin/accounts/password")
+def admin_new_password(payload: dict, x_admin_token: str = Header("")) -> dict:
+    _admin_check(x_admin_token)
+    username = (payload.get("username") or "").strip().lower()
+    if not USER_RE.fullmatch(username):
+        return {"ok": False, "message": "bad username"}
+    if not account_exists(username):
+        return {"ok": False, "message": "Аккаунт не найден."}
+    pw = gen_password()
+    ok, reason = prosody_register(username, pw)
+    if not ok:
+        return {"ok": False, "message": "Prosody: " + reason}
+    return {"ok": True, "password": pw}
 
 
 @app.get("/admin")
@@ -387,6 +746,14 @@ def admin_page(token: str = "") -> HTMLResponse:
   <table>
     <thead><tr><th>Создано</th><th>Логин</th><th>Заметка</th><th>Статус</th><th></th></tr></thead>
     <tbody id="rows"><tr><td colspan="5" class="muted">Загрузка…</td></tr></tbody>
+  </table>
+</div>
+<div class="card">
+  <h2>Пользователи</h2>
+  <p class="muted">Все аккаунты Prosody. «Новый пароль» — сгенерировать и показать (старый перестанет работать), «удалить» — убрать аккаунт.</p>
+  <table>
+    <thead><tr><th>Логин</th><th>Обновлён</th><th>Приглашение</th><th></th></tr></thead>
+    <tbody id="urows"><tr><td colspan="4" class="muted">Загрузка…</td></tr></tbody>
   </table>
 </div>
 <script>
@@ -452,7 +819,34 @@ def admin_page(token: str = "") -> HTMLResponse:
       body: JSON.stringify({{username: username}}),
     }});
     alert("Готово (если аккаунт существовал)");
+    loadUsers();
+  }}
+  async function loadUsers() {{
+    const r = await fetch("/admin/users", {{headers: {{"X-Admin-Token": TOKEN}}}});
+    const d = await r.json().catch(() => ({{users: []}}));
+    const rows = document.getElementById("urows");
+    rows.innerHTML = "";
+    (d.users || []).forEach(u => {{
+      const tr = document.createElement("tr");
+      tr.innerHTML = "<td class=\\"mono\\">" + u.username + "</td><td>" + new Date(u.mtime * 1000).toLocaleString("ru-RU") +
+        "</td><td>" + (u.invite || "—") +
+        '</td><td><button class="btn btn-small btn-sec" onclick="newPass(\\'' + u.username + '\\')">новый пароль</button> ' +
+        '<button class="btn btn-small btn-sec" onclick="delAccount(\\'' + u.username + '\\')">удалить</button></td>';
+      rows.appendChild(tr);
+    }});
+  }}
+  async function newPass(username) {{
+    if (!confirm("Сгенерировать новый пароль для " + username + "?")) return;
+    const r = await fetch("/admin/accounts/password", {{
+      method: "POST",
+      headers: {{"Content-Type": "application/json", "X-Admin-Token": TOKEN}},
+      body: JSON.stringify({{username: username}}),
+    }});
+    const d = await r.json().catch(() => ({{}}));
+    if (d.ok) {{ alert("Новый пароль для " + username + ": " + d.password + "\\n(передайте лично; старый больше не действует)"); }}
+    else {{ alert(d.message || "Ошибка"); }}
   }}
   load();
+  loadUsers();
 </script>"""
     return _page("MSPShield · Приглашения (админка)", body)

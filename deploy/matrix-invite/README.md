@@ -58,3 +58,13 @@ curl -s https://names.msp-claude.online/health
 - На всех экранах пояснено: QR сканируется обычной камерой телефона (открывает веб-версию
   с готовым сервером); встроенный в Element «Войти по QR» — только для привязки второго
   устройства к уже настроенному аккаунту (MSC4108), наш QR он не принимает.
+
+## MAS: авторизация через Matrix Authentication Service (06.10.2026)
+
+- Портал переведён на MAS Admin API (`http://127.0.0.1:8898/api/admin/v1`, scope `urn:mas:admin`;
+  client_id/secret — в `/opt/mas/.env`, прокинуты в `.env` портала как MAS_CLIENT_ID/MAS_CLIENT_SECRET).
+- Создание аккаунтов: POST /users + set-password; блокировка: deactivate; список: GET /users.
+- Проверка пароля (кабинет): compat-логин MAS `/_matrix/client/v3/login` (device_id
+  invite-portal-check) с немедленным logout — сессии «проверок» не копятся.
+- Авто-личный чат: personal-sessions (scope `urn:matrix:org.matrix.msc2967.client:api:*`,
+  короткий TTL) для создателя приглашения и новичка + createRoom/join, затем revoke.

@@ -1,0 +1,46 @@
+# ────────────────────────────────────────────────────────────────
+# MSPShield: Matrix Authentication Service (MAS) + его PostgreSQL
+# Сеть msp-matrix (external) — рядом с Synapse и Element Web.
+# Порт web:  127.0.0.1:8899 -> 8080  (за Caddy: bastion.msp-claude.online)
+# Порт внутр: 127.0.0.1:8898 -> 8081 (health + adminapi, только локально)
+# ────────────────────────────────────────────────────────────────
+services:
+  mas-db:
+    image: postgres:16-alpine
+    container_name: msp-mas-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mas
+      POSTGRES_USER: mas
+      POSTGRES_PASSWORD: ${MAS_DB_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - ./data/db:/var/lib/postgresql/data
+    networks:
+      - msp-matrix
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mas"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mas:
+    image: ghcr.io/element-hq/matrix-authentication-service@sha256:e089f1048a1d4a9a492ed17b9fe759100f1bd619407b001f5927928d88b780c4
+    container_name: msp-mas
+    restart: unless-stopped
+    command: ["server", "--config", "/config.yaml"]
+    depends_on:
+      mas-db:
+        condition: service_healthy
+    volumes:
+      - ./config.yaml:/config.yaml:ro
+    ports:
+      - "127.0.0.1:8899:8080"
+      - "127.0.0.1:8898:8081"
+    networks:
+      - msp-matrix
+
+networks:
+  msp-matrix:
+    name: msp-matrix
+    external: true

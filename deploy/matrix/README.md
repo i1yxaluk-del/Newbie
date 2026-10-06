@@ -70,3 +70,13 @@ curl -s -o /dev/null -w '%{http_code}\n' https://e.msp-claude.online/
 - Создаёт Matrix-аккаунты через Synapse Admin API; на странице приглашения есть
   короткая инструкция «Как добавить коллег».
 - Токены/секреты — в `~/msp-deploy-secrets.txt` на VM (раздел [MATRIX-INVITE]).
+
+## MAS: делегированная авторизация (06.10.2026)
+
+- Synapse переведён на Matrix Authentication Service (публичный адрес: https://bastion.msp-claude.online).
+- `matrix_authentication_service: enabled: true`, `password_config` выключен (требование Synapse).
+- `experimental_features`: `msc4108_enabled: true`, `msc4388_mode: "authenticated"` — предпосылки QR-входа.
+- Caddy: `bastion.*` → 127.0.0.1:8899; на `m.*` login/logout/refresh → 127.0.0.1:8899;
+  `/.well-known/matrix/client` проксируется в Synapse (отдаёт msc2965-метаданные + issuer).
+- Развёртывание MAS: `deploy/mas/` (compose + README). Секреты — `/opt/mas` и
+  `msp-deploy-secrets.txt` [MAS].

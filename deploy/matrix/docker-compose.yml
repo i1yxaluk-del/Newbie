@@ -1,20 +1,20 @@
-# ═══════════════════════════════════════════════════════════════════
+# ────────────────────────────────────────────────────────────────
 # Matrix-стек MSPShield: Synapse (homeserver) + PostgreSQL + Element Web
-# ═══════════════════════════════════════════════════════════════════
+# ────────────────────────────────────────────────────────────────
 # Домен homeserver: m.msp-claude.online   (ID пользователей @user:m.msp-claude.online)
 # Веб-клиент:       e.msp-claude.online
 #
 # Принципы:
-#   * ФЕДЕРАЦИЯ ВЫКЛЮЧЕНА — наш сервер не общается ни с одним чужим сервером
-#     (federation_domain_whitelist пуст, порт 8448 наружу не открываем);
-#   * публичная регистрация выключена — учётки создаёт администратор
-#     (registration_shared_secret + register_new_matrix_user, тот же подход в портале);
+#   * закрытая федерация — для интернета мы недоступны, но в чатах между
+#     своими работает (federation_domain_whitelist пуст, порт 8448 наружу не смотрит);
+#   * публичная регистрация выключена — аккаунты создаёт администратор
+#     (registration_shared_secret + register_new_matrix_user);
 #   * звонки — через наш coturn (turn_uris в homeserver.yaml);
-#   * медиа — на нашем сервере, но с автоочисткой (media_retention) и лимитом загрузки;
-#   * push — UnifiedPush через ntfy (не Google).
+#   * файлы — на нашем сервере, с автоочисткой (media_retention) и лимитом загрузки;
+#   * push — UnifiedPush через ntfy (без Google).
 #
-# Порты: 8008 (Synapse) и 80 (Element) — только внутрь, наружу через Caddy.
-# ═══════════════════════════════════════════════════════════════════
+# Порты: 8008 (Synapse) и 80 (Element) — только локально (127.0.0.1), наружу через Caddy.
+# ────────────────────────────────────────────────────────────────
 services:
   synapse-db:
     image: postgres:16-alpine
@@ -45,10 +45,10 @@ services:
     volumes:
       - ./data:/data
       - ./homeserver.yaml:/data/homeserver.yaml:ro
+    ports:
+      - "127.0.0.1:8008:8008"
     networks:
       - msp-matrix
-    expose:
-      - "8008"
 
   element:
     image: vectorim/element-web:latest
@@ -56,10 +56,10 @@ services:
     restart: unless-stopped
     volumes:
       - ./element-config.json:/app/config.json:ro
+    ports:
+      - "127.0.0.1:8082:80"
     networks:
       - msp-matrix
-    expose:
-      - "80"
 
 volumes:
   synapse-db:

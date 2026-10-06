@@ -7,6 +7,7 @@
 Хостинг: /opt/matrix-invite (systemd matrix-invite.service, порт 8896;
 Caddy: names.msp-claude.online -> 127.0.0.1:8896).
 """
+import asyncio
 import base64
 import json
 import os
@@ -38,6 +39,7 @@ SYNAPSE_ADMIN_TOKEN = os.getenv("SYNAPSE_ADMIN_TOKEN", "")
 ELEMENT_URL = os.getenv("ELEMENT_URL", "https://e.msp-claude.online")
 MAS_BASE = os.getenv("MAS_BASE", "http://127.0.0.1:8899")
 MAS_ADMIN_BASE = os.getenv("MAS_ADMIN_BASE", "http://127.0.0.1:8898")
+MAS_PUBLIC = os.getenv("MAS_PUBLIC", "https://bastion.msp-claude.online")
 MAS_CLIENT_ID = os.getenv("MAS_CLIENT_ID", "")
 MAS_CLIENT_SEC = os.getenv("MAS_CLIENT_" + "SECRET", "")
 _mas_tok = {"value": "", "exp": 0.0}
@@ -89,6 +91,15 @@ def init():
              note       TEXT DEFAULT ''
            )"""
     )
+    for _col in ("mtoken", "mtoken_id"):
+        try:
+            c.execute("ALTER TABLE invites ADD COLUMN " + _col + " TEXT DEFAULT ''")
+        except sqlite3.OperationalError:
+            pass
+    try:
+        c.execute("ALTER TABLE invites ADD COLUMN wired INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
     c.commit()
     c.close()
 
@@ -294,12 +305,23 @@ def _create_invite(note, ttl, created_by="admin"):
     ttl = max(1, min(720, int(ttl or 72)))
     tok = secrets.token_urlsafe(24)
     now = datetime.now(timezone.utc)
+    mtoken, mtoken_id = "", ""
+    try:
+        st, d = _mas_api("POST", "/api/admin/v1/user-registration-tokens",
+                         {"usage_limit": 1,
+                          "expires_at": (now + timedelta(hours=ttl)).strftime("%Y-%m-%dT%H:%M:%SZ")})
+        if 200 <= st < 300:
+            attr = ((d.get("data") or {}).get("attributes")) or {}
+            mtoken = attr.get("token") or ""
+            mtoken_id = (d.get("data") or {}).get("id") or ""
+    except Exception:
+        pass
     c = db()
     c.execute(
-        "INSERT INTO invites (token, username, password, note, created_at, expires_at, used_at, created_by) "
-        "VALUES (?,?,?,?,?,?,?,?)",
+        "INSERT INTO invites (token, username, password, note, created_at, expires_at, used_at, created_by, mtoken, mtoken_id, wired) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
         (tok, "", "", note or "", now.isoformat(),
-         (now + timedelta(hours=ttl)).isoformat(), None, created_by),
+         (now + timedelta(hours=ttl)).isoformat(), None, created_by, mtoken, mtoken_id, 0),
     )
     c.commit()
     c.close()
@@ -360,6 +382,54 @@ def root() -> Response:
     )
 
 
+async def _poll_registrations():
+    while True:
+        try:
+            c = db()
+            rows = c.execute(
+                "SELECT token, created_by, mtoken_id, mtoken FROM invites "
+                "WHERE mtoken_id IS NOT NULL AND mtoken_id != '' AND wired=0"
+            ).fetchall()
+            c.close()
+            for r in rows:
+                tok_raw = (r["mtoken"] or "").strip()
+                if not tok_raw or not re.fullmatch(r"[0-9A-Za-z_-]{6,64}", tok_raw):
+                    continue
+                try:
+                    rc = subprocess.run(
+                        ["docker", "exec", "msp-mas-db", "psql", "-U", "mas", "-d", "mas", "-t", "-A", "-c",
+                         "SELECT ur.username FROM user_registrations ur "
+                         "JOIN user_registration_tokens t ON t.user_registration_token_id = ur.user_registration_token_id "
+                         "WHERE t.token = '" + tok_raw + "' AND ur.completed_at IS NOT NULL "
+                         "ORDER BY ur.created_at DESC LIMIT 1"],
+                        capture_output=True, text=True, timeout=30)
+                    uname = (rc.stdout or "").strip().split("\n")[0].strip()
+                except Exception:
+                    continue
+                if not uname or not USER_RE.fullmatch(uname):
+                    continue
+                try:
+                    wire_dm(uname, r)
+                except Exception:
+                    pass
+                try:
+                    c2 = db()
+                    c2.execute("UPDATE invites SET username=?, used_at=?, wired=1 WHERE token=?",
+                               (uname, datetime.now(timezone.utc).isoformat(), r["token"]))
+                    c2.commit()
+                    c2.close()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        await asyncio.sleep(30)
+
+
+@app.on_event("startup")
+async def _start_reg_poller():
+    asyncio.create_task(_poll_registrations())
+
+
 # ── страница приглашения ─────────────────────────────────────────────────────
 
 @app.get("/i/{token}", response_class=HTMLResponse)
@@ -387,6 +457,24 @@ def invite_page(token: str) -> HTMLResponse:
             'Забыли пароль — попросите администратора выдать новый.</p></div>',
         )
 
+    mtoken = ""
+    try:
+        mtoken = (row["mtoken"] or "")
+    except Exception:
+        mtoken = ""
+    quick = ""
+    if mtoken:
+        quick = (
+            '<div id="quick-block">'
+            "<p><b>Создать аккаунт в один шаг.</b> После этого в приложении пароль вводить не нужно.</p>"
+            f'<p><a class="btn btn-main" href="{MAS_PUBLIC}/register">Создать аккаунт</a></p>'
+            '<p class="muted">Придумайте там логин и пароль. Когда система попросит «код приглашения» — скопируйте и вставьте код ниже:</p>'
+            f'<p><span class="mono" id="mtok">{mtoken}</span> '
+            '<button class="btn btn-small btn-sec" onclick="copyText(&quot;mtok&quot;)">копировать код</button></p>'
+            '<p class="muted">Дальше: откройте Element и нажмите «Войти» — пароль в приложении уже не спросят.</p>'
+            '<hr style="border:none;border-top:1px solid #e6ebef;margin:14px 0">'
+            "</div>"
+        )
     body = f"""<div class="card">
   <h1>Вас приглашают в MSPShield Chat</h1>
   <p class="muted">Мессенджер на базе Matrix: сообщения, голосовые, файлы и звонки — всё внутри контура.</p>
@@ -400,6 +488,9 @@ def invite_page(token: str) -> HTMLResponse:
 </div>
 <div class="card">
   <h2>2. Создайте аккаунт</h2>
+{quick}
+<details>
+  <summary class="muted">Другой способ — создать аккаунт прямо здесь (форма)</summary>
   <div id="reg-form">
     <p class="muted">Придумайте логин — он станет вашим адресом @логин:{MATRIX_DOMAIN} (латиница/цифры, 2–32 символа). Логин создаётся здесь; регистрация в приложении не нужна.</p>
     <label>Логин</label>
@@ -413,6 +504,7 @@ def invite_page(token: str) -> HTMLResponse:
     <p class="muted">После создания приглашение станет недействительным — это нормально.</p>
   </div>
   <div id="reg-done" style="display:none"></div>
+</details>
 </div>
 <div class="card">
   <h2>3. Войдите в Element</h2>
@@ -754,9 +846,15 @@ def admin_create(payload: dict, x_admin_token: str = Header("")) -> dict:
 def admin_delete(inv_id: int, x_admin_token: str = Header("")) -> dict:
     _admin_check(x_admin_token)
     c = db()
+    row = c.execute("SELECT token, mtoken_id, wired FROM invites WHERE id=?", (inv_id,)).fetchone()
     c.execute("DELETE FROM invites WHERE id=?", (inv_id,))
     c.commit()
     c.close()
+    try:
+        if row and not row["wired"] and (row["mtoken_id"] or ""):
+            _mas_api("POST", "/api/admin/v1/user-registration-tokens/" + urllib.parse.quote(row["mtoken_id"]) + "/revoke", {})
+    except Exception:
+        pass
     return {"ok": True}
 
 

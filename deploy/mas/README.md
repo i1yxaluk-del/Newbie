@@ -58,3 +58,9 @@ sudo docker run --rm -u 65532:65532 --network msp-matrix \
 `/opt/mas/purge-user.sh <login>` — полное удаление записи (MAS + Synapse) с освобождением логина:
 удаляет пользователя во всех связанных таблицах MAS и Synapse, чистит профиль/директорию/девайсы;
 если в Synapse была «живая» запись — перезапускает Synapse для сброса кэшей.
+
+## Русские/упрощённые страницы MAS (06.10.2026)
+
+- Шаблоны и переводы монтируются из /opt/mas/templates и /opt/mas/translations (см. compose).
+- base.html форсирует русский язык; consent.html упрощён: «Вход» + кнопка «Войти», без ссылок на приложение.
+- Пересборка оверрайдов: deploy/mas/overrides/apply-overrides.sh.

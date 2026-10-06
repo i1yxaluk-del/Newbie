@@ -1,0 +1,48 @@
+{#
+MSPShield: упрощённый экран подтверждения входа (русский).
+Основной поток: аккаунт-карточка + одна кнопка «Войти».
+-#}
+
+{% set consent_page = true %}
+
+{% extends "base.html" %}
+
+{% block title %}Вход — MSPShield{% endblock title %}
+
+{% block content %}
+  <header class="page-heading">
+    <div class="header">
+      <h1 class="title">Вход</h1>
+      <p class="text">Подтвердите вход в приложение</p>
+    </div>
+  </header>
+
+  {% set initial -%}
+    {%- if matrix_user.display_name -%}
+      {{- matrix_user.display_name[0] | upper -}}
+    {%- else -%}
+      {{- matrix_user.mxid[1] | upper -}}
+    {%- endif -%}
+  {%- endset %}
+
+  <section class="flex items-center p-4 gap-4 border border-[var(--cpd-color-gray-400)] rounded-xl">
+    <div class="avatar-placeholder" data-color="{{ matrix_user.mxid | id_color_hash }}">{{ initial }}</div>
+    <div class="flex flex-col">
+      <div class="text-primary cpd-text-body-lg-semibold">{{ matrix_user.display_name or current_session.user.username }}</div>
+      <div class="text-secondary cpd-text-body-md-regular">{{ matrix_user.mxid }}</div>
+    </div>
+  </section>
+
+  <section class="flex flex-col gap-6">
+    <form method="POST" class="cpd-form-root">
+      <input type="hidden" name="csrf" value="{{ csrf_token }}" />
+      <button class="cpd-button" data-kind="primary" data-size="lg" type="submit">Войти</button>
+    </form>
+
+    {% call logout.button(csrf_token=csrf_token, post_logout_action=action) %}
+      <button type="submit" class="cpd-button primary" data-kind="secondary" data-size="lg" type="submit">
+        Войти под другим аккаунтом
+      </button>
+    {% endcall %}
+  </section>
+{% endblock content %}

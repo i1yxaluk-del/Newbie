@@ -76,3 +76,8 @@ curl -s https://names.msp-claude.online/health
   (`/_synapse/admin/v1/deactivate/<mxid>` c `{"erase": true}`) через personal-session
   admin-аккаунта со скоупами `urn:synapse:admin:* urn:matrix:org.matrix.msc2967.client:api:*`
   (сессия ревокается сразу после операции). Админов удалять нельзя.
+
+## UI-правка (06.10.2026, v7b)
+
+- У удалённых (деактивированных) аккаунтов кнопок больше нет; «заблокировать/разблокировать»
+  и «удалить» — только у активных. Активные пользователи сортируются в начало списка.

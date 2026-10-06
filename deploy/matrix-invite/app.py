@@ -649,7 +649,7 @@ def admin_page(token: str = "") -> HTMLResponse:
         ? '<button class="btn btn-small btn-sec" onclick="unblockUser(this)" data-u="' + u.username + '">разблокировать</button> '
         : '<button class="btn btn-small btn-sec" onclick="blockUser(this)" data-u="' + u.username + '">заблокировать</button> ';
       var db = '<button class="btn btn-small btn-sec" onclick="delUser(this)" data-u="' + u.username + '">удалить</button>';
-      var btns = u.admin ? rb : (u.deactivated ? db : (rb + bb + db));
+      var btns = u.admin ? rb : (u.deactivated ? '' : (rb + bb + db));
       tr.innerHTML = '<td class="mono">@' + u.username + '</td><td>' + stb + (u.admin ? ' · админ' : '') + '</td><td>' + ufmt(u.created) + '</td><td>' + btns + '</td>';
       tb.appendChild(tr);
     }});
@@ -742,7 +742,7 @@ def admin_users(x_admin_token: str = Header("")) -> dict:
             after = m.group(1) if m else ""
         if not after:
             break
-    users.sort(key=lambda x: x.get("created") or 0, reverse=True)
+    users.sort(key=lambda x: (1 if (x.get("deactivated") or x.get("locked")) else 0, -(x.get("created") or 0)))
     return {"ok": True, "users": users}
 
 

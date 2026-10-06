@@ -32,6 +32,10 @@ modules_enabled = {
     -- медиа и звонки
     "http_upload";    -- файлы и голосовые
     "turn_external";  -- выдаём клиентам наш TURN (XEP-0215)
+    "invites";          -- XEP-0401: приглашения (ссылки/QR, автоконфигурация клиентов)
+    "invites_adhoc";    -- ad-hoc команды для управления приглашениями
+    "invites_register"; -- регистрация только по инвайт-токену
+    "invites_api";      -- REST API приглашений (для портала)
     -- прочее
     "websocket";      -- веб-клиенты (через Caddy)
     "cloud_notify";   -- push (XEP-0357, UnifiedPush)

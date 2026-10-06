@@ -578,7 +578,7 @@ def cabinet(request: Request) -> Response:
     }});
     const d = await r.json().catch(() => ({{}}));
     if (d.ok) {{
-      el.innerHTML = '<span class="ok">Создано:</span> <span class="mono">' + d.url + "</span> — отправьте коллеге.";
+      el.innerHTML = '<span class="ok">Создано:</span> <span class="mono" id="newinv">' + d.url + '</span> <button class="btn btn-small btn-sec" onclick="copyText(\\'newinv\\')">копировать</button> — отправьте коллеге.';
       document.getElementById("iv-note").value = "";
     }} else {{
       el.innerHTML = '<span class="warn">' + (d.message || "Ошибка") + "</span>";
@@ -851,7 +851,7 @@ def admin_page(token: str = "") -> HTMLResponse:
     const d = await r.json().catch(() => ({{}}));
     if (d.ok) {{
       el.innerHTML = '<span class="ok">Создано:</span> <span class="mono">' + d.url +
-        "</span> — отправьте ссылку человеку.";
+        '</span> <button class="btn btn-small btn-sec" onclick="copyUrl(\\'' + d.token + '\\')">копировать</button> — отправьте ссылку человеку.';
       document.getElementById("f-note").value = "";
     }} else {{
       el.innerHTML = '<span class="warn">' + (d.message || "Ошибка") + "</span>";

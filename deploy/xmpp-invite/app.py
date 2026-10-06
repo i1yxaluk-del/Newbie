@@ -1,8 +1,7 @@
 """MSPShield XMPP Invite Portal.
 
 Сервис приглашений для XMPP (Prosody):
-- админ создаёт приглашение → портал сам регистрирует аккаунт в Prosody;
-- гость открывает /i/<token>: приложения, JID/пароль, QR, шаги, «Я подключился»;
+- админ создаёт приглашение (просто ссылку) → гость на /i/<token> сам выбирает логин и пароль;
 - админка: /admin?token=<XMPP_INVITE_ADMIN_TOKEN>.
 
 Деплой: /opt/xmpp-invite (systemd xmpp-invite.service, порт 8895,
@@ -281,16 +280,17 @@ def invite_page(token: str) -> HTMLResponse:
         return _page("Приглашение не найдено",
                      '<div class="card"><h1>Приглашение не найдено</h1>'
                      '<p class="muted">Ссылка неверная или удалена. Попросите новую.</p></div>')
-    jid = "%s@%s" % (row["username"], XMPP_DOMAIN)
     used = bool(row["used_at"])
     expired = datetime.fromisoformat(row["expires_at"]) < datetime.now(timezone.utc)
     if used:
+        jid = ("%s@%s" % (row["username"], XMPP_DOMAIN)) if row["username"] else ""
+        jidline = ('<p>Ваш адрес: <span class="mono">%s</span></p>' % jid) if jid else ""
         return _page(
             "Приглашение уже использовано",
             '<div class="card"><h1>Приглашение уже использовано</h1>'
-            '<p class="ok">Это приглашение уже активировано.</p>'
-            '<p class="muted">Если нужно подключить ещё одно устройство — просто войдите тем же '
-            'аккаунтом <span class="mono">%s</span> (пароль спросите у администратора).</p></div>' % jid,
+            '<p class="ok">По этой ссылке аккаунт уже создан.</p>' + jidline +
+            '<p class="muted">Войти в личный кабинет: <a href="/login">/login</a>. '
+            'Забыли пароль — попросите администратора выдать новый.</p></div>',
         )
     if expired:
         return _page(
@@ -310,43 +310,111 @@ def invite_page(token: str) -> HTMLResponse:
   <a class="btn btn-sec" href="https://gajim.org/">Gajim — Windows / macOS / Linux</a>
 </div>
 <div class="card">
-  <h2>2. Данные для входа</h2>
-  <div class="kv"><span class="k">Сервер</span> <span class="mono" id="srv">{XMPP_DOMAIN}</span>
-    <button class="btn btn-small btn-sec" onclick="copyText('srv')">копировать</button></div>
-  <div class="kv"><span class="k">Адрес (JID)</span> <span class="mono" id="jad">{jid}</span>
-    <button class="btn btn-small btn-sec" onclick="copyText('jad')">копировать</button></div>
-  <div class="kv"><span class="k">Пароль</span> <span class="mono" id="pwd">{row["password"]}</span>
-    <button class="btn btn-small btn-sec" onclick="copyText('pwd')">копировать</button></div>
-  <p class="qr"><img src="/i/{token}/qr.png" alt="QR-код"></p>
-  <p class="muted">Если приложение спросит хост и порт вручную: <b>{XMPP_DOMAIN}</b>, порт <b>5222</b> (TLS).</p>
+  <h2>2. Создайте аккаунт</h2>
+  <div id="reg-form">
+    <p class="muted">Придумайте логин — его увидят коллеги (латиница/цифры, 2–32 символа).</p>
+    <label>Логин</label>
+    <input id="r-user" placeholder="например: ivan" autocomplete="off">
+    <label>Пароль (можно сгенерировать)</label>
+    <input id="r-pass" autocomplete="off">
+    <p class="muted"><button class="btn btn-small btn-sec" onclick="genPass()">Сгенерировать пароль</button></p>
+    <button class="btn btn-main" onclick="registerAcc()">Создать аккаунт</button>
+    <p class="muted" id="reg-res"></p>
+    <p class="muted">После создания приглашение станет недействительным — это нормально.</p>
+  </div>
+  <div id="reg-done" style="display:none"></div>
 </div>
 <div class="card">
   <h2>3. Подключение</h2>
   <ol class="steps">
     <li>Откройте приложение → «Добавить аккаунт» → «У меня уже есть аккаунт».</li>
-    <li>Введите адрес (JID) и пароль из блока выше.</li>
+    <li>Введите адрес (JID) и пароль, которые появятся на экране после создания.</li>
     <li>Готово — можно писать. Голосовые сообщения, файлы и звонки работают сразу.</li>
   </ol>
+  <p class="muted">Если приложение спросит хост и порт вручную: <b>{XMPP_DOMAIN}</b>, порт <b>5222</b> (TLS).</p>
 </div>
 <div class="card">
-  <h2>4. Всё получилось?</h2>
-  <button class="btn btn-main" onclick="markUsed()">Я подключился(ась)</button>
-  <p class="muted" id="res"></p>
-  <p class="muted">Уже подключились? <a href="/login">Войти в личный кабинет</a>.</p>
+  <h2>Дальше</h2>
+  <p class="muted">Личный кабинет — свои данные, приглашения коллег и смена пароля: <a href="/login">/login</a>.</p>
 </div>
 <script>
+  function rndPass() {{
+    const a = new Uint8Array(12);
+    crypto.getRandomValues(a);
+    const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789";
+    let s = "";
+    for (const x of a) {{ s += chars[x % chars.length]; }}
+    return s + "!" + (Math.floor(Math.random() * 90) + 10);
+  }}
+  function genPass() {{ document.getElementById("r-pass").value = rndPass(); }}
+  if (!document.getElementById("r-pass").value) {{ document.getElementById("r-pass").value = rndPass(); }}
   function copyText(id) {{
     const el = document.getElementById(id);
     if (el) {{ navigator.clipboard.writeText(el.textContent.trim()); }}
   }}
-  function markUsed() {{
-    fetch("/i/{token}/confirm", {{method: "POST"}})
-      .then(r => r.json())
-      .then(() => {{ document.getElementById("res").innerHTML = '<span class="ok">Отлично! Приглашение отмечено использованным.</span>'; }})
-      .catch(() => {{ document.getElementById("res").innerHTML = '<span class="warn">Не получилось отметить — просто сообщите администратору.</span>'; }});
+  async function registerAcc() {{
+    const el = document.getElementById("reg-res");
+    el.innerHTML = "Создаю…";
+    const r = await fetch("/i/{token}/register", {{
+      method: "POST",
+      headers: {{"Content-Type": "application/json"}},
+      body: JSON.stringify({{
+        username: document.getElementById("r-user").value,
+        password: document.getElementById("r-pass").value,
+      }}),
+    }});
+    const d = await r.json().catch(() => ({{}}));
+    if (d.ok) {{
+      document.getElementById("reg-form").style.display = "none";
+      const done = document.getElementById("reg-done");
+      done.style.display = "block";
+      done.innerHTML = '<p class="ok">Аккаунт создан!</p>' +
+        '<div class="kv"><span class="k">Сервер</span> <span class="mono" id="srv">{XMPP_DOMAIN}</span> <button class="btn btn-small btn-sec" onclick="copyText(&quot;srv&quot;)">копировать</button></div>' +
+        '<div class="kv"><span class="k">Адрес (JID)</span> <span class="mono" id="jad">' + d.jid + '</span> <button class="btn btn-small btn-sec" onclick="copyText(&quot;jad&quot;)">копировать</button></div>' +
+        '<div class="kv"><span class="k">Пароль</span> <span class="mono" id="pwd">' + document.getElementById("r-pass").value + '</span> <button class="btn btn-small btn-sec" onclick="copyText(&quot;pwd&quot;)">копировать</button></div>' +
+        '<p class="muted">Введите эти данные в приложении (шаг 3). Аккаунт уже работает.</p>';
+    }} else {{
+      el.innerHTML = '<span class="warn">' + (d.message || d.detail || "Не получилось — проверьте данные.") + "</span>";
+    }}
   }}
 </script>"""
     return _page("Приглашение — MSPShield Chat", body)
+
+
+@app.post("/i/{token}/register")
+def invite_register(token: str, payload: dict) -> dict:
+    c = db()
+    row = c.execute("SELECT * FROM invites WHERE token=?", (token,)).fetchone()
+    if not row:
+        c.close()
+        raise HTTPException(status_code=404, detail="not found")
+    if row["used_at"]:
+        c.close()
+        return {"ok": False, "message": "Приглашение уже использовано."}
+    if datetime.fromisoformat(row["expires_at"]) < datetime.now(timezone.utc):
+        c.close()
+        return {"ok": False, "message": "Приглашение истекло — попросите новое."}
+    username = (payload.get("username") or "").strip().lower()
+    password = payload.get("password") or ""
+    if not USER_RE.fullmatch(username):
+        c.close()
+        return {"ok": False, "message": "Логин: латиница/цифры/._- (2–32), начните с буквы или цифры."}
+    if len(password) < 8:
+        c.close()
+        return {"ok": False, "message": "Пароль — минимум 8 символов."}
+    if account_exists(username):
+        c.close()
+        return {"ok": False, "message": "Этот логин занят — выберите другой."}
+    ok, reason = prosody_register(username, password)
+    if not ok:
+        c.close()
+        return {"ok": False, "message": "Не получилось создать аккаунт: " + reason}
+    now = datetime.now(timezone.utc).isoformat()
+    c.execute("UPDATE invites SET username=?, password=?, used_at=? WHERE token=?",
+              (username, password, now, token))
+    c.commit()
+    c.close()
+    return {"ok": True, "jid": "%s@%s" % (username, XMPP_DOMAIN), "server": XMPP_DOMAIN}
 
 
 @app.get("/i/{token}/qr.png")
@@ -446,14 +514,11 @@ def cabinet(request: Request) -> Response:
     <button class="btn btn-small btn-sec" onclick="copyText('srv')">копировать</button></div>
   <div class="kv"><span class="k">Адрес (JID)</span> <span class="mono" id="jad">{jid}</span>
     <button class="btn btn-small btn-sec" onclick="copyText('jad')">копировать</button></div>
-  <p class="qr"><img src="/u/qr.png" alt="QR-код"></p>
-  <p class="muted">Чтобы подключить новое устройство — установите приложение и войдите этим JID и паролем. Пароль можно сменить ниже.</p>
+  <p class="muted">Чтобы подключить новое устройство — установите приложение и войдите этим JID и паролем. Пароль можно сменить ниже. Чтобы коллега добавил вас в контакты — передайте ему свой адрес (JID).</p>
 </div>
 <div class="card">
   <h2>Пригласить коллег</h2>
-  <p class="muted">Создайте ссылку — человек по ней получит готовые доступы (аккаунт заведётся сразу).</p>
-  <label>Логин для нового пользователя</label>
-  <input id="iv-user" placeholder="например: petr" autocomplete="off">
+  <p class="muted">Создайте ссылку и отправьте её коллеге: он сам выберет логин и пароль.</p>
   <label>Заметка (кому)</label>
   <input id="iv-note" placeholder="Пётр, отдел продаж…">
   <button class="btn btn-main" onclick="createInvite()">Создать приглашение</button>
@@ -490,7 +555,7 @@ def cabinet(request: Request) -> Response:
     rows.innerHTML = "";
     (d.invites || []).forEach(i => {{
       const tr = document.createElement("tr");
-      tr.innerHTML = "<td>" + fmt(i.created_at) + "</td><td class=\\"mono\\">" + i.username +
+      tr.innerHTML = "<td>" + fmt(i.created_at) + "</td><td class=\\"mono\\">" + (i.username || "—") +
         "</td><td>" + (i.note || "") + "</td><td>" + status(i) +
         '</td><td><a href="/i/' + i.token + '" target="_blank">открыть</a> ' +
         '<button class="btn btn-small btn-sec" onclick="delInvite(' + i.id + ')">удалить</button></td>';
@@ -503,12 +568,11 @@ def cabinet(request: Request) -> Response:
     const r = await fetch("/u/invites", {{
       method: "POST",
       headers: {{"Content-Type": "application/json"}},
-      body: JSON.stringify({{username: document.getElementById("iv-user").value, note: document.getElementById("iv-note").value}}),
+      body: JSON.stringify({{note: document.getElementById("iv-note").value}}),
     }});
     const d = await r.json().catch(() => ({{}}));
     if (d.ok) {{
-      el.innerHTML = '<span class="ok">Создано:</span> <span class="mono">' + d.url + "</span><br><span class=\\"muted\\">Пароль: <b>" + d.password + "</b> (сообщите лично)</span>";
-      document.getElementById("iv-user").value = "";
+      el.innerHTML = '<span class="ok">Создано:</span> <span class="mono">' + d.url + "</span> — отправьте коллеге.";
       document.getElementById("iv-note").value = "";
     }} else {{
       el.innerHTML = '<span class="warn">' + (d.message || "Ошибка") + "</span>";
@@ -567,7 +631,7 @@ def cabinet_create(request: Request, payload: dict) -> dict:
         raise HTTPException(status_code=401, detail="unauthorized")
     uname = sess["jid"].split("@")[0]
     return _create_invite(
-        username=(payload.get("username") or "").strip().lower(),
+        username="",
         note=payload.get("note", ""),
         ttl=int(payload.get("ttl_hours") or 72),
         created_by=uname,
@@ -624,37 +688,26 @@ def admin_invites(x_admin_token: str = Header("")) -> dict:
 
 
 def _create_invite(username, note, ttl, created_by, password=None):
-    if not USER_RE.fullmatch(username or ""):
-        return {"ok": False, "message": "Логин: латиница/цифры/._- (2–32), начните с буквы или цифры."}
-    password = (password or "").strip() or gen_password()
-    if len(password) < 8:
-        return {"ok": False, "message": "Пароль — минимум 8 символов."}
     ttl = max(1, min(720, int(ttl or 72)))
-    if account_exists(username):
-        return {"ok": False, "message": "Логин занят — выберите другой."}
-    ok, reason = prosody_register(username, password)
-    if not ok:
-        return {"ok": False, "message": "Prosody: " + reason}
     tok = secrets.token_urlsafe(24)
     now = datetime.now(timezone.utc)
     c = db()
     c.execute(
         "INSERT INTO invites (token, username, password, note, created_at, expires_at, used_at, created_by) "
         "VALUES (?,?,?,?,?,?,?,?)",
-        (tok, username, password, note or "", now.isoformat(),
+        (tok, "", "", note or "", now.isoformat(),
          (now + timedelta(hours=ttl)).isoformat(), None, created_by or "admin"),
     )
     c.commit()
     c.close()
-    return {"ok": True, "url": f"{INVITE_BASE}/i/{tok}", "token": tok,
-            "jid": "%s@%s" % (username, XMPP_DOMAIN), "password": password}
+    return {"ok": True, "url": f"{INVITE_BASE}/i/{tok}", "token": tok}
 
 
 @app.post("/admin/invites")
 def admin_create(payload: dict, x_admin_token: str = Header("")) -> dict:
     _admin_check(x_admin_token)
     return _create_invite(
-        username=(payload.get("username") or "").strip().lower(),
+        username="",
         note=payload.get("note", ""),
         ttl=int(payload.get("ttl_hours") or 72),
         created_by="admin",
@@ -726,14 +779,11 @@ def admin_page(token: str = "") -> HTMLResponse:
                      status_code=401)
     body = f"""<div class="card">
   <h1>Приглашения в MSPShield Chat</h1>
-  <p class="muted">Создавайте одноразовые ссылки: портал сам заводит аккаунт в Prosody, гость вводит готовые данные в приложении.</p>
+  <p class="muted">Создавайте одноразовые ссылки: гость сам выберет логин и пароль на странице приглашения.</p>
 </div>
 <div class="card">
   <h2>Новое приглашение</h2>
-  <label>Логин (JID будет логин@{XMPP_DOMAIN})</label>
-  <input id="f-user" placeholder="например: ivan" autocomplete="off">
-  <label>Пароль (пусто — сгенерируется надёжный)</label>
-  <input id="f-pass" autocomplete="off">
+  <p class="muted">Создайте ссылку и отправьте её человеку: он сам выберет логин и пароль на странице приглашения.</p>
   <label>Заметка (для себя: кому выдали)</label>
   <input id="f-note" placeholder="Иван, бухгалтерия…">
   <label>Срок действия, часов</label>
@@ -771,12 +821,13 @@ def admin_page(token: str = "") -> HTMLResponse:
     rows.innerHTML = "";
     (d.invites || []).forEach(i => {{
       const tr = document.createElement("tr");
-      tr.innerHTML = "<td>" + fmt(i.created_at) + "</td><td class=\\"mono\\">" + i.username +
+      tr.innerHTML = "<td>" + fmt(i.created_at) + "</td><td class=\\"mono\\">" + (i.username || "—") +
         "</td><td>" + (i.note || "") + "</td><td>" + status(i) +
         '</td><td><a href="/i/' + i.token + '" target="_blank">открыть</a> ' +
         '<button class="btn btn-small btn-sec" onclick="copyUrl(\\'' + i.token + '\\')">копировать</button> ' +
-        '<button class="btn btn-small btn-sec" onclick="delInvite(' + i.id + ')">удалить</button> ' +
-        '<button class="btn btn-small btn-sec" onclick="delAccount(\\'' + i.username + '\\')">−аккаунт</button></td>';
+        '<button class="btn btn-small btn-sec" onclick="delInvite(' + i.id + ')">удалить</button>' +
+        (i.username ? ' <button class="btn btn-small btn-sec" onclick="delAccount(\\'' + i.username + '\\')">−аккаунт</button>' : '') +
+        '</td>';
       rows.appendChild(tr);
     }});
   }}
@@ -787,8 +838,6 @@ def admin_page(token: str = "") -> HTMLResponse:
       method: "POST",
       headers: {{"Content-Type": "application/json", "X-Admin-Token": TOKEN}},
       body: JSON.stringify({{
-        username: document.getElementById("f-user").value,
-        password: document.getElementById("f-pass").value,
         note: document.getElementById("f-note").value,
         ttl_hours: parseInt(document.getElementById("f-ttl").value || "72", 10),
       }}),
@@ -796,9 +845,7 @@ def admin_page(token: str = "") -> HTMLResponse:
     const d = await r.json().catch(() => ({{}}));
     if (d.ok) {{
       el.innerHTML = '<span class="ok">Создано:</span> <span class="mono">' + d.url +
-        "</span><br><span class=\\"muted\\">JID: " + d.jid + " · пароль: <b>" + d.password + "</b> (передайте его отдельно или дайте ссылку)</span>";
-      document.getElementById("f-user").value = "";
-      document.getElementById("f-pass").value = "";
+        "</span> — отправьте ссылку человеку.";
       document.getElementById("f-note").value = "";
     }} else {{
       el.innerHTML = '<span class="warn">' + (d.message || "Ошибка") + "</span>";

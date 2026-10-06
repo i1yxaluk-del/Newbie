@@ -231,7 +231,9 @@ def invite_page(token: str) -> HTMLResponse:
             "Приглашение уже использовано",
             '<div class="card"><h1>Приглашение уже использовано</h1>'
             '<p class="ok">По этой ссылке аккаунт уже создан.</p>' + mxline +
-            '<p class="muted">Войти: <a href="' + ELEMENT_URL + '">' + ELEMENT_URL + '</a>. '
+            '<p><a class="btn btn-main" href="' + ELEMENT_URL + '/#/login?server=' + MATRIX_DOMAIN + '">Открыть Element — сервер подставится сам</a></p>'
+            '<p><img src="/connect/qr.png" alt="QR для настройки Element" style="max-width:190px;background:#fff;padding:6px;border-radius:8px"></p>'
+            '<p class="muted">Отсканируйте QR камерой телефона — сервер подставится автоматически. '
             'Забыли пароль — попросите администратора выдать новый.</p></div>',
         )
 
@@ -269,6 +271,7 @@ def invite_page(token: str) -> HTMLResponse:
     <li>Если спросит адрес сервера — укажите <b>{MATRIX_DOMAIN}</b> (в мобильном приложении: «Изменить»).</li>
     <li>Введите Matrix ID (<span class="mono">@имя:{MATRIX_DOMAIN}</span>) и пароль.</li>
   </ol>
+  <p class="muted">После создания аккаунта появится ссылка и QR — так Element настроится в один шаг.</p>
 </div>
 <div class="card">
   <h2>Как добавить коллег</h2>
@@ -314,7 +317,12 @@ def invite_page(token: str) -> HTMLResponse:
         '<div class="kv"><span class="k">Сервер</span> <span class="mono" id="srv">{MATRIX_DOMAIN}</span> <button class="btn btn-small btn-sec" onclick="copyText(&quot;srv&quot;)">копировать</button></div>' +
         '<div class="kv"><span class="k">Matrix ID</span> <span class="mono" id="mxid">' + d.mxid + '</span> <button class="btn btn-small btn-sec" onclick="copyText(&quot;mxid&quot;)">копировать</button></div>' +
         '<div class="kv"><span class="k">Пароль</span> <span class="mono" id="pwd">' + document.getElementById("r-pass").value + '</span> <button class="btn btn-small btn-sec" onclick="copyText(&quot;pwd&quot;)">копировать</button></div>' +
-        '<p class="muted">В приложении выберите «Войти» (НЕ «Создать аккаунт») и введите эти данные — аккаунт уже работает.</p>';
+        '<p class="muted">В приложении выберите «Войти» (НЕ «Создать аккаунт») и введите эти данные — аккаунт уже работает.</p>' +
+        '<hr style="border:none;border-top:1px solid #2a3550;margin:14px 0">' +
+        '<p><b>Быстрая настройка (ссылка и QR)</b></p>' +
+        '<p><a class="btn btn-main" href="{ELEMENT_URL}/#/login?server={MATRIX_DOMAIN}">Открыть Element — сервер подставится сам</a></p>' +
+        '<p><img src="/connect/qr.png" alt="QR для настройки Element" style="max-width:190px;background:#fff;padding:6px;border-radius:8px"></p>' +
+        '<p class="muted">Или отсканируйте QR камерой телефона — откроется Element с уже заполненным сервером <b>{MATRIX_DOMAIN}</b>. Останется ввести логин и пароль выше.</p>';
     }} else {{
       el.innerHTML = '<span class="warn">' + (d.message || d.detail || "Не получилось — проверьте данные.") + "</span>";
     }}
@@ -863,6 +871,20 @@ def cabinet(request: Request) -> Response:
   loadInvites();
 </script>"""
     return _page("Личный кабинет — MSPShield Matrix", body)
+
+
+def _qr_png(url: str) -> Response:
+    if _qrcode is None:
+        raise HTTPException(status_code=503, detail="qr unavailable")
+    img = _qrcode.make(url)
+    buf = _io.BytesIO()
+    img.save(buf, format="PNG")
+    return Response(buf.getvalue(), media_type="image/png")
+
+
+@app.get("/connect/qr.png")
+def connect_qr() -> Response:
+    return _qr_png("https://e.msp-claude.online/#/login?server=" + MATRIX_DOMAIN)
 
 
 @app.get("/u/qr.png")

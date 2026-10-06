@@ -85,3 +85,20 @@ Caddy сам продлевает сертификаты. Чтобы Prosody п�
 Если нужен режим «медиа вообще не на сервере» — уберите модуль `http_upload` из конфига:
 тогда клиенты (Conversations) будут передавать файлы напрямую между устройствами (Jingle FT),
 но получить файл можно будет только когда отправитель онлайн.
+
+## Догонка 06.10.2026: Conversations не подключался — 5222 закрыт в Security Group
+
+Симптом: Conversations «нет соединения с сервером», при этом в логах Prosody видны попытки.
+
+Причина: 5222 был открыт в ufw на ВМ, но **не в Security Group Cloud.ru**. Проверка «доступности снаружи» прошлого прогона делалась с самой ВМ и вводила в заблуждение.
+
+Исправление (через API Cloud.ru, проект `e39dc535-25e8-4d64-9572-885b08a1f37e`):
+- SG ВМ `SSH-access_ru.AZ-3` (`5dc08e55-6819-4e23-92ad-47f18cb61b6a`)
+- POST `/api/v1/security-groups/<sg>/rules`: ingress / IPv4 / tcp / `5222:5222` / `0.0.0.0/0` / «XMPP-c2s Conversations» → rule id `8e46038f-b3b3-44a4-bfdf-42a8e6f7bd27`
+
+Проверено снаружи: TCP → `<starttls><required/>` → TLSv1.3 → SASL (SCRAM-SHA-1-PLUS / PLAIN) → `<success/>` на тестовой учётке — полный путь клиента работает.
+
+Healthcheck контейнера: `prosodyctl status` в контейнере (запуск с `-F`) всегда падал («no pidfile option») → контейнер был `unhealthy`. Заменено на lua-socket TCP-проверку:
+`test: ["CMD-SHELL", "lua -e "local s=require('socket'); local c=s.connect('127.0.0.1',5222); if c then c:close(); os.exit(0) else os.exit(1) end""]`
+
+На заметку: SRV-записей `_xmpp-client._tcp.x` нет — клиенты используют fallback (A-запись + 5222). Можно добавить позже.

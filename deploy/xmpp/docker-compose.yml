@@ -25,7 +25,7 @@ services:
     networks:
       - msp-xmpp
     healthcheck:
-      test: ["CMD-SHELL", "prosodyctl status | grep -q running"]
+      test: ["CMD-SHELL", "lua -e \"local s=require('socket'); local c=s.connect('127.0.0.1',5222); if c then c:close(); os.exit(0) else os.exit(1) end\""]
       interval: 30s
       timeout: 10s
       retries: 3

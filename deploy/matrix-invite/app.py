@@ -203,6 +203,47 @@ def matrix_deactivate(username):
     return False, _mas_err(data, "HTTP %s" % st)
 
 
+def _mas_lock(username, unlock=False):
+    uid, _ = _mas_user(username)
+    if not uid:
+        return False, "Пользователь не найден."
+    path = "/api/admin/v1/users/" + urllib.parse.quote(uid) + ("/unlock" if unlock else "/lock")
+    st, data = _mas_api("POST", path, {})
+    if 200 <= st < 300:
+        return True, "ok"
+    return False, _mas_err(data, "HTTP %s" % st)
+
+
+def _syn_admin_erase(username):
+    uid_admin, _ = _mas_user("admin")
+    if not uid_admin:
+        return False, "нет аккаунта admin в MAS"
+    st, d = _mas_api("POST", "/api/admin/v1/personal-sessions",
+                     {"actor_user_id": uid_admin, "human_name": "portal-erase",
+                      "scope": "urn:synapse:admin:* urn:matrix:org.matrix.msc2967.client:api:*",
+                      "expires_in": 300})
+    if not (200 <= st < 300):
+        return False, _mas_err(d)
+    psid = ((d.get("data") or {}).get("id")) or ""
+    tok = ((d.get("data") or {}).get("attributes") or {}).get("access_token") or ""
+    if not tok:
+        return False, "не удалось получить токен"
+    try:
+        st2, data2 = _syn_api("POST", "/_synapse/admin/v1/deactivate/" + urllib.parse.quote(_mxid(username), safe=""),
+                              {"erase": True}, bearer=tok)
+        if 200 <= st2 < 300:
+            return True, "ok"
+        if st2 == 404:
+            return True, "нет данных в Synapse"
+        return False, (data2.get("error") or ("HTTP %s" % st2))
+    finally:
+        try:
+            if psid:
+                _mas_api("POST", "/api/admin/v1/personal-sessions/" + urllib.parse.quote(psid) + "/revoke", {})
+        except Exception:
+            pass
+
+
 # ── общее ────────────────────────────────────────────────────────────────────
 
 def _admin_check(tok: str):
@@ -580,8 +621,18 @@ def admin_page(token: str = "") -> HTMLResponse:
       el.innerHTML = '<span class="warn">' + (d.message || "Ошибка") + "</span>";
     }}
   }}
+  async function blockUser(btn) {{
+    if (!confirm("Заблокировать @" + btn.dataset.u + "? Пользователь не сможет войти (можно разблокировать).")) return;
+    await fetch("/admin/users/block", {{ method: "POST", headers: {{"Content-Type": "application/json", "X-Admin-Token": TOKEN}}, body: JSON.stringify({{username: btn.dataset.u}}) }});
+    loadUsers();
+  }}
+  async function unblockUser(btn) {{
+    if (!confirm("Разблокировать @" + btn.dataset.u + "?")) return;
+    await fetch("/admin/users/unblock", {{ method: "POST", headers: {{"Content-Type": "application/json", "X-Admin-Token": TOKEN}}, body: JSON.stringify({{username: btn.dataset.u}}) }});
+    loadUsers();
+  }}
   async function delUser(btn) {{
-    if (!confirm("Заблокировать @" + btn.dataset.u + "? Доступ будет закрыт (вернуть можно в админке MAS).")) return;
+    if (!confirm("Удалить @" + btn.dataset.u + " НАВСЕГДА? Аккаунт будет отключён, данные (устройства, сообщения) стёрты. Это необратимо!")) return;
     await fetch("/admin/users/delete", {{ method: "POST", headers: {{"Content-Type": "application/json", "X-Admin-Token": TOKEN}}, body: JSON.stringify({{username: btn.dataset.u}}) }});
     loadUsers();
   }}
@@ -592,10 +643,14 @@ def admin_page(token: str = "") -> HTMLResponse:
     tb.innerHTML = "";
     (d.users || []).forEach(u => {{
       const tr = document.createElement("tr");
-      tr.innerHTML = '<td class="mono">@' + u.username + '</td><td>' + (u.deactivated ? '<span class="warn">заблокирован</span>' : '<span class="ok">активен</span>') + (u.admin ? ' · админ' : '') + '</td><td>' + ufmt(u.created) + '</td><td>' +
-        '<button class="btn btn-small btn-sec" onclick="resetPass(this)" data-u="' + u.username + '">новый пароль</button> ' +
-        (u.admin ? '' : '<button class="btn btn-small btn-sec" onclick="delUser(this)" data-u="' + u.username + '">заблокировать</button>') +
-        '</td>';
+      var stb = u.deactivated ? '<span class="warn">удалён</span>' : (u.locked ? '<span class="warn">заблокирован</span>' : '<span class="ok">активен</span>');
+      var rb = '<button class="btn btn-small btn-sec" onclick="resetPass(this)" data-u="' + u.username + '">новый пароль</button> ';
+      var bb = u.locked
+        ? '<button class="btn btn-small btn-sec" onclick="unblockUser(this)" data-u="' + u.username + '">разблокировать</button> '
+        : '<button class="btn btn-small btn-sec" onclick="blockUser(this)" data-u="' + u.username + '">заблокировать</button> ';
+      var db = '<button class="btn btn-small btn-sec" onclick="delUser(this)" data-u="' + u.username + '">удалить</button>';
+      var btns = u.admin ? rb : (u.deactivated ? db : (rb + bb + db));
+      tr.innerHTML = '<td class="mono">@' + u.username + '</td><td>' + stb + (u.admin ? ' · админ' : '') + '</td><td>' + ufmt(u.created) + '</td><td>' + btns + '</td>';
       tb.appendChild(tr);
     }});
   }}
@@ -676,7 +731,8 @@ def admin_users(x_admin_token: str = Header("")) -> dict:
             users.append({
                 "username": name,
                 "admin": bool(a.get("can_request_admin") or a.get("admin")),
-                "deactivated": bool(a.get("locked_at") or a.get("deactivated_at")),
+                "locked": a.get("locked_at") is not None,
+                "deactivated": a.get("deactivated_at") is not None,
                 "created": created,
             })
         nxt = (data.get("links") or {}).get("next") or ""
@@ -730,6 +786,31 @@ def admin_user_password(payload: dict, x_admin_token: str = Header("")) -> dict:
     return {"ok": False, "message": _mas_err(data)}
 
 
+@app.post("/admin/users/block")
+def admin_user_block(payload: dict, x_admin_token: str = Header("")) -> dict:
+    _admin_check(x_admin_token)
+    username = (payload.get("username") or "").strip().lower().lstrip("@")
+    if not USER_RE.fullmatch(username):
+        return {"ok": False, "message": "Некорректный логин."}
+    uid, attrs = _mas_user(username)
+    if not uid:
+        return {"ok": False, "message": "Пользователь не найден."}
+    if attrs.get("can_request_admin") or attrs.get("admin") or username == "admin":
+        return {"ok": False, "message": "Нельзя заблокировать администратора."}
+    okb, reason = _mas_lock(username, unlock=False)
+    return {"ok": okb, "message": "" if okb else reason}
+
+
+@app.post("/admin/users/unblock")
+def admin_user_unblock(payload: dict, x_admin_token: str = Header("")) -> dict:
+    _admin_check(x_admin_token)
+    username = (payload.get("username") or "").strip().lower().lstrip("@")
+    if not USER_RE.fullmatch(username):
+        return {"ok": False, "message": "Некорректный логин."}
+    okb, reason = _mas_lock(username, unlock=True)
+    return {"ok": okb, "message": "" if okb else reason}
+
+
 @app.post("/admin/users/delete")
 def admin_user_delete(payload: dict, x_admin_token: str = Header("")) -> dict:
     _admin_check(x_admin_token)
@@ -740,9 +821,17 @@ def admin_user_delete(payload: dict, x_admin_token: str = Header("")) -> dict:
     if not uid:
         return {"ok": False, "message": "Пользователь не найден."}
     if attrs.get("can_request_admin") or attrs.get("admin") or username == "admin":
-        return {"ok": False, "message": "Нельзя заблокировать администратора."}
-    okd, reason = matrix_deactivate(username)
-    return {"ok": okd, "message": "" if okd else reason}
+        return {"ok": False, "message": "Нельзя удалить администратора."}
+    okb, r1 = matrix_deactivate(username)
+    oke, r2 = _syn_admin_erase(username)
+    if okb and oke:
+        return {"ok": True, "message": ""}
+    parts = []
+    if not okb:
+        parts.append("блокировка: " + r1)
+    if not oke:
+        parts.append("стирание: " + r2)
+    return {"ok": False, "message": "; ".join(parts)}
 
 
 def matrix_login_check(username, password):

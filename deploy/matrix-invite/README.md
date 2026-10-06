@@ -68,3 +68,11 @@ curl -s https://names.msp-claude.online/health
   invite-portal-check) с немедленным logout — сессии «проверок» не копятся.
 - Авто-личный чат: personal-sessions (scope `urn:matrix:org.matrix.msc2967.client:api:*`,
   короткий TTL) для создателя приглашения и новичка + createRoom/join, затем revoke.
+
+## Полное удаление аккаунта в админке (06.10.2026, v7)
+
+- «заблокировать» = lock в MAS (обратимо, «разблокировать» рядом);
+- «удалить» = deactivate в MAS + стирание данных в Synapse
+  (`/_synapse/admin/v1/deactivate/<mxid>` c `{"erase": true}`) через personal-session
+  admin-аккаунта со скоупами `urn:synapse:admin:* urn:matrix:org.matrix.msc2967.client:api:*`
+  (сессия ревокается сразу после операции). Админов удалять нельзя.

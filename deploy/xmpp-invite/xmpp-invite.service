@@ -1,0 +1,15 @@
+[Unit]
+Description=MSPShield XMPP Invite Portal
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+WorkingDirectory=/opt/xmpp-invite
+EnvironmentFile=/opt/xmpp-invite/.env
+ExecStart=/opt/xmpp-invite/venv/bin/uvicorn app:app --host 127.0.0.1 --port 8895
+Restart=always
+RestartSec=3
+User=root
+
+[Install]
+WantedBy=multi-user.target

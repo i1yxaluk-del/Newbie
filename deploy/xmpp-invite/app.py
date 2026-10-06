@@ -312,7 +312,7 @@ def invite_page(token: str) -> HTMLResponse:
 <div class="card">
   <h2>2. Создайте аккаунт</h2>
   <div id="reg-form">
-    <p class="muted">Придумайте логин — его увидят коллеги (латиница/цифры, 2–32 символа).</p>
+    <p class="muted">Придумайте логин — его увидят коллеги (латиница/цифры, 2–32 символа). Логин создаётся здесь; регистрация в приложении не нужна.</p>
     <label>Логин</label>
     <input id="r-user" placeholder="например: ivan" autocomplete="off">
     <label>Пароль (можно сгенерировать)</label>
@@ -327,10 +327,11 @@ def invite_page(token: str) -> HTMLResponse:
 <div class="card">
   <h2>3. Подключение</h2>
   <ol class="steps">
-    <li>Откройте приложение → «Добавить аккаунт» → «У меня уже есть аккаунт».</li>
+    <li><b>Откройте приложение → «Добавить аккаунт» → «У меня уже есть аккаунт».</b> Не выбирайте «Регистрация / Создать аккаунт»: регистрация на сервере выключена, аккаунт уже создан на шаге 2.</li>
     <li>Введите адрес (JID) и пароль, которые появятся на экране после создания.</li>
     <li>Готово — можно писать. Голосовые сообщения, файлы и звонки работают сразу.</li>
   </ol>
+  <p class="muted">Пишет «регистрация запрещена / не работает»? Это приложение про свой пункт «Зарегистрироваться» — он не нужен: аккаунт уже создан, выбирайте «У меня уже есть аккаунт».</p>
   <p class="muted">Если приложение спросит хост и порт вручную: <b>{XMPP_DOMAIN}</b>, порт <b>5222</b> (TLS).</p>
 </div>
 <div class="card">
@@ -372,7 +373,7 @@ def invite_page(token: str) -> HTMLResponse:
         '<div class="kv"><span class="k">Сервер</span> <span class="mono" id="srv">{XMPP_DOMAIN}</span> <button class="btn btn-small btn-sec" onclick="copyText(&quot;srv&quot;)">копировать</button></div>' +
         '<div class="kv"><span class="k">Адрес (JID)</span> <span class="mono" id="jad">' + d.jid + '</span> <button class="btn btn-small btn-sec" onclick="copyText(&quot;jad&quot;)">копировать</button></div>' +
         '<div class="kv"><span class="k">Пароль</span> <span class="mono" id="pwd">' + document.getElementById("r-pass").value + '</span> <button class="btn btn-small btn-sec" onclick="copyText(&quot;pwd&quot;)">копировать</button></div>' +
-        '<p class="muted">Введите эти данные в приложении (шаг 3). Аккаунт уже работает.</p>';
+        '<p class="muted">В приложении выберите «У меня уже есть аккаунт» (НЕ «Регистрация») и введите эти данные (шаг 3). Аккаунт уже работает.</p>';
     }} else {{
       el.innerHTML = '<span class="warn">' + (d.message || d.detail || "Не получилось — проверьте данные.") + "</span>";
     }}
@@ -415,6 +416,11 @@ def invite_register(token: str, payload: dict) -> dict:
     c.commit()
     c.close()
     return {"ok": True, "jid": "%s@%s" % (username, XMPP_DOMAIN), "server": XMPP_DOMAIN}
+
+
+@app.get("/welcome/{token}")
+def welcome_redirect(token: str) -> Response:
+    return RedirectResponse(f"/i/{token}")
 
 
 @app.get("/i/{token}/qr.png")

@@ -17,7 +17,13 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Request
+
+try:
+    import io as _io
+    import qrcode as _qrcode
+except Exception:
+    _qrcode = None
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 DB_DIR = os.getenv("DB_DIR", "/opt/matrix-invite/data")
@@ -29,6 +35,7 @@ SYNAPSE_ADMIN_TOKEN = os.getenv("SYNAPSE_ADMIN_TOKEN", "")
 ELEMENT_URL = os.getenv("ELEMENT_URL", "https://e.msp-claude.online")
 INVITE_BASE = os.getenv("INVITE_BASE", "https://names.msp-claude.online")
 BRAND = os.getenv("BRAND", "MSPShield")
+COOKIE = "mxsession"
 
 USER_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{1,31}$")
 
@@ -56,6 +63,14 @@ def init():
              expires_at  TEXT,
              used_at     TEXT,
              created_by  TEXT DEFAULT 'admin'
+           )"""
+    )
+    c.execute(
+        """CREATE TABLE IF NOT EXISTS sessions (
+             token      TEXT PRIMARY KEY,
+             jid        TEXT,
+             created_at TEXT,
+             expires_at TEXT
            )"""
     )
     c.commit()
@@ -261,7 +276,8 @@ def invite_page(token: str) -> HTMLResponse:
 </div>
 <div class="card">
   <h2>Дальше</h2>
-  <p class="muted">Веб-версия: <a href="{ELEMENT_URL}">{ELEMENT_URL}</a>. Если потеряете пароль — обратитесь к администратору.</p>
+  <p class="muted">Веб-версия: <a href="{ELEMENT_URL}">{ELEMENT_URL}</a>. Если потеряете пароль — загляните в личный кабинет или обратитесь к администратору.</p>
+  <p class="muted">Личный кабинет — свои данные, приглашения коллег и смена пароля: <a href="/login">войти</a>.</p>
 </div>
 <script>
   function rndPass() {{
@@ -634,6 +650,286 @@ def admin_user_delete(payload: dict, x_admin_token: str = Header("")) -> dict:
         return {"ok": False, "message": "Нельзя удалить администратора."}
     okd, reason = matrix_deactivate(username)
     return {"ok": okd, "message": "" if okd else reason}
+
+
+def matrix_login_check(username, password):
+    body = json.dumps({
+        "type": "m.login.password",
+        "identifier": {"type": "m.id.user", "user": username},
+        "password": password,
+        "device_id": "invite-portal-check",
+    }).encode()
+    req = urllib.request.Request(SYNAPSE_URL + "/_matrix/client/v3/login", data=body,
+                                 headers={"Content-Type": "application/json"}, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            return r.status == 200
+    except Exception:
+        return False
+
+
+def _get_session(request):
+    tok = request.cookies.get(COOKIE)
+    if not tok:
+        return None
+    c = db()
+    row = c.execute("SELECT * FROM sessions WHERE token=?", (tok,)).fetchone()
+    c.close()
+    if not row:
+        return None
+    if datetime.fromisoformat(row["expires_at"]) < datetime.now(timezone.utc):
+        return None
+    return row
+
+
+def _new_session(username):
+    tok = secrets.token_urlsafe(24)
+    now = datetime.now(timezone.utc)
+    c = db()
+    c.execute("INSERT INTO sessions (token, jid, created_at, expires_at) VALUES (?,?,?,?)",
+              (tok, _mxid(username), now.isoformat(), (now + timedelta(days=30)).isoformat()))
+    c.commit()
+    c.close()
+    return tok
+
+
+def _sess_user(sess):
+    return sess["jid"].split(":", 1)[0].lstrip("@")
+
+
+@app.get("/login", response_class=HTMLResponse)
+def login_page() -> HTMLResponse:
+    body = f"""<div class="card">
+  <h1>Вход в личный кабинет</h1>
+  <p class="muted">Введите свой Matrix ID и пароль — те же, что в Element.</p>
+  <label>Matrix ID</label>
+  <input id="l-user" placeholder="@ivan или ivan@{MATRIX_DOMAIN}" autocomplete="off">
+  <label>Пароль</label>
+  <input id="l-pass" type="password" autocomplete="off">
+  <p><button class="btn btn-main" onclick="doLogin()">Войти</button></p>
+  <p class="muted" id="l-res"></p>
+</div>
+<script>
+  async function doLogin() {{
+    const el = document.getElementById("l-res");
+    el.innerHTML = "Проверяю…";
+    const r = await fetch("/login", {{ method: "POST", headers: {{"Content-Type": "application/json"}}, body: JSON.stringify({{ username: document.getElementById("l-user").value, password: document.getElementById("l-pass").value }}) }});
+    const d = await r.json().catch(() => ({{}}));
+    if (d.ok) {{ window.location.href = "/u"; }}
+    else {{ el.innerHTML = '<span class="warn">' + (d.message || "Неверный логин или пароль.") + "</span>"; }}
+  }}
+</script>"""
+    return _page("Вход — MSPShield Matrix", body)
+
+
+@app.post("/login")
+def login_submit(payload: dict) -> Response:
+    raw = (payload.get("username") or "").strip().lower()
+    password = payload.get("password") or ""
+    username = raw.lstrip("@")
+    username = username.split(":", 1)[0]
+    if "@" in username:
+        username = username.split("@", 1)[0]
+    if not username or not password:
+        return JSONResponse({"ok": False, "message": "Заполните логин и пароль."}, status_code=400)
+    if not USER_RE.fullmatch(username):
+        return JSONResponse({"ok": False, "message": "Проверьте логин."}, status_code=400)
+    if not matrix_login_check(username, password):
+        return JSONResponse({"ok": False, "message": "Неверный логин или пароль."}, status_code=401)
+    tok = _new_session(username)
+    resp = JSONResponse({"ok": True})
+    resp.set_cookie(COOKIE, tok, max_age=30 * 24 * 3600, httponly=True, samesite="lax")
+    return resp
+
+
+@app.get("/logout")
+def logout_page(request: Request) -> Response:
+    tok = request.cookies.get(COOKIE)
+    if tok:
+        c = db()
+        c.execute("DELETE FROM sessions WHERE token=?", (tok,))
+        c.commit()
+        c.close()
+    resp = RedirectResponse("/login")
+    resp.delete_cookie(COOKIE)
+    return resp
+
+
+@app.get("/u", response_class=HTMLResponse)
+def cabinet(request: Request) -> Response:
+    sess = _get_session(request)
+    if not sess:
+        return RedirectResponse("/login")
+    jid = sess["jid"]
+    body = f"""<div class="card">
+  <h1>Личный кабинет</h1>
+  <p class="muted">Вы вошли как <b>{jid}</b>. <a href="/logout">Выйти</a></p>
+</div>
+<div class="card">
+  <h2>Мои данные</h2>
+  <div class="kv"><span class="k">Сервер</span> <span class="mono" id="srv">{MATRIX_DOMAIN}</span> <button class="btn btn-small btn-sec" onclick="copyText(&quot;srv&quot;)">копировать</button></div>
+  <div class="kv"><span class="k">Matrix ID</span> <span class="mono" id="jad">{jid}</span> <button class="btn btn-small btn-sec" onclick="copyText(&quot;jad&quot;)">копировать</button></div>
+  <p class="muted">Новое устройство: установите Element и войдите этим ID и паролем. Чтобы коллега добавил вас — передайте ему свой адрес.</p>
+</div>
+<div class="card">
+  <h2>Подключение (ссылка и QR)</h2>
+  <p class="muted">Ссылка открывает Element с уже выбранным сервером. QR можно отсканировать камерой телефона — откроется Element (веб-версия), дальше войдите своим ID и паролем. В мобильном приложении сервер указывается вручную: {MATRIX_DOMAIN}.</p>
+  <p><a class="btn btn-main" href="https://e.msp-claude.online/#/login?server={MATRIX_DOMAIN}">Открыть Element</a></p>
+  <p><img src="/u/qr.png" alt="QR-код" style="max-width:200px"></p>
+</div>
+<div class="card">
+  <h2>Сменить пароль</h2>
+  <label>Текущий пароль</label>
+  <input id="pw-old" type="password" autocomplete="off">
+  <label>Новый пароль</label>
+  <input id="pw-new" autocomplete="off">
+  <p class="muted"><button class="btn btn-small btn-sec" onclick="genPass()">Сгенерировать</button></p>
+  <p><button class="btn btn-main" onclick="changePass()">Сменить пароль</button></p>
+  <p class="muted" id="pw-res"></p>
+</div>
+<div class="card">
+  <h2>Пригласить коллегу</h2>
+  <p class="muted">Создайте ссылку и отправьте её коллеге: он сам выберет логин и пароль.</p>
+  <label>Заметка (кому)</label>
+  <input id="iv-note" placeholder="Пётр, отдел продаж…">
+  <p><button class="btn btn-main" onclick="createInvite()">Создать приглашение</button></p>
+  <p class="muted" id="iv-res"></p>
+  <table><thead><tr><th>Создано</th><th>Логин</th><th>Заметка</th><th>Статус</th><th></th></tr></thead>
+  <tbody id="rows"></tbody></table>
+</div>
+<script>
+  const BASE = "{INVITE_BASE}";
+  function fmt(s) {{ if (!s) return "—"; return s.slice(0, 16).replace("T", " "); }}
+  function status(i) {{
+    if (i.used_at) return '<span class="ok">использовано</span>';
+    if (new Date(i.expires_at) < new Date()) return '<span class="warn">истекло</span>';
+    return "активно";
+  }}
+  function copyText(id) {{ const el = document.getElementById(id); if (el) {{ navigator.clipboard.writeText(el.textContent.trim()); }} }}
+  function copyTextUrl(btn) {{ navigator.clipboard.writeText(btn.dataset.u); }}
+  function rndPass() {{
+    const a = new Uint8Array(12);
+    crypto.getRandomValues(a);
+    const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789";
+    let s = "";
+    for (const x of a) {{ s += chars[x % chars.length]; }}
+    return s + "!" + (Math.floor(Math.random() * 90) + 10);
+  }}
+  function genPass() {{ document.getElementById("pw-new").value = rndPass(); }}
+  async function changePass() {{
+    const el = document.getElementById("pw-res");
+    el.innerHTML = "Меняю…";
+    const r = await fetch("/u/password", {{ method: "POST", headers: {{"Content-Type": "application/json"}}, body: JSON.stringify({{ current: document.getElementById("pw-old").value, password: document.getElementById("pw-new").value }}) }});
+    const d = await r.json().catch(() => ({{}}));
+    if (d.ok) {{
+      el.innerHTML = '<span class="ok">Пароль изменён.</span> Новый пароль: <span class="mono" id="newpw">' + d.password + '</span> <button class="btn btn-small btn-sec" onclick="copyText(&quot;newpw&quot;)">копировать</button>';
+    }} else {{ el.innerHTML = '<span class="warn">' + (d.message || "Ошибка") + "</span>"; }}
+  }}
+  async function createInvite() {{
+    const el = document.getElementById("iv-res");
+    el.innerHTML = "Создаю…";
+    const r = await fetch("/u/invites", {{ method: "POST", headers: {{"Content-Type": "application/json"}}, body: JSON.stringify({{ note: document.getElementById("iv-note").value }}) }});
+    const d = await r.json().catch(() => ({{}}));
+    if (d.ok) {{
+      el.innerHTML = '<span class="ok">Создано:</span> <span class="mono" id="newinv">' + d.url + '</span> <button class="btn btn-small btn-sec" onclick="copyText(&quot;newinv&quot;)">копировать</button> — отправьте коллеге.';
+      document.getElementById("iv-note").value = "";
+      loadInvites();
+    }} else {{ el.innerHTML = '<span class="warn">' + (d.message || "Ошибка") + "</span>"; }}
+  }}
+  async function delInvite(btn) {{
+    if (!confirm("Удалить приглашение?")) return;
+    await fetch("/u/invites/" + btn.dataset.id, {{method: "DELETE"}});
+    loadInvites();
+  }}
+  async function loadInvites() {{
+    const r = await fetch("/u/invites");
+    const d = await r.json().catch(() => ({{}}));
+    const tb = document.getElementById("rows");
+    tb.innerHTML = "";
+    (d.invites || []).forEach(i => {{
+      const tr = document.createElement("tr");
+      tr.innerHTML = "<td>" + fmt(i.created_at) + '</td><td class="mono">' + (i.username || "—") +
+        "</td><td>" + (i.note || "") + "</td><td>" + status(i) +
+        '</td><td><a href="/i/' + i.token + '" target="_blank">открыть</a> ' +
+        '<button class="btn btn-small btn-sec" onclick="copyTextUrl(this)" data-u="' + BASE + '/i/' + i.token + '">копировать</button> ' +
+        '<button class="btn btn-small btn-sec" onclick="delInvite(this)" data-id="' + i.id + '">удалить</button></td>';
+      tb.appendChild(tr);
+    }});
+  }}
+  loadInvites();
+</script>"""
+    return _page("Личный кабинет — MSPShield Matrix", body)
+
+
+@app.get("/u/qr.png")
+def cabinet_qr(request: Request) -> Response:
+    sess = _get_session(request)
+    if not sess:
+        raise HTTPException(status_code=401, detail="auth")
+    if _qrcode is None:
+        raise HTTPException(status_code=503, detail="qr unavailable")
+    url = "https://e.msp-claude.online/#/login?server=" + MATRIX_DOMAIN
+    img = _qrcode.make(url)
+    buf = _io.BytesIO()
+    img.save(buf, format="PNG")
+    return Response(buf.getvalue(), media_type="image/png")
+
+
+@app.get("/u/invites")
+def u_invites(request: Request) -> dict:
+    sess = _get_session(request)
+    if not sess:
+        raise HTTPException(status_code=401, detail="auth")
+    uname = _sess_user(sess)
+    c = db()
+    items = [dict(r) for r in c.execute(
+        "SELECT id, token, username, note, created_at, expires_at, used_at FROM invites "
+        "WHERE created_by=? ORDER BY id DESC LIMIT 100", (uname,))]
+    c.close()
+    return {"ok": True, "invites": items}
+
+
+@app.post("/u/invites")
+def u_invite_create(request: Request, payload: dict) -> dict:
+    sess = _get_session(request)
+    if not sess:
+        raise HTTPException(status_code=401, detail="auth")
+    uname = _sess_user(sess)
+    return _create_invite(payload.get("note", ""), 72, created_by=uname)
+
+
+@app.delete("/u/invites/{inv_id}")
+def u_invite_delete(request: Request, inv_id: int) -> dict:
+    sess = _get_session(request)
+    if not sess:
+        raise HTTPException(status_code=401, detail="auth")
+    uname = _sess_user(sess)
+    c = db()
+    c.execute("DELETE FROM invites WHERE id=? AND created_by=?", (inv_id, uname))
+    c.commit()
+    c.close()
+    return {"ok": True}
+
+
+@app.post("/u/password")
+def u_password(request: Request, payload: dict) -> dict:
+    sess = _get_session(request)
+    if not sess:
+        raise HTTPException(status_code=401, detail="auth")
+    uname = _sess_user(sess)
+    current = payload.get("current") or ""
+    newpw = payload.get("password") or ""
+    if not newpw:
+        newpw = gen_password()
+    if len(newpw) < 8:
+        return {"ok": False, "message": "Новый пароль — минимум 8 символов."}
+    if not matrix_login_check(uname, current):
+        return {"ok": False, "message": "Текущий пароль неверен."}
+    st, data = _syn_api("PUT", "/_synapse/admin/v2/users/" + urllib.parse.quote(_mxid(uname), safe=""),
+                        {"password": newpw})
+    if st in (200, 201):
+        return {"ok": True, "password": newpw}
+    return {"ok": False, "message": data.get("error") or ("HTTP %s" % st)}
 
 
 @app.get("/welcome/{token}")

@@ -233,7 +233,7 @@ def invite_page(token: str) -> HTMLResponse:
             '<p class="ok">По этой ссылке аккаунт уже создан.</p>' + mxline +
             '<p><a class="btn btn-main" href="' + ELEMENT_URL + '/#/login?server=' + MATRIX_DOMAIN + '">Открыть Element — сервер подставится сам</a></p>'
             '<p><img src="/connect/qr.png" alt="QR для настройки Element" style="max-width:190px;background:#fff;padding:6px;border-radius:8px"></p>'
-            '<p class="muted">Отсканируйте QR камерой телефона — сервер подставится автоматически. '
+            '<p class="muted">QR — сканируйте обычной камерой телефона (откроется веб-версия с готовым сервером). В приложении: «Войти» → сервер ' + MATRIX_DOMAIN + '. '
             'Забыли пароль — попросите администратора выдать новый.</p></div>',
         )
 
@@ -271,7 +271,7 @@ def invite_page(token: str) -> HTMLResponse:
     <li>Если спросит адрес сервера — укажите <b>{MATRIX_DOMAIN}</b> (в мобильном приложении: «Изменить»).</li>
     <li>Введите Matrix ID (<span class="mono">@имя:{MATRIX_DOMAIN}</span>) и пароль.</li>
   </ol>
-  <p class="muted">После создания аккаунта появится ссылка и QR — так Element настроится в один шаг.</p>
+  <p class="muted">После создания аккаунта появится ссылка и QR с короткой инструкцией, как войти в приложении и в веб-версии.</p>
 </div>
 <div class="card">
   <h2>Как добавить коллег</h2>
@@ -322,7 +322,8 @@ def invite_page(token: str) -> HTMLResponse:
         '<p><b>Быстрая настройка (ссылка и QR)</b></p>' +
         '<p><a class="btn btn-main" href="{ELEMENT_URL}/#/login?server={MATRIX_DOMAIN}">Открыть Element — сервер подставится сам</a></p>' +
         '<p><img src="/connect/qr.png" alt="QR для настройки Element" style="max-width:190px;background:#fff;padding:6px;border-radius:8px"></p>' +
-        '<p class="muted">Или отсканируйте QR камерой телефона — откроется Element с уже заполненным сервером <b>{MATRIX_DOMAIN}</b>. Останется ввести логин и пароль выше.</p>';
+        '<p class="muted">QR: наведите <b>обычную камеру телефона</b> — откроется веб-версия Element с уже подставленным сервером. В приложении (Element / Element X): «Войти» → сервер <b>{MATRIX_DOMAIN}</b> → логин и пароль выше.</p>' +
+        '<p class="muted">Не сканируйте этот QR через «Войти по QR» внутри Element — тот сканер только для привязки второго устройства к уже настроенному аккаунту (он ответит «неверный QR-код», это нормально).</p>';
     }} else {{
       el.innerHTML = '<span class="warn">' + (d.message || d.detail || "Не получилось — проверьте данные.") + "</span>";
     }}
@@ -785,7 +786,8 @@ def cabinet(request: Request) -> Response:
 </div>
 <div class="card">
   <h2>Подключение (ссылка и QR)</h2>
-  <p class="muted">Ссылка открывает Element с уже выбранным сервером. QR можно отсканировать камерой телефона — откроется Element (веб-версия), дальше войдите своим ID и паролем. В мобильном приложении сервер указывается вручную: {MATRIX_DOMAIN}.</p>
+  <p class="muted">Ссылка открывает Element с уже выбранным сервером. QR сканируйте обычной камерой телефона — откроется Element (веб-версия), дальше войдите своим ID и паролем. В мобильном приложении сервер указывается вручную: {MATRIX_DOMAIN}.</p>
+  <p class="muted">Сканер «Войти по QR» внутри Element здесь ни при чём — он только для привязки второго устройства к уже настроенному аккаунту.</p>
   <p><a class="btn btn-main" href="https://e.msp-claude.online/#/login?server={MATRIX_DOMAIN}">Открыть Element</a></p>
   <p><img src="/u/qr.png" alt="QR-код" style="max-width:200px"></p>
 </div>

@@ -36,6 +36,7 @@ modules_enabled = {
     "invites_adhoc";    -- ad-hoc команды для управления приглашениями
     "invites_register"; -- регистрация только по инвайт-токену
     "invites_api";      -- REST API приглашений (для портала)
+    "admin_shell";      -- консоль prosodyctl shell (локально)
     -- прочее
     "websocket";      -- веб-клиенты (через Caddy)
     "cloud_notify";   -- push (XEP-0357, UnifiedPush)

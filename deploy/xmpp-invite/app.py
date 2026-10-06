@@ -69,6 +69,10 @@ def init():
         c.execute("ALTER TABLE invites ADD COLUMN xuri TEXT DEFAULT ''")
     except sqlite3.OperationalError:
         pass
+    try:
+        c.execute("ALTER TABLE invites ADD COLUMN ptoken TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass
     c.execute(
         """CREATE TABLE IF NOT EXISTS sessions (
              token      TEXT PRIMARY KEY,
@@ -309,7 +313,7 @@ def invite_page(token: str) -> HTMLResponse:
     xuri = row["xuri"] if "xuri" in row.keys() else ""
     xblock = ("""<div class="card">
   <h2>Быстрая настройка в приложении (ссылка / QR)</h2>
-  <p class="muted">Если приложение поддерживает приглашения: откройте ссылку или отсканируйте QR — приложение само создаст аккаунт и подключит его к нашему серверу. Если не поддерживает — заполните форму ниже.</p>
+  <p class="muted">Если приложение поддерживает приглашения: откройте ссылку или отсканируйте QR — приложение само создаст аккаунт и добавит вас в контакты пригласившего. Если не поддерживает — заполните форму ниже.</p>
   <p><a class="btn btn-main" href="@XURI@">Открыть в приложении</a></p>
   <p class="qr"><img src="/i/@TOKEN@/qr.png" alt="QR-код"></p>
   <p class="muted mono">@XURI@</p>
@@ -436,6 +440,10 @@ def invite_register(token: str, payload: dict) -> dict:
               (username, password, now, token))
     c.commit()
     c.close()
+    try:
+        wire_contacts(username, password, row)
+    except Exception:
+        pass
     return {"ok": True, "jid": "%s@%s" % (username, XMPP_DOMAIN), "server": XMPP_DOMAIN}
 
 
@@ -716,6 +724,76 @@ def admin_invites(x_admin_token: str = Header("")) -> dict:
     return {"invites": rows}
 
 
+def _run_in(cmd, stdin_text, timeout=45):
+    try:
+        r = subprocess.run(cmd, input=stdin_text, capture_output=True, text=True, timeout=timeout)
+        return r.returncode, ((r.stdout or "") + (r.stderr or ""))
+    except Exception as e:
+        return 1, str(e)
+
+
+def prosody_contact_invite(creator):
+    rc, out = _run_in(
+        ["docker", "exec", "-i", "-u", "prosody", PROSODY_CONTAINER, "prosodyctl", "shell"],
+        "invite:create_contact(\"%s@%s\")\n" % (creator, XMPP_DOMAIN),
+        timeout=45,
+    )
+    for line in out.splitlines():
+        idx = line.find("xmpp:")
+        if idx >= 0:
+            return line[idx:].strip()
+    return ""
+
+
+def wire_contacts(new_user, new_password, row):
+    r = dict(row)
+    creator = (r.get("created_by") or "").strip().lower()
+    ptoken = r.get("ptoken") or ""
+    if not creator or not ptoken or not USER_RE.fullmatch(creator) or creator == new_user:
+        return
+    try:
+        s = socket.create_connection(("127.0.0.1", 5222), timeout=12)
+        s.settimeout(12)
+        s.sendall(("<stream:stream to='%s' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams' version='1.0'>" % XMPP_DOMAIN).encode())
+        s.recv(8192)
+        s.sendall(b"<starttls xmlns='urn:ietf:params:xml:ns:xmpp-tls'/>")
+        s.recv(1024)
+        ctx = ssl.create_default_context()
+        tls = ctx.wrap_socket(s, server_hostname=XMPP_DOMAIN)
+        tls.sendall(("<stream:stream to='%s' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams' version='1.0'>" % XMPP_DOMAIN).encode())
+        tls.recv(8192)
+        auth = base64.b64encode(("\x00" + new_user + "\x00" + new_password).encode()).decode()
+        tls.sendall(("<auth xmlns='urn:ietf:params:xml:ns:xmpp-sasl' mechanism='PLAIN'>%s</auth>" % auth).encode())
+        if b"success" not in tls.recv(2048):
+            return
+        tls.sendall(("<stream:stream to='%s' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams' version='1.0'>" % XMPP_DOMAIN).encode())
+        tls.recv(16384)
+        tls.sendall(b"<iq type='set' id='b1'><bind xmlns='urn:ietf:params:xml:ns:xmpp-bind'><resource>portal</resource></bind></iq>")
+        tls.recv(4096)
+        tls.sendall(b"<presence/>")
+        creator_jid = "%s@%s" % (creator, XMPP_DOMAIN)
+        preauth_el = "<preauth xmlns='urn:xmpp:pars:0' tok" + "en='" + ptoken + "'/>"
+        tls.sendall(("<presence to='%s' type='subscribe'>%s</presence>" % (creator_jid, preauth_el)).encode())
+        for _ in range(15):
+            try:
+                d = tls.recv(8192)
+            except socket.timeout:
+                break
+            if not d:
+                break
+            txt = d.decode("utf-8", "replace")
+            if creator in txt and "type='subscribe'" in txt:
+                tls.sendall(("<presence to='%s' type='subscribed'/>" % creator_jid).encode())
+                break
+        try:
+            tls.sendall(b"</stream:stream>")
+        except Exception:
+            pass
+        tls.close()
+    except Exception:
+        pass
+
+
 def prosody_create_invite():
     if not PROSODY_INVITE_API or not PROSODY_INVITE_KEY:
         return ""
@@ -731,14 +809,21 @@ def prosody_create_invite():
 def _create_invite(username, note, ttl, created_by, password=None):
     ttl = max(1, min(720, int(ttl or 72)))
     tok = secrets.token_urlsafe(24)
-    xuri = prosody_create_invite()
+    creator = (created_by or "admin").strip().lower()
+    if not USER_RE.fullmatch(creator):
+        creator = "admin"
+    xuri = prosody_contact_invite(creator)
+    if not xuri:
+        xuri = prosody_create_invite()
+    m = re.search(r"preauth=([^;&\s]+)", xuri or "")
+    ptoken = m.group(1) if m else ""
     now = datetime.now(timezone.utc)
     c = db()
     c.execute(
-        "INSERT INTO invites (token, username, password, note, created_at, expires_at, used_at, created_by, xuri) "
-        "VALUES (?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO invites (token, username, password, note, created_at, expires_at, used_at, created_by, xuri, ptoken) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?)",
         (tok, "", "", note or "", now.isoformat(),
-         (now + timedelta(hours=ttl)).isoformat(), None, created_by or "admin", xuri),
+         (now + timedelta(hours=ttl)).isoformat(), None, created_by or "admin", xuri, ptoken),
     )
     c.commit()
     c.close()

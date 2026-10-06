@@ -1,0 +1,13 @@
+{
+  "default_server_config": {
+    "m.homeserver": {
+      "base_url": "https://m.msp-claude.online",
+      "server_name": "m.msp-claude.online"
+    }
+  },
+  "livekit": {
+    "livekit_service_url": "https://dht.msp-claude.online/livekit/jwt"
+  },
+  "brand": "MSPShield",
+  "disable_guests": true
+}

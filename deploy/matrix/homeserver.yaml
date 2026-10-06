@@ -49,7 +49,7 @@ allow_guest_access: false
 # ── Медиа: не забиваем сервер ─────────────────────────────────────
 max_upload_size: 100M
 media_retention:
-  local_media_lifetime: 30d      # своя медиа живёт 30 дней, потом удаляется
+  local_media_lifetime: 365d     # свои файлы храним год, дальше — только у тех, у кого скачаны
   remote_media_lifetime: 7d
 
 # ── Звонки через наш coturn ───────────────────────────────────────

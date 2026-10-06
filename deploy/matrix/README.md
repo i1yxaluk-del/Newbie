@@ -63,3 +63,10 @@ curl -s -o /dev/null -w '%{http_code}\n' https://e.msp-claude.online/
 - За это отвечает `user_directory.search_all_users: false` в `homeserver.yaml`.
   Не включать `true` на приватном сервере — иначе в каталоге видны все аккаунты.
 - Изменение применяется после перезапуска контейнера `msp-synapse`.
+
+## Портал приглашений
+
+- Отдельный портал: `https://names.msp-claude.online` (см. `deploy/matrix-invite/`).
+- Создаёт Matrix-аккаунты через Synapse Admin API; на странице приглашения есть
+  короткая инструкция «Как добавить коллег».
+- Токены/секреты — в `~/msp-deploy-secrets.txt` на VM (раздел [MATRIX-INVITE]).

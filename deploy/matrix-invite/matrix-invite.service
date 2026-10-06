@@ -1,0 +1,14 @@
+[Unit]
+Description=MSPShield Matrix Invite Portal
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/matrix-invite
+EnvironmentFile=/opt/matrix-invite/.env
+ExecStart=/opt/matrix-invite/venv/bin/uvicorn app:app --host 127.0.0.1 --port 8896
+Restart=always
+RestartSec=3
+User=root
+
+[Install]
+WantedBy=multi-user.target

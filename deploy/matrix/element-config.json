@@ -23,6 +23,13 @@
     "UIFeature.feedback": false
   },
   "room_directory": {
-    "servers": ["m.msp-claude.online"]
+    "servers": [
+      "m.msp-claude.online"
+    ]
+  },
+  "element_call": {
+    "url": "https://dht.msp-claude.online",
+    "use_exclusively": true,
+    "brand": "MSPShield"
   }
 }

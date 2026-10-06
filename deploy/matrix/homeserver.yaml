@@ -88,3 +88,24 @@ rc_login:
   failed_attempts:
     per_second: 0.5
     burst_count: 10
+
+# ── MatrixRTC / Element Call (06.10.2026) ────────────────────────
+experimental_features:
+  msc3266_enabled: true
+  msc4143_enabled: true
+  msc4222_enabled: true
+
+max_event_delay_duration: 24h
+
+rc_message:
+  per_second: 0.5
+  burst_count: 30
+
+rc_delayed_event_mgmt:
+  per_second: 1
+  burst_count: 20
+
+matrix_rtc:
+  transports:
+    - type: livekit
+      livekit_service_url: https://dht.msp-claude.online/livekit/jwt

@@ -796,7 +796,7 @@ def admin_page(token: str = "") -> HTMLResponse:
     const d = await r.json().catch(() => ({{}}));
     if (d.ok) {{
       el.innerHTML = '<span class="ok">Создано:</span> <span class="mono">' + d.url +
-        "</span><br><span class=\"muted\">JID: " + d.jid + " · пароль: <b>" + d.password + "</b> (передайте его отдельно или дайте ссылку)</span>";
+        "</span><br><span class=\\"muted\\">JID: " + d.jid + " · пароль: <b>" + d.password + "</b> (передайте его отдельно или дайте ссылку)</span>";
       document.getElementById("f-user").value = "";
       document.getElementById("f-pass").value = "";
       document.getElementById("f-note").value = "";

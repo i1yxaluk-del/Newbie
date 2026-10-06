@@ -13,6 +13,7 @@ import os
 import re
 import secrets
 import sqlite3
+import subprocess
 import time
 import urllib.error
 import urllib.parse
@@ -78,6 +79,14 @@ def init():
              jid        TEXT,
              created_at TEXT,
              expires_at TEXT
+           )"""
+    )
+    c.execute(
+        """CREATE TABLE IF NOT EXISTS deleted_users (
+             id         INTEGER PRIMARY KEY AUTOINCREMENT,
+             username   TEXT,
+             deleted_at TEXT,
+             note       TEXT DEFAULT ''
            )"""
     )
     c.commit()
@@ -242,6 +251,28 @@ def _syn_admin_erase(username):
                 _mas_api("POST", "/api/admin/v1/personal-sessions/" + urllib.parse.quote(psid) + "/revoke", {})
         except Exception:
             pass
+
+
+def _purge_user(username):
+    try:
+        r = subprocess.run(["/opt/mas/purge-user.sh", username], capture_output=True, text=True, timeout=120)
+        out = ((r.stdout or "") + (r.stderr or "")).strip()
+        if "PURGE_OK" in out:
+            return True, "ok"
+        return False, (out or ("rc=%s" % r.returncode))[:200]
+    except Exception as e:
+        return False, str(e)
+
+
+def _log_deleted(username, note):
+    try:
+        c = db()
+        c.execute("INSERT INTO deleted_users (username, deleted_at, note) VALUES (?,?,?)",
+                  (username, datetime.now(timezone.utc).isoformat(), note))
+        c.commit()
+        c.close()
+    except Exception:
+        pass
 
 
 # ── общее ────────────────────────────────────────────────────────────────────
@@ -527,8 +558,18 @@ def admin_page(token: str = "") -> HTMLResponse:
   <input id="u-pass" autocomplete="off">
   <p><button class="btn btn-main" onclick="createUser()">Добавить пользователя</button></p>
   <p class="muted" id="u-res"></p>
-  <table><thead><tr><th>Логин</th><th>Статус</th><th>Создан</th><th></th></tr></thead>
-  <tbody id="urows"></tbody></table>
+  <p>
+    <button class="btn btn-small btn-sec" id="tabA" onclick="showTab('active')">Активные</button>
+    <button class="btn btn-small btn-sec" id="tabD" onclick="showTab('deleted')">Удалённые</button>
+  </p>
+  <div id="paneA">
+    <table><thead><tr><th>Логин</th><th>Статус</th><th>Создан</th><th></th></tr></thead>
+    <tbody id="urows"></tbody></table>
+  </div>
+  <div id="paneD" style="display:none">
+    <table><thead><tr><th>Логин</th><th>Удалён</th><th>Примечание</th></tr></thead>
+    <tbody id="drows"></tbody></table>
+  </div>
 </div>
 <script>
   const TOKEN = "{ADMIN_TOKEN}";
@@ -632,7 +673,7 @@ def admin_page(token: str = "") -> HTMLResponse:
     loadUsers();
   }}
   async function delUser(btn) {{
-    if (!confirm("Удалить @" + btn.dataset.u + " НАВСЕГДА? Аккаунт будет отключён, данные (устройства, сообщения) стёрты. Это необратимо!")) return;
+    if (!confirm("Удалить @" + btn.dataset.u + " НАВСЕГДА? Аккаунт будет отключён, данные стёрты, а логин освободится для повторного использования. Необратимо!")) return;
     await fetch("/admin/users/delete", {{ method: "POST", headers: {{"Content-Type": "application/json", "X-Admin-Token": TOKEN}}, body: JSON.stringify({{username: btn.dataset.u}}) }});
     loadUsers();
   }}
@@ -651,6 +692,26 @@ def admin_page(token: str = "") -> HTMLResponse:
       var db = '<button class="btn btn-small btn-sec" onclick="delUser(this)" data-u="' + u.username + '">удалить</button>';
       var btns = u.admin ? rb : (u.deactivated ? '' : (rb + bb + db));
       tr.innerHTML = '<td class="mono">@' + u.username + '</td><td>' + stb + (u.admin ? ' · админ' : '') + '</td><td>' + ufmt(u.created) + '</td><td>' + btns + '</td>';
+      tb.appendChild(tr);
+    }});
+  }}
+  function showTab(t) {{
+    document.getElementById("paneA").style.display = t === "active" ? "" : "none";
+    document.getElementById("paneD").style.display = t === "deleted" ? "" : "none";
+    if (t === "deleted") loadDeleted();
+  }}
+  async function loadDeleted() {{
+    const r = await fetch("/admin/deleted", {{headers: {{"X-Admin-Token": TOKEN}}}});
+    const d = await r.json().catch(() => ({{}}));
+    const tb = document.getElementById("drows");
+    tb.innerHTML = "";
+    const arr = d.users || [];
+    if (!arr.length) {{
+      tb.innerHTML = '<tr><td colspan="3" class="muted">Пока пусто</td></tr>';
+    }}
+    arr.forEach(u => {{
+      const tr = document.createElement("tr");
+      tr.innerHTML = '<td class="mono">@' + u.username + '</td><td>' + (u.deleted_at || "").slice(0, 16).replace("T", " ") + '</td><td class="muted">' + (u.note || "") + '</td>';
       tb.appendChild(tr);
     }});
   }}
@@ -723,6 +784,8 @@ def admin_users(x_admin_token: str = Header("")) -> dict:
             name = a.get("username") or ""
             if not name or name.startswith("_"):
                 continue
+            if a.get("deactivated_at"):
+                continue
             created = 0
             try:
                 created = int(datetime.fromisoformat((a.get("created_at") or "").replace("Z", "+00:00")).timestamp())
@@ -786,6 +849,15 @@ def admin_user_password(payload: dict, x_admin_token: str = Header("")) -> dict:
     return {"ok": False, "message": _mas_err(data)}
 
 
+@app.get("/admin/deleted")
+def admin_deleted(x_admin_token: str = Header("")) -> dict:
+    _admin_check(x_admin_token)
+    c = db()
+    rows = c.execute("SELECT username, deleted_at, note FROM deleted_users ORDER BY id DESC LIMIT 200").fetchall()
+    c.close()
+    return {"ok": True, "users": [dict(r) for r in rows]}
+
+
 @app.post("/admin/users/block")
 def admin_user_block(payload: dict, x_admin_token: str = Header("")) -> dict:
     _admin_check(x_admin_token)
@@ -824,14 +896,18 @@ def admin_user_delete(payload: dict, x_admin_token: str = Header("")) -> dict:
         return {"ok": False, "message": "Нельзя удалить администратора."}
     okb, r1 = matrix_deactivate(username)
     oke, r2 = _syn_admin_erase(username)
-    if okb and oke:
-        return {"ok": True, "message": ""}
-    parts = []
+    okp, r3 = _purge_user(username)
+    problems = []
     if not okb:
-        parts.append("блокировка: " + r1)
+        problems.append("блокировка: " + r1)
     if not oke:
-        parts.append("стирание: " + r2)
-    return {"ok": False, "message": "; ".join(parts)}
+        problems.append("стирание данных: " + r2)
+    if not okp:
+        problems.append("освобождение логина: " + r3)
+    _log_deleted(username, "; ".join(problems) if problems else "удалён полностью")
+    if problems:
+        return {"ok": False, "message": "; ".join(problems)}
+    return {"ok": True, "message": ""}
 
 
 def matrix_login_check(username, password):

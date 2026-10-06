@@ -49,13 +49,14 @@ allow_guest_access: false
 # ── Медиа: не забиваем сервер ─────────────────────────────────────
 max_upload_size: 100M
 media_retention:
-  local_media_lifetime: 365d     # свои файлы храним год, дальше — только у тех, у кого скачаны
+  local_media_lifetime: 30d      # сервер — транзитное окно передачи; скачанное остаётся у клиентов
   remote_media_lifetime: 7d
 
 # ── Звонки через наш coturn ───────────────────────────────────────
 turn_uris:
   - "turn:turn.msp-claude.online:3478?transport=udp"
   - "turn:turn.msp-claude.online:3478?transport=tcp"
+  - "turns:turn.msp-claude.online:5349?transport=tcp"
 turn_shared_secret: "__TURN_SECRET__"
 turn_user_lifetime: 86400000
 turn_allow_guests: false

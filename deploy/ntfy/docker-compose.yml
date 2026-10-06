@@ -1,0 +1,16 @@
+name: ntfy
+services:
+  ntfy:
+    image: binwiederhier/ntfy
+    container_name: msp-ntfy
+    restart: unless-stopped
+    command: serve
+    environment:
+      NTFY_BASE_URL: https://push.msp-claude.online
+      NTFY_CACHE_FILE: /var/cache/ntfy/cache.db
+      NTFY_BEHIND_PROXY: "true"
+      NTFY_LISTEN_HTTP: ":80"
+    volumes:
+      - /opt/ntfy/cache:/var/cache/ntfy
+    ports:
+      - "127.0.0.1:8891:80"

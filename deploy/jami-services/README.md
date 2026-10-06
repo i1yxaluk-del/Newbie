@@ -1,3 +1,6 @@
+> **Де-комиссия 06.10.2026:** стек выведен из эксплуатации (пилот Jami завершён в пользу XMPP).
+> Файлы сохранены как исторические; актуальный push-стек — `deploy/ntfy/`, детали — `docs/deployment/JAMI_DECOMMISSION.md`.
+
 # jami-services — вспомогательные сервисы Jami (пилот)
 
 Стек (docker compose) для self-hosted Jami: **Name Service**, **портал приглашений**, **UnifiedPush (ntfy)**.

@@ -198,7 +198,15 @@ def matrix_create(username, password):
     st2, d2 = _mas_api("POST", "/api/admin/v1/users/" + urllib.parse.quote(uid) + "/set-password",
                        {"pass" + "word": password})
     if not (200 <= st2 < 300):
-        return False, _mas_err(d2, "set-password HTTP %s" % st2)
+        msg = _mas_err(d2, "set-password HTTP %s" % st2)
+        try:
+            _purge_user(username)
+        except Exception:
+            pass
+        low = msg.lower()
+        if "weak" in low or "complex" in low:
+            return False, "система безопасности отклонила пароль как слишком простой — придумайте сложнее (12+ символов, заглавные+цифры, или фраза из нескольких слов)"
+        return False, msg
     return True, "ok"
 
 
@@ -399,6 +407,7 @@ def invite_page(token: str) -> HTMLResponse:
     <label>Пароль (можно сгенерировать)</label>
     <input id="r-pass" autocomplete="off">
     <p class="muted"><button class="btn btn-small btn-sec" onclick="genPass()">Сгенерировать пароль</button></p>
+    <p class="muted">Слишком простой пароль система безопасности отклонит — надёжнее нажать «Сгенерировать пароль».</p>
     <button class="btn btn-main" onclick="registerAcc()">Создать аккаунт</button>
     <p class="muted" id="reg-res"></p>
     <p class="muted">После создания приглашение станет недействительным — это нормально.</p>

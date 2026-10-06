@@ -74,7 +74,7 @@ password_config:
 # Приглашения и поиск — только внутри нашего сервера
 user_directory:
   enabled: true
-  search_all_users: true
+  search_all_users: false   # приватность: в поиске только общие комнаты
   prefer_local_users: true
 
 rc_login:

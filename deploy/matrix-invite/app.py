@@ -79,11 +79,11 @@ def init():
 
 # ── Synapse Admin API ────────────────────────────────────────────────────────
 
-def _syn_api(method, path, data=None):
+def _syn_api(method, path, data=None, bearer=None):
     if not SYNAPSE_ADMIN_TOKEN:
         return 0, {"error": "SYNAPSE_ADMIN_TOKEN не задан"}
     hdr = {
-        "Authorization": "Bearer " + SYNAPSE_ADMIN_TOKEN,
+        "Authorization": "Bearer " + (bearer or SYNAPSE_ADMIN_TOKEN),
         "Content-Type": "application/json",
     }
     body = json.dumps(data).encode() if data is not None else None
@@ -356,6 +356,10 @@ def invite_register(token: str, payload: dict) -> dict:
               (username, password, now, token))
     c.commit()
     c.close()
+    try:
+        wire_dm(username, row)
+    except Exception:
+        pass
     return {"ok": True, "mxid": _mxid(username), "server": MATRIX_DOMAIN}
 
 
@@ -930,6 +934,27 @@ def u_password(request: Request, payload: dict) -> dict:
     if st in (200, 201):
         return {"ok": True, "password": newpw}
     return {"ok": False, "message": data.get("error") or ("HTTP %s" % st)}
+
+
+def wire_dm(new_user, row):
+    r = dict(row)
+    creator = (r.get("created_by") or "").strip().lower()
+    if not creator or not USER_RE.fullmatch(creator) or creator == new_user:
+        return
+    st, tok = _syn_api("POST", "/_synapse/admin/v1/users/" + urllib.parse.quote(_mxid(creator), safe="") + "/login", {})
+    inviter_token = tok.get("access_token") if st == 200 else ""
+    if not inviter_token:
+        return
+    st2, room = _syn_api("POST", "/_matrix/client/v3/createRoom",
+                         {"preset": "trusted_private_chat", "is_direct": True, "invite": [_mxid(new_user)]},
+                         bearer=inviter_token)
+    rid = room.get("room_id") if (st2 in (200, 201) and isinstance(room, dict)) else ""
+    if not rid:
+        return
+    st3, tok3 = _syn_api("POST", "/_synapse/admin/v1/users/" + urllib.parse.quote(_mxid(new_user), safe="") + "/login", {})
+    t3 = tok3.get("access_token") if st3 == 200 else ""
+    if t3:
+        _syn_api("POST", "/_matrix/client/v3/rooms/" + urllib.parse.quote(rid, safe="") + "/join", {}, bearer=t3)
 
 
 @app.get("/welcome/{token}")

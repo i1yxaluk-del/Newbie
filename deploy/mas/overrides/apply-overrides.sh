@@ -19,4 +19,5 @@ open(p, 'w', encoding='utf-8', newline='\n').write(s)
 print('base.html updated')
 PY
 cp "$(dirname "$0")/consent.html" "$D/templates/pages/consent.html"
+cp "$(dirname "$0")/index.html" "$D/templates/pages/index.html"
 echo "готово. Пересоздайте контейнер: cd /opt/mas && docker compose up -d mas"

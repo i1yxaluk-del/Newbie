@@ -64,3 +64,11 @@ sudo docker run --rm -u 65532:65532 --network msp-matrix \
 - Шаблоны и переводы монтируются из /opt/mas/templates и /opt/mas/translations (см. compose).
 - base.html форсирует русский язык; consent.html упрощён: «Вход» + кнопка «Войти», без ссылок на приложение.
 - Пересборка оверрайдов: deploy/mas/overrides/apply-overrides.sh.
+
+### Главная страница MAS (08.10.2026)
+
+- index.html оверрайд: убрана техническая ссылка «OpenID Connect документ обнаружения»
+  (пользователи принимали открывшийся JSON за ошибку), добавлена подсказка
+  «Вернитесь в приложение Element и нажмите Войти».
+- Оверрайды (consent.html, index.html) копируются apply-overrides.sh в /opt/mas/templates
+  и монтируются в контейнер msp-mas.

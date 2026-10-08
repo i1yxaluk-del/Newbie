@@ -23,11 +23,6 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import FastAPI, Header, HTTPException, Request
 
-try:
-    import io as _io
-    import qrcode as _qrcode
-except Exception:
-    _qrcode = None
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 DB_DIR = os.getenv("DB_DIR", "/opt/matrix-invite/data")
@@ -452,8 +447,7 @@ def invite_page(token: str) -> HTMLResponse:
             '<div class="card"><h1>Приглашение уже использовано</h1>'
             '<p class="ok">По этой ссылке аккаунт уже создан.</p>' + mxline +
             '<p><a class="btn btn-main" href="' + ELEMENT_URL + '/#/login?server=' + MATRIX_DOMAIN + '">Открыть Element — сервер подставится сам</a></p>'
-            '<p><img src="/connect/qr.png" alt="QR для настройки Element" style="max-width:190px;background:#fff;padding:6px;border-radius:8px"></p>'
-            '<p class="muted">QR — сканируйте обычной камерой телефона (откроется веб-версия с готовым сервером). В приложении: «Войти» — откроется страница входа MSPShield. '
+            '<p class="muted">Откройте ссылку и нажмите «Войти»: сервер подставится сам; если аккаунт создавали в этом же браузере — вход подхватится без пароля. '
             'Забыли пароль — попросите администратора выдать новый.</p></div>',
         )
 
@@ -514,7 +508,7 @@ def invite_page(token: str) -> HTMLResponse:
     <li>Если спросит адрес сервера — укажите <b>{MATRIX_DOMAIN}</b> (в мобильном приложении: «Изменить»).</li>
     <li>Введите Matrix ID (<span class="mono">@имя:{MATRIX_DOMAIN}</span>) и пароль.</li>
   </ol>
-  <p class="muted">После создания аккаунта появится ссылка и QR с короткой инструкцией, как войти в приложении и в веб-версии.</p>
+  <p class="muted">После создания аккаунта появится ссылка с короткой инструкцией, как войти в приложении и в веб-версии.</p>
 </div>
 <div class="card">
   <h2>Как добавить коллег</h2>
@@ -562,11 +556,9 @@ def invite_page(token: str) -> HTMLResponse:
         '<div class="kv"><span class="k">Пароль</span> <span class="mono" id="pwd">' + document.getElementById("r-pass").value + '</span> <button class="btn btn-small btn-sec" onclick="copyText(&quot;pwd&quot;)">копировать</button></div>' +
         '<p class="muted">В приложении выберите «Войти» (НЕ «Создать аккаунт») и введите эти данные — аккаунт уже работает.</p>' +
         '<hr style="border:none;border-top:1px solid #2a3550;margin:14px 0">' +
-        '<p><b>Быстрая настройка (ссылка и QR)</b></p>' +
+        '<p><b>Быстрый вход</b></p>' +
         '<p><a class="btn btn-main" href="{ELEMENT_URL}/#/login?server={MATRIX_DOMAIN}">Открыть Element — сервер подставится сам</a></p>' +
-        '<p><img src="/connect/qr.png" alt="QR для настройки Element" style="max-width:190px;background:#fff;padding:6px;border-radius:8px"></p>' +
-        '<p class="muted">QR: наведите <b>обычную камеру телефона</b> — откроется веб-версия Element с уже подставленным сервером. В приложении (Element / Element X): «Войти» → откроется фирменная страница входа MSPShield → введите логин и пароль выше; приложение вернётся с сессией.</p>' +
-        '<p class="muted">Не сканируйте этот QR через «Войти по QR» внутри Element — тот сканер только для привязки второго устройства к уже настроенному аккаунту (он ответит «неверный QR-код», это нормально).</p>';
+        '<p class="muted">Откройте ссылку: сервер подставится сам. В приложении (Element / Element X): «Войти» → откроется фирменная страница входа MSPShield → введите логин и пароль выше; приложение вернётся с сессией.</p>';
     }} else {{
       el.innerHTML = '<span class="warn">' + (d.message || d.detail || "Не получилось — проверьте данные.") + "</span>";
     }}
@@ -711,13 +703,15 @@ def admin_page(token: str = "") -> HTMLResponse:
     await fetch("/admin/invites/" + btn.dataset.id, {{method: "DELETE", headers: {{"X-Admin-Token": TOKEN}}}});
     loadInvites();
   }}
-  async function deactivateAcc(btn) {{
-    if (!confirm("Деактивировать и стереть аккаунт @" + btn.dataset.u + "? Это необратимо.")) return;
-    await fetch("/admin/accounts/deactivate", {{
+  async function deleteAcc(btn) {{
+    if (!confirm("Удалить аккаунт @" + btn.dataset.u + " полностью? Логин освободится, данные сотрутся. Это необратимо.")) return;
+    const r = await fetch("/admin/users/delete", {{
       method: "POST",
       headers: {{"Content-Type": "application/json", "X-Admin-Token": TOKEN}},
       body: JSON.stringify({{username: btn.dataset.u}}),
     }});
+    const d = await r.json().catch(() => ({{}}));
+    if (!d.ok) alert(d.message || "Не получилось удалить аккаунт");
     loadInvites();
   }}
   async function loadInvites() {{
@@ -732,7 +726,7 @@ def admin_page(token: str = "") -> HTMLResponse:
         '</td><td><a href="/i/' + i.token + '" target="_blank">открыть</a> ' +
         '<button class="btn btn-small btn-sec" onclick="copyTextUrl(this)" data-u="' + BASE + '/i/' + i.token + '">копировать</button> ' +
         '<button class="btn btn-small btn-sec" onclick="delInvite(this)" data-id="' + i.id + '">удалить</button>' +
-        (i.username ? ' <button class="btn btn-small btn-sec" onclick="deactivateAcc(this)" data-u="' + i.username + '">−аккаунт</button>' : '') +
+        (i.username ? ' <button class="btn btn-small btn-sec" onclick="deleteAcc(this)" data-u="' + i.username + '">удалить аккаунт</button>' : '') +
         '</td>';
       tb.appendChild(tr);
     }});
@@ -1148,11 +1142,9 @@ def cabinet(request: Request) -> Response:
   <p class="muted">Новое устройство: установите Element и войдите этим ID и паролем. Чтобы коллега добавил вас — передайте ему свой адрес.</p>
 </div>
 <div class="card">
-  <h2>Подключение (ссылка и QR)</h2>
-  <p class="muted">Ссылка открывает Element с уже выбранным сервером. QR сканируйте обычной камерой телефона — откроется Element (веб-версия), дальше войдите своим ID и паролем. В мобильном приложении при первом входе укажите сервер {MATRIX_DOMAIN}; сам вход идёт через фирменную страницу MSPShield.</p>
-  <p class="muted">Сканер «Войти по QR» внутри Element здесь ни при чём — он только для привязки второго устройства к уже настроенному аккаунту.</p>
+  <h2>Подключение</h2>
+  <p class="muted">Ссылка открывает Element с уже выбранным сервером — дальше войдите своим ID и паролем. В мобильном приложении при первом входе укажите сервер {MATRIX_DOMAIN}; сам вход идёт через фирменную страницу MSPShield.</p>
   <p><a class="btn btn-main" href="https://e.msp-claude.online/#/login?server={MATRIX_DOMAIN}">Открыть Element</a></p>
-  <p><img src="/u/qr.png" alt="QR-код" style="max-width:200px"></p>
 </div>
 <div class="card">
   <h2>Сменить пароль</h2>
@@ -1236,34 +1228,6 @@ def cabinet(request: Request) -> Response:
   loadInvites();
 </script>"""
     return _page("Личный кабинет — MSPShield Matrix", body)
-
-
-def _qr_png(url: str) -> Response:
-    if _qrcode is None:
-        raise HTTPException(status_code=503, detail="qr unavailable")
-    img = _qrcode.make(url)
-    buf = _io.BytesIO()
-    img.save(buf, format="PNG")
-    return Response(buf.getvalue(), media_type="image/png")
-
-
-@app.get("/connect/qr.png")
-def connect_qr() -> Response:
-    return _qr_png("https://e.msp-claude.online/#/login?server=" + MATRIX_DOMAIN)
-
-
-@app.get("/u/qr.png")
-def cabinet_qr(request: Request) -> Response:
-    sess = _get_session(request)
-    if not sess:
-        raise HTTPException(status_code=401, detail="auth")
-    if _qrcode is None:
-        raise HTTPException(status_code=503, detail="qr unavailable")
-    url = "https://e.msp-claude.online/#/login?server=" + MATRIX_DOMAIN
-    img = _qrcode.make(url)
-    buf = _io.BytesIO()
-    img.save(buf, format="PNG")
-    return Response(buf.getvalue(), media_type="image/png")
 
 
 @app.get("/u/invites")

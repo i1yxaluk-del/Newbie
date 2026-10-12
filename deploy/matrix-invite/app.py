@@ -466,13 +466,13 @@ def invite_page(token: str) -> HTMLResponse:
     if mtoken:
         quick = (
             '<div id="quick-block">'
-            "<p><b>Создать аккаунт.</b> Затем откройте приложение и нажмите «Войти».</p>"
-            f'<p><a class="btn btn-main" href="{MAS_PUBLIC}/register">Создать аккаунт</a></p>'
-            '<p class="muted">Придумайте там логин и пароль. Когда система попросит «код приглашения» — скопируйте и вставьте код ниже:</p>'
-            f'<p><span class="mono" id="mtok">{mtoken}</span> '
-            '<button class="btn btn-small btn-sec" onclick="copyText(&quot;mtok&quot;)">копировать код</button></p>'
+            "<p><b>Придумайте логин</b> — пароль зададите на следующей странице. Код приглашения подставится автоматически.</p>"
+            '<label>Логин</label>'
+            '<input id="r-user" placeholder="например: ivan" autocomplete="off" autocapitalize="none">'
+            f'<p><button class="btn btn-main" onclick="startReg(&quot;{mtoken}&quot;)">Создать аккаунт</button></p>'
+            '<p class="muted">Дальше: пароль → имя (подставится) → готово — и вход в приложение кнопкой ниже.</p>'
             f'<p><a class="btn btn-sec" href="{EXA_LOGIN_URL}">Открыть Element X — сервер подставится сам</a></p>'
-            '<p class="muted">После регистрации нажмите «Открыть Element X», затем в приложении — «Войти» и подтвердите вход в браузере.</p>'
+            '<p class="muted">После создания аккаунта нажмите «Открыть Element X» и в приложении выберите «Войти». Код приглашения (если система его спросит): <span class="mono">{mtoken}</span></p>'
             '<hr style="border:none;border-top:1px solid #e6ebef;margin:14px 0">'
             "</div>"
         )
@@ -516,6 +516,13 @@ def invite_page(token: str) -> HTMLResponse:
   function copyText(id) {{
     const el = document.getElementById(id);
     if (el) {{ navigator.clipboard.writeText(el.textContent.trim()); }}
+  }}
+  function startReg(inv) {{
+    var el = document.getElementById("r-user");
+    var u = el ? String(el.value || "").trim().toLowerCase() : "";
+    var url = "{MAS_PUBLIC}/register#invite=" + encodeURIComponent(inv);
+    if (u) {{ url += "&u=" + encodeURIComponent(u); }}
+    window.location.href = url;
   }}
 </script>"""
     return _page("Приглашение — MSPShield Matrix", body)

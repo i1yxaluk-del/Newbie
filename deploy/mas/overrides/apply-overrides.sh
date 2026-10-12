@@ -20,4 +20,8 @@ print('base.html updated')
 PY
 cp "$(dirname "$0")/consent.html" "$D/templates/pages/consent.html"
 cp "$(dirname "$0")/index.html" "$D/templates/pages/index.html"
+mkdir -p "$D/templates/pages/register/steps"
+cp "$(dirname "$0")/register_password.html" "$D/templates/pages/register/password.html"
+cp "$(dirname "$0")/register_token_step.html" "$D/templates/pages/register/steps/registration_token.html"
+cp "$(dirname "$0")/register_display_name.html" "$D/templates/pages/register/steps/display_name.html"
 echo "готово. Пересоздайте контейнер: cd /opt/mas && docker compose up -d mas"

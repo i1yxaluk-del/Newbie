@@ -72,3 +72,9 @@ sudo docker run --rm -u 65532:65532 --network msp-matrix \
   «Вернитесь в приложение Element и нажмите Войти».
 - Оверрайды (consent.html, index.html) копируются apply-overrides.sh в /opt/mas/templates
   и монтируются в контейнер msp-mas.
+
+### Авто-подстановка при регистрации (12.10.2026)
+
+- Оверрайды register-шаблонов: register_password.html, register_token_step.html,
+  register_display_name.html (скрипт mx-invite-autofill): логин/код/имя подставляются
+  автоматически. Подробности — deploy/matrix-invite/README.md.

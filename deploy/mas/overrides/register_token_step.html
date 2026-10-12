@@ -1,0 +1,61 @@
+{#
+Copyright 2025 New Vector Ltd.
+
+SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+Please see LICENSE files in the repository root for full details.
+-#}
+
+{% extends "base.html" %}
+
+{% block content %}
+  <header class="page-heading">
+    <div class="icon">
+      {{ icon.key_solid() }}
+    </div>
+    <div class="header">
+      <h1 class="title">{{ _("mas.registration_token.headline") }}</h1>
+      <p class="text">{{ _("mas.registration_token.description") }}</p>
+    </div>
+  </header>
+
+  <div class="cpd-form-root">
+    <form method="POST" class="cpd-form-root">
+      {% if form.errors is not empty %}
+        {% for error in form.errors %}
+          <div class="text-critical font-medium">
+            {{ errors.form_error_message(error=error) }}
+          </div>
+        {% endfor %}
+      {% endif %}
+
+      <input type="hidden" name="csrf" value="{{ csrf_token }}" />
+
+      {% call(f) field.field(label=_("mas.registration_token.field"), name="token", form_state=form, class="mb-4") %}
+        <input {{ field.attributes(f) }}
+          id="cpd-text-control"
+          type="text"
+          class="cpd-text-control"
+          required />
+      {% endcall %}
+
+      {{ button.button(text=_("action.continue")) }}
+    </form>
+  </div>
+<script>/* mx-invite-autofill */
+(function () {
+  try {
+    var inv = sessionStorage.getItem("mx_inv") || "";
+    var el = document.querySelector("input[name=token]");
+    if (!el) return;
+    if (!el.value && inv) { el.value = inv; }
+    if (document.querySelector(".text-critical")) return;
+    var usedKey = "mx_inv_u_" + inv.slice(-6);
+    var used = sessionStorage.getItem(usedKey);
+    if (el.value && !used) {
+      sessionStorage.setItem(usedKey, "1");
+      el.form.submit();
+    }
+  } catch (e) {}
+})();
+</script>
+{% endblock content %}

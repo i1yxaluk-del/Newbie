@@ -29,6 +29,7 @@ DB_DIR = os.getenv("DB_DIR", "/opt/matrix-invite/data")
 DB = os.path.join(DB_DIR, "invites.db")
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
 MATRIX_DOMAIN = os.getenv("MATRIX_DOMAIN", "m.msp-claude.online")
+EXA_LOGIN_URL = "https://mobile.element.io/element/?account_provider=" + MATRIX_DOMAIN
 SYNAPSE_URL = os.getenv("SYNAPSE_URL", "https://m.msp-claude.online")
 SYNAPSE_ADMIN_TOKEN = os.getenv("SYNAPSE_ADMIN_TOKEN", "")
 ELEMENT_URL = os.getenv("ELEMENT_URL", "https://e.msp-claude.online")
@@ -450,9 +451,10 @@ def invite_page(token: str) -> HTMLResponse:
             "Приглашение уже использовано",
             '<div class="card"><h1>Приглашение уже использовано</h1>'
             '<p class="ok">По этой ссылке аккаунт уже создан.</p>' + mxline +
-            '<p><a class="btn btn-main" href="' + ELEMENT_URL + '/#/login?server=' + MATRIX_DOMAIN + '">Открыть веб-версию</a></p>'
-            '<p class="muted">Для мобильного приложения откройте Element X и выберите «Войти» → «Войти через SSO». '
-            'Если запросит сервер, укажите ' + MATRIX_DOMAIN + '. Забыли пароль — попросите администратора выдать новый.</p></div>',
+            '<p><a class="btn btn-main" href="' + EXA_LOGIN_URL + '">Открыть Element X и войти</a></p>'
+            '<p><a class="btn btn-sec" href="' + ELEMENT_URL + '/#/login?server=' + MATRIX_DOMAIN + '">Открыть веб-версию (для компьютера)</a></p>'
+            '<p class="muted">Кнопка «Открыть Element X» подставит в приложение сервер ' + MATRIX_DOMAIN + ' — дальше нажмите в приложении «Войти» и подтвердите вход в браузере. '
+            'Забыли пароль — попросите администратора выдать новый.</p></div>',
         )
 
     mtoken = ""
@@ -464,12 +466,13 @@ def invite_page(token: str) -> HTMLResponse:
     if mtoken:
         quick = (
             '<div id="quick-block">'
-            "<p><b>Создать аккаунт.</b> После регистрации используйте в Element X вход через SSO.</p>"
+            "<p><b>Создать аккаунт.</b> Затем откройте приложение и нажмите «Войти».</p>"
             f'<p><a class="btn btn-main" href="{MAS_PUBLIC}/register">Создать аккаунт</a></p>'
             '<p class="muted">Придумайте там логин и пароль. Когда система попросит «код приглашения» — скопируйте и вставьте код ниже:</p>'
             f'<p><span class="mono" id="mtok">{mtoken}</span> '
             '<button class="btn btn-small btn-sec" onclick="copyText(&quot;mtok&quot;)">копировать код</button></p>'
-            '<p class="muted">После регистрации откройте Element X и выберите «Войти» → «Войти через SSO». Если запросит сервер, укажите ' + MATRIX_DOMAIN + '.</p>'
+            f'<p><a class="btn btn-sec" href="{EXA_LOGIN_URL}">Открыть Element X — сервер подставится сам</a></p>'
+            '<p class="muted">После регистрации нажмите «Открыть Element X», затем в приложении — «Войти» и подтвердите вход в браузере.</p>'
             '<hr style="border:none;border-top:1px solid #e6ebef;margin:14px 0">'
             "</div>"
         )
@@ -493,12 +496,12 @@ def invite_page(token: str) -> HTMLResponse:
 <div class="card">
   <h2>3. Войдите в Element X</h2>
   <ol class="steps">
-    <li>Завершите регистрацию по кнопке выше в браузере телефона.</li>
-    <li>Откройте Element X → <b>«Войти»</b> → <b>«Войти через SSO»</b>.</li>
-    <li>Если приложение запросит адрес сервера, укажите <b>{MATRIX_DOMAIN}</b>. Сервер публикует Matrix discovery для входа через MAS.</li>
-    <li>В браузере подтверждения выберите <b>«Войти»</b>; не создавайте аккаунт повторно.</li>
+    <li>Завершите регистрацию по кнопке выше (в браузере телефона).</li>
+    <li>Нажмите <b>«Открыть Element X»</b> — приложение откроется с уже выбранным сервером. Если открываете вручную: приложение → <b>«Войти»</b> → при необходимости смените сервер на <b>{MATRIX_DOMAIN}</b>.</li>
+    <li>В браузере появится страница MSPShield — нажмите <b>«Войти»</b>. Если попросит логин и пароль — введите данные аккаунта, который только что создали.</li>
+    <li>После подтверждения приложение вернётся в аккаунт.</li>
   </ol>
-  <p class="muted">Универсальная ссылка не может передать авторизованную веб-сессию непосредственно в любое Matrix-приложение. Вход в приложении завершается через штатный SSO.</p>
+  <p class="muted">Кнопка «Открыть Element X» работает на телефоне, где уже установлено приложение.</p>
 </div>
 <div class="card">
   <h2>Как добавить коллег</h2>

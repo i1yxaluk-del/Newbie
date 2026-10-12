@@ -78,3 +78,9 @@ sudo docker run --rm -u 65532:65532 --network msp-matrix \
 - Оверрайды register-шаблонов: register_password.html, register_token_step.html,
   register_display_name.html (скрипт mx-invite-autofill): логин/код/имя подставляются
   автоматически. Подробности — deploy/matrix-invite/README.md.
+
+### Кнопка «Настроить телефон» на странице после входа (12.10.2026)
+
+- На главной странице MAS (после регистрации/входа) добавлена кнопка
+  «Настроить телефон — Открыть Element X» (официальная login-ссылка с account_provider).
+  Больше не нужно возвращаться к странице приглашения.

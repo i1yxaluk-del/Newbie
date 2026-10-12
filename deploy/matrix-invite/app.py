@@ -68,8 +68,12 @@ def init():
              expires_at  TEXT,
              used_at     TEXT,
              created_by  TEXT DEFAULT 'admin'
-           )"""
+        )"""
     )
+    # Older portal registration code persisted user passwords in this column.
+    # It is no longer needed: MAS owns credentials and the invite only stores
+    # registration-token metadata. Clear any historical plaintext on startup.
+    c.execute("UPDATE invites SET password='' WHERE password IS NOT NULL AND password!=''")
     c.execute(
         """CREATE TABLE IF NOT EXISTS sessions (
              token      TEXT PRIMARY KEY,
@@ -446,9 +450,9 @@ def invite_page(token: str) -> HTMLResponse:
             "Приглашение уже использовано",
             '<div class="card"><h1>Приглашение уже использовано</h1>'
             '<p class="ok">По этой ссылке аккаунт уже создан.</p>' + mxline +
-            '<p><a class="btn btn-main" href="' + ELEMENT_URL + '/#/login?server=' + MATRIX_DOMAIN + '">Открыть Element — сервер подставится сам</a></p>'
-            '<p class="muted">Откройте ссылку и нажмите «Войти»: сервер подставится сам; если аккаунт создавали в этом же браузере — вход подхватится без пароля. '
-            'Забыли пароль — попросите администратора выдать новый.</p></div>',
+            '<p><a class="btn btn-main" href="' + ELEMENT_URL + '/#/login?server=' + MATRIX_DOMAIN + '">Открыть веб-версию</a></p>'
+            '<p class="muted">Для мобильного приложения откройте Element X и выберите «Войти» → «Войти через SSO». '
+            'Если запросит сервер, укажите ' + MATRIX_DOMAIN + '. Забыли пароль — попросите администратора выдать новый.</p></div>',
         )
 
     mtoken = ""
@@ -460,12 +464,12 @@ def invite_page(token: str) -> HTMLResponse:
     if mtoken:
         quick = (
             '<div id="quick-block">'
-            "<p><b>Создать аккаунт в один шаг.</b> После этого в приложении пароль вводить не нужно.</p>"
+            "<p><b>Создать аккаунт.</b> После регистрации используйте в Element X вход через SSO.</p>"
             f'<p><a class="btn btn-main" href="{MAS_PUBLIC}/register">Создать аккаунт</a></p>'
             '<p class="muted">Придумайте там логин и пароль. Когда система попросит «код приглашения» — скопируйте и вставьте код ниже:</p>'
             f'<p><span class="mono" id="mtok">{mtoken}</span> '
             '<button class="btn btn-small btn-sec" onclick="copyText(&quot;mtok&quot;)">копировать код</button></p>'
-            '<p class="muted">Дальше: откройте Element и нажмите «Войти» — пароль в приложении уже не спросят.</p>'
+            '<p class="muted">После регистрации откройте Element X и выберите «Войти» → «Войти через SSO». Если запросит сервер, укажите ' + MATRIX_DOMAIN + '.</p>'
             '<hr style="border:none;border-top:1px solid #e6ebef;margin:14px 0">'
             "</div>"
         )
@@ -476,39 +480,25 @@ def invite_page(token: str) -> HTMLResponse:
 <div class="card">
   <h2>1. Приложение (Element)</h2>
   <a class="btn btn-main" href="{ELEMENT_URL}">Element — веб-версия (в браузере)</a>
-  <a class="btn btn-main" href="https://play.google.com/store/apps/details?id=im.vector.app">Element — Google Play (Android)</a>
-  <a class="btn btn-main" href="https://apps.apple.com/app/element-messenger/id1083446067">Element — App Store (iPhone / iPad)</a>
-  <a class="btn btn-sec" href="https://f-droid.org/packages/im.vector.app/">Element — F-Droid</a>
+  <a class="btn btn-main" href="https://play.google.com/store/apps/details?id=io.element.android.x">Element X — Google Play (Android)</a>
+  <a class="btn btn-main" href="https://apps.apple.com/app/element-x/id1631335820">Element X — App Store (iPhone / iPad)</a>
+  <a class="btn btn-sec" href="https://f-droid.org/packages/io.element.android.x/">Element X — F-Droid</a>
+  <a class="btn btn-sec" href="{ELEMENT_URL}/#/login?server={MATRIX_DOMAIN}">Войти через веб-версию</a>
 </div>
 <div class="card">
   <h2>2. Создайте аккаунт</h2>
 {quick}
-<details>
-  <summary class="muted">Другой способ — создать аккаунт прямо здесь (форма)</summary>
-  <div id="reg-form">
-    <p class="muted">Придумайте логин — он станет вашим адресом @логин:{MATRIX_DOMAIN} (латиница/цифры, 2–32 символа). Логин создаётся здесь; регистрация в приложении не нужна.</p>
-    <label>Логин</label>
-    <input id="r-user" placeholder="например: ivan" autocomplete="off">
-    <label>Пароль (можно сгенерировать)</label>
-    <input id="r-pass" autocomplete="off">
-    <p class="muted"><button class="btn btn-small btn-sec" onclick="genPass()">Сгенерировать пароль</button></p>
-    <p class="muted">Слишком простой пароль система безопасности отклонит — надёжнее нажать «Сгенерировать пароль».</p>
-    <button class="btn btn-main" onclick="registerAcc()">Создать аккаунт</button>
-    <p class="muted" id="reg-res"></p>
-    <p class="muted">После создания приглашение станет недействительным — это нормально.</p>
-  </div>
-  <div id="reg-done" style="display:none"></div>
-</details>
+{('<p class="warn">Не удалось подготовить безопасную регистрацию. Попросите администратора выдать новое приглашение.</p>' if not mtoken else '')}
 </div>
 <div class="card">
-  <h2>3. Войдите в Element</h2>
+  <h2>3. Войдите в Element X</h2>
   <ol class="steps">
-    <li>Откройте приложение или {ELEMENT_URL} в браузере.</li>
-    <li>Нажмите <b>«Войти»</b> — <b>не</b> «Создать аккаунт»: аккаунт уже создан на шаге 2.</li>
-    <li>Если спросит адрес сервера — укажите <b>{MATRIX_DOMAIN}</b> (в мобильном приложении: «Изменить»).</li>
-    <li>Введите Matrix ID (<span class="mono">@имя:{MATRIX_DOMAIN}</span>) и пароль.</li>
+    <li>Завершите регистрацию по кнопке выше в браузере телефона.</li>
+    <li>Откройте Element X → <b>«Войти»</b> → <b>«Войти через SSO»</b>.</li>
+    <li>Если приложение запросит адрес сервера, укажите <b>{MATRIX_DOMAIN}</b>. Сервер публикует Matrix discovery для входа через MAS.</li>
+    <li>В браузере подтверждения выберите <b>«Войти»</b>; не создавайте аккаунт повторно.</li>
   </ol>
-  <p class="muted">После создания аккаунта появится ссылка с короткой инструкцией, как войти в приложении и в веб-версии.</p>
+  <p class="muted">Универсальная ссылка не может передать авторизованную веб-сессию непосредственно в любое Matrix-приложение. Вход в приложении завершается через штатный SSO.</p>
 </div>
 <div class="card">
   <h2>Как добавить коллег</h2>
@@ -520,91 +510,12 @@ def invite_page(token: str) -> HTMLResponse:
   <p class="muted">Личный кабинет — свои данные, приглашения коллег и смена пароля: <a href="/login">войти</a>.</p>
 </div>
 <script>
-  function rndPass() {{
-    const a = new Uint8Array(12);
-    crypto.getRandomValues(a);
-    const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789";
-    let s = "";
-    for (const x of a) {{ s += chars[x % chars.length]; }}
-    return s + "!" + (Math.floor(Math.random() * 90) + 10);
-  }}
-  function genPass() {{ document.getElementById("r-pass").value = rndPass(); }}
-  if (!document.getElementById("r-pass").value) {{ document.getElementById("r-pass").value = rndPass(); }}
   function copyText(id) {{
     const el = document.getElementById(id);
     if (el) {{ navigator.clipboard.writeText(el.textContent.trim()); }}
   }}
-  async function registerAcc() {{
-    const el = document.getElementById("reg-res");
-    el.innerHTML = "Создаю…";
-    const r = await fetch("/i/{token}/register", {{
-      method: "POST",
-      headers: {{"Content-Type": "application/json"}},
-      body: JSON.stringify({{
-        username: document.getElementById("r-user").value,
-        password: document.getElementById("r-pass").value,
-      }}),
-    }});
-    const d = await r.json().catch(() => ({{}}));
-    if (d.ok) {{
-      document.getElementById("reg-form").style.display = "none";
-      const done = document.getElementById("reg-done");
-      done.style.display = "block";
-      done.innerHTML = '<p class="ok">Аккаунт создан!</p>' +
-        '<div class="kv"><span class="k">Сервер</span> <span class="mono" id="srv">{MATRIX_DOMAIN}</span> <button class="btn btn-small btn-sec" onclick="copyText(&quot;srv&quot;)">копировать</button></div>' +
-        '<div class="kv"><span class="k">Matrix ID</span> <span class="mono" id="mxid">' + d.mxid + '</span> <button class="btn btn-small btn-sec" onclick="copyText(&quot;mxid&quot;)">копировать</button></div>' +
-        '<div class="kv"><span class="k">Пароль</span> <span class="mono" id="pwd">' + document.getElementById("r-pass").value + '</span> <button class="btn btn-small btn-sec" onclick="copyText(&quot;pwd&quot;)">копировать</button></div>' +
-        '<p class="muted">В приложении выберите «Войти» (НЕ «Создать аккаунт») и введите эти данные — аккаунт уже работает.</p>' +
-        '<hr style="border:none;border-top:1px solid #2a3550;margin:14px 0">' +
-        '<p><b>Быстрый вход</b></p>' +
-        '<p><a class="btn btn-main" href="{ELEMENT_URL}/#/login?server={MATRIX_DOMAIN}">Открыть Element — сервер подставится сам</a></p>' +
-        '<p class="muted">Откройте ссылку: сервер подставится сам. В приложении (Element / Element X): «Войти» → откроется фирменная страница входа MSPShield → введите логин и пароль выше; приложение вернётся с сессией.</p>';
-    }} else {{
-      el.innerHTML = '<span class="warn">' + (d.message || d.detail || "Не получилось — проверьте данные.") + "</span>";
-    }}
-  }}
 </script>"""
     return _page("Приглашение — MSPShield Matrix", body)
-
-
-@app.post("/i/{token}/register")
-def invite_register(token: str, payload: dict) -> dict:
-    c = db()
-    row = c.execute("SELECT * FROM invites WHERE token=?", (token,)).fetchone()
-    if not row:
-        c.close()
-        raise HTTPException(status_code=404, detail="not found")
-    if row["used_at"]:
-        c.close()
-        return {"ok": False, "message": "Приглашение уже использовано."}
-    if datetime.fromisoformat(row["expires_at"]) < datetime.now(timezone.utc):
-        c.close()
-        return {"ok": False, "message": "Приглашение истекло — попросите новое."}
-    username = (payload.get("username") or "").strip().lower()
-    password = payload.get("password") or ""
-    if not USER_RE.fullmatch(username):
-        c.close()
-        return {"ok": False, "message": "Логин: латиница/цифры/._- (2–32), начните с буквы или цифры."}
-    if len(password) < 8:
-        c.close()
-        return {"ok": False, "message": "Пароль — минимум 8 символов."}
-    if matrix_user_exists(username):
-        c.close()
-        return {"ok": False, "message": "Этот логин занят — выберите другой."}
-    ok, reason = matrix_create(username, password)
-    if not ok:
-        c.close()
-        return {"ok": False, "message": "Не получилось создать аккаунт: " + reason}
-    now = datetime.now(timezone.utc).isoformat()
-    c.execute("UPDATE invites SET username=?, password=?, used_at=? WHERE token=?",
-              (username, password, now, token))
-    c.commit()
-    c.close()
-    try:
-        wire_dm(username, row)
-    except Exception:
-        pass
-    return {"ok": True, "mxid": _mxid(username), "server": MATRIX_DOMAIN}
 
 
 # ── админка ──────────────────────────────────────────────────────────────────

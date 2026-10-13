@@ -1317,6 +1317,23 @@ def u_password(request: Request, payload: dict) -> dict:
     return {"ok": False, "message": _mas_err(data)}
 
 
+def _mdirect_add(token, own_mxid, peer_mxid, rid):
+    """Добавить комнату в m.direct (личные чаты) пользователя."""
+    path = ("/_matrix/client/v3/user/" + urllib.parse.quote(own_mxid, safe="") +
+            "/account_data/m.direct")
+    cur = {}
+    st, d = _syn_api("GET", path, bearer=token)
+    if st == 200 and isinstance(d, dict):
+        cur = d
+    lst = cur.get(peer_mxid)
+    if not isinstance(lst, list):
+        lst = []
+    if rid not in lst:
+        lst.append(rid)
+    cur[peer_mxid] = lst
+    _syn_api("PUT", path, cur, bearer=token)
+
+
 def wire_dm(new_user, row):
     r = dict(row)
     creator = (r.get("created_by") or "").strip().lower()
@@ -1326,7 +1343,7 @@ def wire_dm(new_user, row):
     new_id, _ = _mas_user(new_user)
     if not inv_id or not new_id:
         return
-    scope = "urn:matrix:org.matrix.msc2967.client:api:*"
+    scope = "urn:matrix:client:api:*"
     ps1 = ps2 = ""
     try:
         st, d = _mas_api("POST", "/api/admin/v1/personal-sessions",
@@ -1345,6 +1362,7 @@ def wire_dm(new_user, row):
         rid = room.get("room_id") if (st2 in (200, 201) and isinstance(room, dict)) else ""
         if not rid:
             return
+        _mdirect_add(t1, _mxid(creator), _mxid(new_user), rid)
         st3, d3 = _mas_api("POST", "/api/admin/v1/personal-sessions",
                            {"actor_user_id": new_id, "human_name": "portal-dm-invitee",
                             "scope": scope, "expires_in": 600})
@@ -1354,6 +1372,7 @@ def wire_dm(new_user, row):
             if t3:
                 _syn_api("POST", "/_matrix/client/v3/rooms/" + urllib.parse.quote(rid, safe="") + "/join",
                          {}, bearer=t3)
+                _mdirect_add(t3, _mxid(new_user), _mxid(creator), rid)
     except Exception:
         pass
     finally:

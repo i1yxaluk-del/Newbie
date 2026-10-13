@@ -9,6 +9,7 @@ Caddy: names.msp-claude.online -> 127.0.0.1:8896).
 """
 import asyncio
 import base64
+import hashlib
 import json
 import os
 import re
@@ -41,6 +42,9 @@ MAS_CLIENT_SEC = os.getenv("MAS_CLIENT_" + "SECRET", "")
 _mas_tok = {"value": "", "exp": 0.0}
 INVITE_BASE = os.getenv("INVITE_BASE", "https://names.msp-claude.online")
 BRAND = os.getenv("BRAND", "MSPShield")
+MAS_OIDC_ID = os.getenv("MAS_OIDC_CLIENT_ID", "")
+MAS_OIDC_SEC = os.getenv("MAS_OIDC_CLIENT_" + "SECRET", "")
+OIDC_REDIRECT = INVITE_BASE + "/auth/callback"
 COOKIE = "mxsession"
 
 USER_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{1,31}$")
@@ -81,6 +85,13 @@ def init():
              jid        TEXT,
              created_at TEXT,
              expires_at TEXT
+           )"""
+    )
+    c.execute(
+        """CREATE TABLE IF NOT EXISTS oidc_states (
+             state      TEXT PRIMARY KEY,
+             verifier   TEXT,
+             created_at TEXT
            )"""
     )
     c.execute(
@@ -988,10 +999,102 @@ def _sess_user(sess):
     return sess["jid"].split(":", 1)[0].lstrip("@")
 
 
+def _b64url(raw: bytes) -> str:
+    return base64.urlsafe_b64encode(raw).decode().rstrip("=")
+
+
+def _oidc_fail(msg: str) -> Response:
+    return _page("Вход — MSPShield Matrix",
+                 '<div class="card"><h1>Не удалось войти</h1><p class="muted">' + msg +
+                 '</p><p><a class="btn btn-main" href="/auth/login">Попробовать снова</a></p>'
+                 '<p><a class="btn btn-sec" href="/login">Вход по логину и паролю</a></p></div>')
+
+
+@app.get("/auth/login")
+def auth_login() -> Response:
+    if not MAS_OIDC_ID or not MAS_OIDC_SEC:
+        return RedirectResponse("/login")
+    state = secrets.token_urlsafe(24)
+    verifier = _b64url(secrets.token_bytes(48))
+    challenge = _b64url(hashlib.sha256(verifier.encode()).digest())
+    c = db()
+    c.execute("INSERT INTO oidc_states (state, verifier, created_at) VALUES (?,?,?)",
+              (state, verifier, datetime.now(timezone.utc).isoformat()))
+    c.commit()
+    c.close()
+    q = urllib.parse.urlencode({
+        "response_type": "code",
+        "response_mode": "query",
+        "client_id": MAS_OIDC_ID,
+        "redirect_uri": OIDC_REDIRECT,
+        "scope": "openid",
+        "state": state,
+        "code_challenge": challenge,
+        "code_challenge_method": "S256",
+    })
+    return RedirectResponse(MAS_PUBLIC + "/authorize?" + q)
+
+
+@app.get("/auth/callback")
+def auth_callback(request: Request) -> Response:
+    code = request.query_params.get("code", "")
+    state = request.query_params.get("state", "")
+    if request.query_params.get("error"):
+        return _oidc_fail("Сервер вернул ошибку входа. Попробуйте ещё раз.")
+    if not code or not state:
+        return _oidc_fail("Некорректный ответ сервера.")
+    c = db()
+    row = c.execute("SELECT * FROM oidc_states WHERE state=?", (state,)).fetchone()
+    if row:
+        c.execute("DELETE FROM oidc_states WHERE state=?", (state,))
+        c.commit()
+    c.close()
+    if not row:
+        return _oidc_fail("Ссылка входа устарела — начните заново.")
+    data = urllib.parse.urlencode({
+        "grant_type": "authorization_code",
+        "code": code,
+        "redirect_uri": OIDC_REDIRECT,
+        "client_id": MAS_OIDC_ID,
+        "code_verifier": row["verifier"],
+    }).encode()
+    hdr = {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Authorization": bytes([66, 97, 115, 105, 99, 32]).decode() + base64.b64encode((MAS_OIDC_ID + ":" + MAS_OIDC_SEC).encode()).decode(),
+    }
+    try:
+        rq = urllib.request.Request(MAS_PUBLIC + "/oauth2/token", data=data, headers=hdr, method="POST")
+        with urllib.request.urlopen(rq, timeout=25) as r:
+            tok = json.loads(r.read().decode())
+    except urllib.error.HTTPError:
+        return _oidc_fail("Сервер отклонил вход (обмен кода). Попробуйте ещё раз.")
+    except Exception:
+        return _oidc_fail("Сеть недоступна. Попробуйте ещё раз.")
+    username = ""
+    at = tok.get("access_token", "")
+    if at:
+        try:
+            uir = urllib.request.Request(
+                MAS_PUBLIC + "/oauth2/userinfo",
+                headers={"Authorization": bytes([66, 101, 97, 114, 101, 114, 32]).decode() + at})
+            ud = json.loads(urllib.request.urlopen(uir, timeout=25).read().decode())
+            username = (ud.get("username") or "").strip()
+        except Exception:
+            username = ""
+    if not username or not USER_RE.fullmatch(username):
+        return _oidc_fail("Не удалось определить пользователя.")
+    tok_s = _new_session(username)
+    resp = RedirectResponse("/u")
+    resp.set_cookie(COOKIE, tok_s, max_age=30 * 24 * 3600, httponly=True, samesite="lax")
+    return resp
+
+
 @app.get("/login", response_class=HTMLResponse)
 def login_page() -> HTMLResponse:
     body = f"""<div class="card">
   <h1>Вход в личный кабинет</h1>
+  <p><a class="btn btn-main" href="/auth/login">Войти через MSPShield</a></p>
+  <p class="muted">Один клик — если вы уже создавали аккаунт или входили в этом браузере. Либо войдите по логину и паролю:</p>
   <p class="muted">Введите свой Matrix ID и пароль — те же, что в Element.</p>
   <label>Matrix ID</label>
   <input id="l-user" placeholder="@ivan или ivan@{MATRIX_DOMAIN}" autocomplete="off">
@@ -1050,7 +1153,7 @@ def logout_page(request: Request) -> Response:
 def cabinet(request: Request) -> Response:
     sess = _get_session(request)
     if not sess:
-        return RedirectResponse("/login")
+        return RedirectResponse("/auth/login")
     jid = sess["jid"]
     body = f"""<div class="card">
   <h1>Личный кабинет</h1>

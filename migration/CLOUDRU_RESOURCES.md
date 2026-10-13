@@ -64,9 +64,8 @@ ip route replace default via 45.132.176.1 dev enp8s0 metric 50
 1. **restic на cloud.ru S3** — нужны **S3-статические ключи** Object Storage (OAuth-ключи API дают `InvalidAccessKeyId`) + имя бакета. Затем `/etc/restic/env.sh`, `restic init`, таймер.
 2. **AmneziaWG** — `migration/awg-admin.conf` (обновить `Endpoint` на `45.132.176.143`), поднять `awg-quick@awg0`, ufw `443/udp`.
 3. **MAX** — `docker exec -it msp-max-alerter python -m max_alerter.auth --authorize` (в ките не было `max-session.tar.gz`).
-4. **Jami/JAMS** — восстановить из restic или пересобрать по `docs/deployment/JAMS_SETUP.md` (для этого нужны A-записи `m.`, `dht.`, `turn.`, `names.`, `invite.`, `push.` → `45.132.176.143`).
-5. Порт `587`/`143` (STARTTLS) снаружи фильтруется облаком — клиенты используют `465`/`993`.
-6. Удалить старую ВМ после периода наблюдения.
+4. Порт `587`/`143` (STARTTLS) снаружи фильтруется облаком — клиенты используют `465`/`993`.
+5. Удалить старую ВМ после периода наблюдения.
 
 ## Формат API cloud.ru Evolution
 

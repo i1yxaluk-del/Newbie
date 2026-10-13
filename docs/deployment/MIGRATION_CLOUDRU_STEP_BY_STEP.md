@@ -6,7 +6,6 @@
 
 Сопутствующие документы:
 - [`POSTMORTEM_CLOUDRU_MIGRATION.md`](POSTMORTEM_CLOUDRU_MIGRATION.md) — что пошло не так и почему;
-- [`JAMI_MIGRATION_CLOUDRU.md`](JAMI_MIGRATION_CLOUDRU.md) — отдельно про Jami/JAMS;
 - [`../../migration/CLOUDRU_MIGRATION.md`](../../migration/CLOUDRU_MIGRATION.md) — плейбук-конспект;
 - [`../../migration/CLOUDRU_RESOURCES.md`](../../migration/CLOUDRU_RESOURCES.md) — созданные ресурсы и API.
 
@@ -23,7 +22,7 @@
 | Наблюдаемость | Prometheus + Grafana + Alertmanager | `https://mon.msp-claude.online` → 200 |
 | Почта | Stalwart (прямая доставка по MX, без Postbox) | `openssl s_client -connect mail…:465` → LE-сертификат |
 | VPN | AmneziaWG (UDP/443) | `awg show` → `latest handshake`, SSH только через туннель |
-| Мессенджер | JAMS + coturn + OpenDHT + jami-services | `https://m.msp-claude.online` → 200 |
+| Мессенджер | XMPP (Prosody) + Element (Matrix) | `https://m.msp-claude.online` → 200 |
 | Бэкапы | restic + метрики в Prometheus | Grafana → `MSPShield — Backups`, `restic_backup_success = 1` |
 
 **Ключевые принципы, которые сэкономят вам день:**
@@ -200,21 +199,7 @@ Cloud.ru обратную зону создать не удалось (Evolution
 
 ---
 
-## 8. Jami / JAMS
-
-Полная процедура и 12 граблей — в [`JAMI_MIGRATION_CLOUDRU.md`](JAMI_MIGRATION_CLOUDRU.md).
-Кратко: Caddy-блоки → coturn + dhtnode → JDK 26 + сборка JAMS → мастер установки
-(свой CA + **`signingAlgorithm`!**) → jami-services → blueprint/группа → always-online демон.
-
-Два места, где спотыкаются чаще всего:
-- в `install/settings` **обязателен** `signingAlgorithm` (иначе создание пользователей → 500);
-- фронтенд JAMS собирать из коммита `ee62171~1` (в `ee62171` MUI разъехался по мажорам).
-
-**Проверка:** `https://m.msp-claude.online` → 200, вход админом, создание пользователя → 201.
-
----
-
-## 9. Бэкапы и мониторинг
+## 8. Бэкапы и мониторинг
 
 Скрипт: [`cloudru-backup-setup.sh`](../../migration/cloudru-backup-setup.sh)
 (ставит [`restic-backup.sh`](../../migration/restic-backup.sh) в `/opt/restic-scripts`, создаёт
@@ -239,12 +224,12 @@ Grafana → папка MSPShield → **MSPShield — Backups**.
 
 ---
 
-## 10. Приёмка (acceptance checklist)
+## 9. Приёмка (acceptance checklist)
 
 - [ ] `https://msp-claude.online` → 200; `https://msp-claude.online/api/health` → `{"status":"ok"}`
 - [ ] `https://vault.` → 200; вход в Vaultwarden
 - [ ] `https://mon.` → 200; все таргеты Prometheus `up`
-- [ ] `https://m.` → 200; создание пользователя JAMS → 201
+- [ ] `https://m.` → 200; подключение клиента (Element)
 - [ ] `openssl s_client -connect 127.0.0.1:465` → валидный LE-сертификат
 - [ ] `nslookup -type=TXT v1-rsa-20260521._domainkey.msp-claude.online` → без пробелов
 - [ ] `Test-NetConnection <IP> -Port 22` → False; `ssh ubuntu@10.9.0.1` → OK
@@ -254,7 +239,7 @@ Grafana → папка MSPShield → **MSPShield — Backups**.
 
 ---
 
-## 11. Если что-то сломалось
+## 10. Если что-то сломалось
 
 | Симптом | Причина | Что делать |
 |---|---|---|
@@ -262,8 +247,6 @@ Grafana → папка MSPShield → **MSPShield — Backups**.
 | `msp-policy-route failed: Cannot find device enp8s0` | интерфейс переименовался | перезапустить `msp-policy-route` (§3.1) |
 | Сборка/`npm` висит, SSH не отвечает | нет swap / thrash | добавить swap (§3.3), проверить `free -m` |
 | `pip` в сборке: `No matching distribution` | контейнерам раздан 8.8.8.8 | §3.4, `daemon.json` |
-| JAMS: создание пользователя → 500 | нет `signingAlgorithm` | [`cloudru-jams-signfix.sh`](../../migration/cloudru-jams-signfix.sh) |
-| JAMS UI: `theme.spacing is not a function` | MUI v9 vs `@mui/styles` v6 | [`cloudru-jams-frontend-rollback.sh`](../../migration/cloudru-jams-frontend-rollback.sh) |
 | Письма в спаме | PTR не FQDN/не подтверждается | PTR в консоли Evolution DNS + тикет |
 | Grafana: бэкапов нет | метрики в неверном textfile-каталоге | писать в `.../textfile_collector` |
 | Потерян SSH | 22 закрыт, туннель упал | веб-консоль Cloud.ru, затем поднять `awg-quick@awg0` |

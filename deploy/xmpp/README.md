@@ -13,7 +13,7 @@
 | HTTP (файлы, websocket) | `https://x.msp-claude.online/` → Caddy → Prosody:5280 |
 | Каталог на ВМ | `/opt/xmpp` |
 | TURN для звонков | `turn.msp-claude.online:3478` (сервис coturn на ВМ) |
-| Push | ntfy (UnifiedPush), контейнер `jami-ntfy` |
+| Push | ntfy (UnifiedPush), контейнер `msp-ntfy` |
 
 ## Установка клиента (Android)
 

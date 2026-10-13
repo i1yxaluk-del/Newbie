@@ -122,33 +122,11 @@ echo '/swapfile none swap sw 0 0' >> /etc/fstab
 ### 9. Docker раздавал контейнерам нерабочий DNS (8.8.8.8)
 Провайдер отдаёт в DHCP `8.8.4.4`/`8.8.8.8`, но **`8.8.8.8` из cloud.ru не отвечает**
 (`1.1.1.1` и `77.88.8.8` работают). Docker прописывал контейнерам именно 8.8.8.8 →
-`pip install` в сборке висел до таймаута, `jami-services` не собирался, а Stalwart сыпал
+`pip install` в сборке висел до таймаута, а Stalwart сыпал
 `DNS error: Server Failure`. Лечение: `{"dns":["1.1.1.1","8.8.4.4"]}` в
 `/etc/docker/daemon.json` + рестарт Docker (⚠️ после рестарта поднять прод-стек заново).
 
-### 10. JAMS: `install/settings` без `signingAlgorithm` ломает создание пользователей
-`/api/install/settings` парсит **`CertificateAuthorityConfig`**
-(`serverDomain`, `reverseProxy`, **`signingAlgorithm`**, `crlLifetime`, `userLifetime`,
-`deviceLifetime`). Если `signingAlgorithm` не передан, он сохраняется как `null` →
-`JamsCA.signingAlgorithm = null` → `CertificateSigner` падает
-(`NullPointerException: String.toCharArray() ... is null`) → сертификат пользователя не
-подписывается → `RegisterUserFlow` получает `user = null` → **HTTP 500 на создание пользователя**.
-Лечение без переустановки — дописать поле в `/opt/jams/config.json` и перезапустить службу:
-```json
-{"caConfiguration":"{\"serverDomain\":\"…\",\"signingAlgorithm\":\"SHA512WITHRSA\", …}"}
-```
-Скрипт: [`../../migration/cloudru-jams-signfix.sh`](../../migration/cloudru-jams-signfix.sh).
-
-### 11. JAMS UI: `theme.spacing is not a function` — рассинхрон мажоров MUI
-Коммит JAMS `ee621710` «update dependencies to latest» поднял `@mui/material` до **v9**, а
-`@mui/styles` остался на **v6** (последняя ветка). Разные копии `@mui/private-theming` →
-разные React-контексты темы → `makeStyles` получает пустую тему. Согласовать обратно на v6
-**нельзя** (72 ошибки TS — исходники завязаны на API v7+/v9), переписать 43 файла с
-`makeStyles` тоже. Решение: откатить **только каталог `jams-react-client/`** на `ee62171~1`
-(там стек v5 согласован) — бэкенд этот коммит не трогал. Подробно:
-[`JAMI_MIGRATION_CLOUDRU.md`](JAMI_MIGRATION_CLOUDRU.md) §10.
-
-### 12. Бэкапы: не тот каталог метрик = «в Grafana пусто»
+### 10. Бэкапы: не тот каталог метрик = «в Grafana пусто»
 node-exporter смонтирован на `/var/lib/node_exporter/textfile_collector`, а `restic-metrics.sh`
 по умолчанию писал в `/var/lib/node_exporter/textfile` (без `_collector`) — метрики не попадали
 в Prometheus. Для MSPShield используем `migration/restic-backup.sh`: он пишет в правильный
@@ -157,7 +135,7 @@ node-exporter смонтирован на `/var/lib/node_exporter/textfile_colle
 Пока нет статических S3-ключей — репозиторий локальный (`/var/backups/restic`); для off-site
 достаточно поменять `RESTIC_REPOSITORY` в `/etc/restic/env.sh`.
 
-### 13. Доставляемость почты: остаётся PTR
+### 11. Доставляемость почты: остаётся PTR
 SPF/DKIM/DMARC настроены и проверены (DKIM-RSA 420 символов без лишних пробелов), но
 **PTR публичного IP = `msp-cloud-vm`**, а это не FQDN и он **не подтверждается обратным
 резолвом** (FCrDNS не проходит) — главный фактор попадания в спам. Через API Cloud.ru

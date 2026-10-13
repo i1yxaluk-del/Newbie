@@ -79,9 +79,8 @@
 `22/tcp`, `80/tcp`, `443/tcp`, `443/udp` (AmneziaWG), `465/587/143/993/4190/tcp`,
 и весь egress. Аналог правил из `deploy.ps1` (стадии 3–4) и `cloud-init.yaml` (ufw).
 
-Дополнительно для Jami/JAMS (см. [`../docs/deployment/JAMS_SETUP.md`](../docs/deployment/JAMS_SETUP.md) «Порты»):
-`3478` tcp+udp, `5349` tcp+udp, ретрансляция `49160-49250/udp` (TURN),
-`4222` tcp+udp (OpenDHT). `8081` (JAMS) и `8888` (DHT Proxy) наружу НЕ открываются — только через Caddy.
+Дополнительно для звонков (TURN/coturn):
+`3478` tcp+udp, `5349` tcp+udp, ретрансляция `49160-49199/udp`.
 
 ### 2. Код на ВМ
 
@@ -170,27 +169,6 @@ ufw `allow 443/udp` + SSH из `10.9.0.0/24`.
 - новый restic snapshot; `du -sh` томов ≈ бэкап; внешний скан не показывает internal ports.
 
 Старая ВМ — выключена до acceptance, удаляется после подтверждённого бэкапа новой среды.
-
-### 10. Jami / JAMS-инфраструктура (пилот, 30.09.2026)
-
-Развёрнута на той же ВМ после миграции 28.09; её данные **не входят в локальный кит
-`migration/`** (там только pre-Jami артефакты). Источник данных — restic-снапшоты старого
-YC-бакета (`/opt`, `/etc`, `/home`) либо пересборка по [`../docs/deployment/JAMS_SETUP.md`](../docs/deployment/JAMS_SETUP.md).
-
-Компоненты и их данные:
-
-| Компонент | Размещение/данные | Источник при переносе |
-|---|---|---|
-| JAMS (8081, `m.`) | `/opt/jams/{CA.pem,keystore.jks,config.json,oauth.key,jams.crl}` + `jams.service` | restic `/opt/jams`, иначе пересборка (JDK 26 + Maven + `git.jami.net/jami-jams`) |
-| coturn (`turn.`, 3478/5349) | `/etc/turnserver.conf`, user `jami` | restic `/etc` + `turnadmin -a` |
-| OpenDHT dhtnode (4222, `dht.`) | `dhtnode.service`, БД dhtnode | пересборка: `apt install dhtnode` + unit (`tail -f /dev/null | dhtnode -v -p 4222 -b bootstrap.jami.net --proxyserver 8888`) |
-| jami-services (compose `deploy/jami-services/`) | `/opt/jami-services/{pgdata,invite-data,ntfy-cache}` | restic `/opt/jami-services` + `pg_dump` nameservice (в `backup.sh`) |
-| always-online jamid | `/home/jamiserver/.local/share/jami`, `jamiserver.service` | restic `/home` (иначе headless D-Bus addAccount заново) |
-
-- Доп. DNS A-записи (все → новый IP): `m.`, `dht.`, `turn.`, `names.`, `invite.`, `push.`.
-- Доп. Caddy-блоки `m./dht./turn./names./invite./push.` (стиль `{$MSP_DOMAIN}`) — `setup-on-vm.sh` их не ставит, добавить в `/etc/caddy/Caddyfile` вручную.
-- `jami-services` `.env`: `JAMI_PG_PASSWORD`, `JAMS_ADMIN_USER`, `JAMS_ADMIN_PASS`, `JAMS_ADMIN_PASSWORD` (значения — из секретов/`~/msp-deploy-secrets.txt`, которых нет в локальном ките).
-- Пароли/CA JAMS и TURN — восстановить из restic `/opt/jams`, `/etc/turnserver.conf`, `/home`; при недоступности restic — пересборка и перевыпуск (логины JAMS не переиспользуются после revoke).
 
 ## Почта без Postbox (прямая доставка по MX)
 
@@ -288,16 +266,13 @@ VPN-сервер AmneziaWG поднят **на той же ВМ**, что и п�
 
 Осталось:
 - [x] **DKIM RSA в DNS** исправлен и проверен на обоих NS (420 симв., пробелов в base64 — 0).
-- [x] **Jami/JAMS пересобраны** на новой ВМ: JAMS (свой CA), coturn, OpenDHT, `jami-services`,
-      blueprint+группа `MSPShield`, always-online демон — см. [`../docs/deployment/JAMI_MIGRATION_CLOUDRU.md`](../docs/deployment/JAMI_MIGRATION_CLOUDRU.md).
 - [x] **Docker DNS** на ВМ: `8.8.8.8` из cloud.ru недоступен → в `daemon.json` прописаны `1.1.1.1`/`8.8.4.4`.
-- [x] **Экспорт секретов** в Vaultwarden: 16 элементов (13 инфра + 3 Jami).
+- [x] **Экспорт секретов** в Vaultwarden: 13 инфраструктурных элементов.
 
 Осталось:
 - [ ] **PTR** → `mail.msp-claude.online` (Evolution DNS → Обратные зоны, консоль; API недоступен).
 - [ ] **Дубль `_dmarc`**: удалить запись `_dmarc.msp-claude.online` (создаёт `_dmarc.msp-claude.online.msp-claude.online`).
 - [ ] **Vaultwarden SMTP** всё ещё смотрит на `postbox.cloud.yandex.net` — перевести на локальный Stalwart.
-- [ ] **Jami ID** для always-online узла (демон работает, техаккаунт через D-Bus не создан).
 - [ ] **S3-статические ключи** Object Storage + имя бакета → restic (`/etc/restic/env.sh`, `restic init`).
 - [ ] MAX re-auth.
 - [ ] Удалить старую ВМ после периода наблюдения.

@@ -23,7 +23,6 @@ if [ ! -f /opt/restic-scripts/excludes.txt ]; then
   cat >/opt/restic-scripts/excludes.txt <<'EOF'
 # Что НЕ попадает в бэкап (мусор и то, что восстанавливается из репозитория).
 /opt/msp-backups
-/opt/jams-src
 /opt/*.tar.gz
 /opt/*.log
 **/node_modules

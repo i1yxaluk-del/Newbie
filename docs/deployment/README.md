@@ -20,7 +20,6 @@
 - [`tenant_onboarding.md`](tenant_onboarding.md) — подключение клиентского tenant после подписанного scope.
 - [`secrets_management.md`](secrets_management.md) — секреты и ротация.
 - [VAULTWARDEN_ORG_RUNBOOK.md](VAULTWARDEN_ORG_RUNBOOK.md)
-- [JAMS_SETUP.md](JAMS_SETUP.md) - self-hosted Jami: JAMS + coturn + OpenDHT (пилот) — организация, коллекции и импорт секретов Vaultwarden
 
 ## Не смешивать
 

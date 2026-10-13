@@ -197,3 +197,29 @@ services:
         limits: { memory: 128M }
         reservations: { memory: 32M }
     logging: *logging
+
+  # Element X: Alertmanager webhook → личные чаты alert (matrix-alerter).
+  matrix-alerter:
+    build: ../../../services/matrix_alerter
+    container_name: msp-matrix-alerter
+    restart: unless-stopped
+    environment:
+      WEBHOOK_TOKEN: "${ALERTMANAGER_WEBHOOK_TOKEN:-}"
+      MATRIX_HS: "${MATRIX_HS:-https://m.msp-claude.online}"
+      MATRIX_LOGIN_URL: "${MATRIX_LOGIN_URL:-https://bastion.msp-claude.online}"
+      MATRIX_ALERT_USER: "${MATRIX_ALERT_USER:-alert}"
+      MATRIX_ALERT_PASSWORD: "${MATRIX_ALERT_PASSWORD:-}"
+      MATRIX_ALERT_ROOMS: "${MATRIX_ALERT_ROOMS:-}"
+    ports: ["127.0.0.1:9096:9096"]
+    networks: [monitoring]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9096/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits: { memory: 128M }
+        reservations: { memory: 32M }
+    logging: *logging

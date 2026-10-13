@@ -388,8 +388,11 @@ def root() -> Response:
     return _page(
         "MSPShield Matrix — приглашения",
         '<div class="card"><h1>MSPShield Matrix</h1>'
-        '<p class="muted">Сервис приглашений. Ссылка-приглашение выглядит как '
-        '<span class="mono">/i/&lt;token&gt;</span>.</p></div>',
+        '<p class="muted">Сервис приглашений и личный кабинет.</p>'
+        '<p><a class="btn btn-main" href="/u">Личный кабинет — войти</a></p>'
+        '<p class="muted">В кабинете можно приглашать коллег: создайте ссылку — коллега сам выберет логин и пароль, а после его регистрации вы автоматически окажетесь в личном чате друг с другом.</p>'
+        '<p class="muted">Получили приглашение? Откройте персональную ссылку '
+        '<span class="mono">/i/&lt;token&gt;</span> из сообщения.</p></div>',
     )
 
 

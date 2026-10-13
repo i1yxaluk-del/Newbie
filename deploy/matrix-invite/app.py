@@ -1174,6 +1174,22 @@ def cabinet(request: Request) -> Response:
   <p><a class="btn btn-main" href="https://e.msp-claude.online/#/login?server={MATRIX_DOMAIN}">Открыть Element</a></p>
 </div>
 <div class="card">
+  <h2>Приложение на телефоне</h2>
+  <p class="muted">Постоянная ссылка для автонастройки приложения: откройте её на телефоне — MSPShield получит адрес сервера автоматически, останется нажать «Войти».</p>
+  <p><a class="btn btn-main" href="{EXA_LOGIN_URL}">Открыть в приложении</a></p>
+  <p class="muted">Или наведите камеру телефона на QR-код:</p>
+  <p><img src="/qr-setup.png" alt="QR-код для настройки приложения" width="190" height="190"></p>
+  <p class="muted">Если приложение уже установлено, тот же QR можно отсканировать камерой — откроется MSPShield с готовым сервером.</p>
+</div>
+<div class="card">
+  <h2>Вход в приложение по QR-коду</h2>
+  <p class="muted">Привязать телефон без пароля можно через веб-версию на компьютере:</p>
+  <p class="muted">1. Откройте <a href="https://e.msp-claude.online/" target="_blank">веб-версию MSPShield</a> на компьютере и войдите в свой аккаунт.<br>
+  2. Нажмите на свой аватар (слева вверху) и выберите «Привязать новое устройство».<br>
+  3. В приложении на телефоне выберите «Войти с QR-кодом» и отсканируйте код с экрана компьютера.</p>
+  <p class="muted">Приложение войдёт автоматически и получит ключи шифрования — пароль вводить не нужно.</p>
+</div>
+<div class="card">
   <h2>Сменить пароль</h2>
   <label>Текущий пароль</label>
   <input id="pw-old" type="password" autocomplete="off">
@@ -1383,6 +1399,12 @@ def wire_dm(new_user, row):
                 _mas_api("POST", "/api/admin/v1/personal-sessions/" + urllib.parse.quote(ps2) + "/revoke", {})
         except Exception:
             pass
+
+
+@app.get("/qr-setup.png")
+def qr_setup_png():
+    from fastapi.responses import FileResponse
+    return FileResponse("/opt/matrix-invite/qr-setup.png", media_type="image/png")
 
 
 @app.get("/welcome/{token}")

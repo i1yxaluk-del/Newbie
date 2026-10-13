@@ -13,7 +13,8 @@
   "features": {
     "feature_video_rooms": true,
     "feature_group_calls": false,
-    "feature_voice_broadcast": false
+    "feature_voice_broadcast": false,
+    "feature_login_with_qr": true
   },
   "setting_defaults": {
     "breadcrumbs": true,

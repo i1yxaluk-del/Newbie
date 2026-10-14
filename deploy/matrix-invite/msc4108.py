@@ -498,16 +498,8 @@ class LinkSession:
             data = json.loads(self.ch.decrypt(msg))
             t = data.get("type")
             if t == "m.login.success":
-                if not self._device_belongs():
-                    try:
-                        self._send_failure("device_not_found")
-                    except Exception:
-                        pass
-                    self.state = "error"
-                    self.error = ("Устройство не найдено в вашем аккаунте — возможно, вход подтверждён под другим "
-                                  "пользователем. Убедитесь, что на странице подтверждения вы входите под тем же "
-                                  "аккаунтом, что и в кабинете, и попробуйте снова.")
-                    return
+                # NB: Element creates its device right AFTER importing the secrets, so any
+                # pre-check of /devices would deadlock the flow. Send secrets immediately.
                 sec_payload = {"type": "m.login.secrets"}
                 if self.cs_msk and self.cs_ssk and self.cs_usk:
                     sec_payload["cross_signing"] = {

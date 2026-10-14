@@ -1500,7 +1500,7 @@ def u_link_start(request: Request) -> dict:
     if not sess:
         raise HTTPException(status_code=401, detail="auth")
     try:
-        st = qrlink.start_session(sess["jid"], SYNAPSE_URL)
+        st = qrlink.start_session(sess["jid"], SYNAPSE_URL, DB)
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "message": "Не удалось создать код: " + str(e)[:130]}
     return {"ok": True, "sid": st.id, "qr": "data:image/png;base64," + st.qr_png_b64}

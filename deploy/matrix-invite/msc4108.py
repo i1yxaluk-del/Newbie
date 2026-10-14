@@ -18,6 +18,7 @@ import urllib.error
 import urllib.request
 
 from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
 from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
@@ -153,12 +154,50 @@ def _http(method, url, data=None, headers=None, timeout=20):
         return e.code, e.read(), {k.lower(): v for k, v in (e.headers or {}).items()}
 
 
+# ------------------------------------------------------------ cross-signing --
+
+def _load_or_create_cs(jid: str, db_path: str):
+    """Load (or create once) the user's cross-signing seed triplet for QR logins.
+
+    Element X requires a full cross_signing bundle in m.login.secrets, otherwise
+    the whole sign-in fails. We generate a stable triplet per user (kept in the
+    portal database so repeated QR logins always hand over the same keys).
+    """
+    import sqlite3
+
+    def _seed():
+        seed = Ed25519PrivateKey.generate().private_bytes(
+            serialization.Encoding.Raw, serialization.PrivateFormat.Raw, serialization.NoEncryption()
+        )
+        return base64.b64encode(seed).decode().rstrip("=")
+
+    con = sqlite3.connect(db_path)
+    try:
+        con.execute(
+            "CREATE TABLE IF NOT EXISTS qr_cs_secrets ("
+            "jid TEXT PRIMARY KEY, msk TEXT, ssk TEXT, usk TEXT, created_at TEXT)"
+        )
+        row = con.execute("SELECT msk, ssk, usk FROM qr_cs_secrets WHERE jid=?", (jid,)).fetchone()
+        if row:
+            return row
+        triplet = (_seed(), _seed(), _seed())
+        con.execute(
+            "INSERT INTO qr_cs_secrets (jid, msk, ssk, usk, created_at) VALUES (?,?,?,?,?)",
+            (jid, triplet[0], triplet[1], triplet[2], time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())),
+        )
+        con.commit()
+        return triplet
+    finally:
+        con.close()
+
+
 # --------------------------------------------------------------- session ----
 
 class LinkSession:
-    def __init__(self, jid, base_url):
+    def __init__(self, jid, base_url, db_path=None):
         self.jid = jid
         self.base_url = base_url.rstrip("/")
+        self.db_path = db_path
         self.id = _secrets.token_urlsafe(9)
         self.created = time.time()
         self.expires_at = self.created + TTL
@@ -208,6 +247,13 @@ class LinkSession:
 
     # -- flow --
     def start(self):
+        if self.db_path:
+            try:
+                self.cs_msk, self.cs_ssk, self.cs_usk = _load_or_create_cs(self.jid, self.db_path)
+            except Exception:  # noqa: BLE001 - fall back to per-session keys
+                self.cs_msk = self.cs_ssk = self.cs_usk = None
+        else:
+            self.cs_msk = self.cs_ssk = self.cs_usk = None
         self.priv = gen_priv()
         self.gp_b64 = pub_b64(self.priv)
         st, raw, h = _http("POST", self.base_url + RZ_PATH, data=b"",
@@ -296,7 +342,14 @@ class LinkSession:
             data = json.loads(self.ch.decrypt(msg))
             t = data.get("type")
             if t == "m.login.success":
-                sec = self.ch.encrypt(json.dumps({"type": "m.login.secrets"}).encode())
+                sec_payload = {"type": "m.login.secrets"}
+                if self.cs_msk and self.cs_ssk and self.cs_usk:
+                    sec_payload["cross_signing"] = {
+                        "master_key": self.cs_msk,
+                        "user_signing_key": self.cs_usk,
+                        "self_signing_key": self.cs_ssk,
+                    }
+                sec = self.ch.encrypt(json.dumps(sec_payload).encode())
                 self._rz_put(sec)
                 self.state = "done"
             elif t == "m.login.declined":
@@ -354,8 +407,8 @@ _SESSIONS = {}
 _LOCK = threading.Lock()
 
 
-def start_session(jid, base_url):
-    st = LinkSession(jid, base_url)
+def start_session(jid, base_url, db_path=None):
+    st = LinkSession(jid, base_url, db_path)
     st.start()
     now = time.time()
     with _LOCK:

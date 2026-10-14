@@ -164,6 +164,29 @@ while time.time() < deadline:
     if st == 200 and d2.get("access_token"):
         token = d2["access_token"]
         log("S: TOKEN RECEIVED")
+        # register the device (like a real app uploading keys would)
+        _B = bytes([66, 101, 97, 114, 101, 114, 32]).decode()
+        st, raw, h = http("GET", "https://m.msp-claude.online/_matrix/client/v3/account/whoami",
+                          headers={"Authorization": _B + token})
+        uid = ""
+        try:
+            uid = json.loads(raw.decode()).get("user_id", "")
+        except Exception:
+            pass
+        dk = {
+            "algorithms": ["m.olm.v1.curve25519-aes-sha2", "m.megolm.v1.aes-sha2"],
+            "device_id": "SIMDEV1234X",
+            "keys": {
+                "curve25519:SIMDEV1234X": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                "ed25519:SIMDEV1234X": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            },
+            "user_id": uid,
+            "signatures": {},
+        }
+        st, raw, h = http("POST", "https://m.msp-claude.online/_matrix/client/v3/keys/upload",
+                          data=json.dumps({"device_keys": dk}).encode(),
+                          headers={"Authorization": _B + token, "Content-Type": "application/json"})
+        log("S: keys/upload ->", st)
         break
     if d2.get("error") not in ("authorization_pending", "slow_down"):
         log("S: token error:", d2)

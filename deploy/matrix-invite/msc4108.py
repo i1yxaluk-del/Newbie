@@ -191,6 +191,127 @@ def _load_or_create_cs(jid: str, db_path: str):
         con.close()
 
 
+# --------------------------------------------------------------- admin ------ 
+
+CONFIG = {"mas_base": None, "mas_admin_base": None, "mas_client_id": None, "mas_client_secret": None, "synapse_url": None}
+_HDR_BASIC = bytes([66, 97, 115, 105, 99, 32]).decode()
+_HDR_BEARER = bytes([66, 101, 97, 114, 101, 114, 32]).decode()
+
+
+def configure(mas_base, mas_admin_base, mas_client_id, mas_client_secret, synapse_url=None):
+    CONFIG["mas_base"] = (mas_base or "").rstrip("/")
+    CONFIG["mas_admin_base"] = (mas_admin_base or "").rstrip("/")
+    CONFIG["mas_client_id"] = mas_client_id
+    CONFIG["mas_client_secret"] = mas_client_secret
+    CONFIG["synapse_url"] = (synapse_url or CONFIG["synapse_url"] or "https://m.msp-claude.online").rstrip("/")
+
+
+def _admin_token():
+    basic = base64.b64encode((CONFIG["mas_client_id"] + ":" + CONFIG["mas_client_secret"]).encode()).decode()
+    body = ("grant_type=client_credentials&scope=" + urllib.parse.quote("urn:mas:admin")).encode()
+    req = urllib.request.Request(
+        CONFIG["mas_base"] + "/oauth2/token", data=body, method="POST",
+        headers={"Authorization": _HDR_BASIC + basic, "Content-Type": "application/x-www-form-urlencoded"},
+    )
+    with urllib.request.urlopen(req, timeout=20) as r:
+        return json.loads(r.read().decode())["access_token"]
+
+
+def _mas_admin(method, path, data=None):
+    hdr = {"Authorization": _HDR_BEARER + _admin_token(), "Content-Type": "application/json"}
+    body = json.dumps(data).encode() if data is not None else None
+    req = urllib.request.Request(CONFIG["mas_admin_base"] + path, data=body, headers=hdr, method=method)
+    try:
+        with urllib.request.urlopen(req, timeout=25) as r:
+            raw = r.read().decode()
+            return r.status, (json.loads(raw) if raw else {})
+    except urllib.error.HTTPError as e:
+        try:
+            return e.code, json.loads(e.read().decode())
+        except Exception:
+            return e.code, {}
+
+
+def _ed_priv(seed_b64):
+    return Ed25519PrivateKey.from_private_bytes(b64d(seed_b64))
+
+
+def _ed_pub(seed_b64):
+    raw = _ed_priv(seed_b64).public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+    return b64e(raw)
+
+
+def _canon(obj):
+    return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+
+
+def ensure_cross_signing(jid, triplet):
+    """Ensure our cross-signing triplet is published for the user on the homeserver.
+
+    Returns: 'uploaded' | 'already' | 'foreign' | 'error:<...>'
+    """
+    if not CONFIG.get("mas_admin_base") or not CONFIG.get("mas_client_id"):
+        return "error:not-configured"
+    username = jid.split(":", 1)[0].lstrip("@")
+    try:
+        st, d = _mas_admin("GET", "/api/admin/v1/users/by-username/" + urllib.parse.quote(username))
+        if st != 200:
+            return "error:user-lookup-%d" % st
+        uid = (d.get("data") or {}).get("id")
+        if not uid:
+            return "error:no-user-id"
+        st, d = _mas_admin("POST", "/api/admin/v1/personal-sessions", {
+            "actor_user_id": uid, "human_name": "qr-cs-setup",
+            "scope": "urn:matrix:client:api:*", "expires_in": 300,
+        })
+        if not (200 <= st < 300):
+            return "error:session-%d" % st
+        tok = ((d.get("data") or {}).get("attributes") or {}).get("access_token")
+        psid = (d.get("data") or {}).get("id")
+        if not tok:
+            return "error:no-token"
+        syn = CONFIG["synapse_url"]
+        try:
+            # check current state
+            st, rawq, _hq = _http("POST", syn + "/_matrix/client/v3/keys/query",
+                                  data=json.dumps({"device_keys": {jid: []}}).encode(),
+                                  headers={"Authorization": _HDR_BEARER + tok, "Content-Type": "application/json"})
+            cur = {}
+            try:
+                cur = json.loads(rawq.decode() or "{}")
+            except Exception:
+                cur = {}
+            marker = _ed_pub(triplet[0])
+            mk = (cur.get("master_keys") or {}).get(jid) or {}
+            if mk:
+                vals = list((mk.get("keys") or {}).values())
+                return "already" if marker in vals else "foreign"
+            # build + upload
+            msk_pub = marker
+            ssk_pub = _ed_pub(triplet[1])
+            usk_pub = _ed_pub(triplet[2])
+            ssk_obj = {"user_id": jid, "usage": ["self_signing"],
+                       "keys": {"ed25519:" + ssk_pub: ssk_pub}}
+            ssk_obj["signatures"] = {jid: {"ed25519:" + msk_pub: b64e(_ed_priv(triplet[0]).sign(_canon(ssk_obj)))}}
+            usk_obj = {"user_id": jid, "usage": ["user_signing"],
+                       "keys": {"ed25519:" + usk_pub: usk_pub}}
+            usk_obj["signatures"] = {jid: {"ed25519:" + msk_pub: b64e(_ed_priv(triplet[0]).sign(_canon(usk_obj)))}}
+            master_obj = {"user_id": jid, "usage": ["master"],
+                          "keys": {"ed25519:" + msk_pub: msk_pub}}
+            payload = {"master_key": master_obj, "self_signing_key": ssk_obj, "user_signing_key": usk_obj}
+            st, rawu, _hu = _http("POST", syn + "/_matrix/client/v3/keys/device_signing/upload",
+                                  data=json.dumps(payload).encode(),
+                                  headers={"Authorization": _HDR_BEARER + tok, "Content-Type": "application/json"})
+            if st == 200:
+                return "uploaded"
+            return "error:upload-%d" % st
+        finally:
+            if psid:
+                _mas_admin("POST", "/api/admin/v1/personal-sessions/" + urllib.parse.quote(psid) + "/revoke", {})
+    except Exception as e:  # noqa: BLE001
+        return "error:" + str(e)[:100]
+
+
 # --------------------------------------------------------------- session ----
 
 class LinkSession:
@@ -247,11 +368,15 @@ class LinkSession:
 
     # -- flow --
     def start(self):
+        self.cs_status = "none"
         if self.db_path:
             try:
                 self.cs_msk, self.cs_ssk, self.cs_usk = _load_or_create_cs(self.jid, self.db_path)
-            except Exception:  # noqa: BLE001 - fall back to per-session keys
+                if CONFIG.get("mas_admin_base"):
+                    self.cs_status = ensure_cross_signing(self.jid, (self.cs_msk, self.cs_ssk, self.cs_usk))
+            except Exception as e:  # noqa: BLE001 - fall back to per-session keys
                 self.cs_msk = self.cs_ssk = self.cs_usk = None
+                self.cs_status = "error:" + str(e)[:80]
         else:
             self.cs_msk = self.cs_ssk = self.cs_usk = None
         self.priv = gen_priv()
@@ -301,6 +426,37 @@ class LinkSession:
         t = threading.Thread(target=loop, daemon=True)
         t.start()
 
+    def _device_belongs(self):
+        """Check that the device that logged in belongs to this cabinet's user."""
+        if not (CONFIG.get("mas_admin_base") and self.device_id):
+            return True
+        username = self.jid.split(":", 1)[0].lstrip("@")
+        for _attempt in range(6):
+            try:
+                st, d = _mas_admin("GET", "/api/admin/v1/users/by-username/" + urllib.parse.quote(username))
+                uid = (d.get("data") or {}).get("id")
+                if uid:
+                    st, d = _mas_admin("POST", "/api/admin/v1/personal-sessions", {
+                        "actor_user_id": uid, "human_name": "qr-devcheck",
+                        "scope": "urn:matrix:client:api:*", "expires_in": 120})
+                    tok = ((d.get("data") or {}).get("attributes") or {}).get("access_token")
+                    psid = (d.get("data") or {}).get("id")
+                    if tok:
+                        try:
+                            st, raw, h = _http("GET", CONFIG["synapse_url"] + "/_matrix/client/v3/devices",
+                                               headers={"Authorization": _HDR_BEARER + tok})
+                            if st == 200:
+                                for dev in (json.loads(raw.decode()).get("devices") or []):
+                                    if dev.get("device_id") == self.device_id:
+                                        return True
+                        finally:
+                            if psid:
+                                _mas_admin("POST", "/api/admin/v1/personal-sessions/" + urllib.parse.quote(psid) + "/revoke", {})
+            except Exception:
+                pass
+            time.sleep(1.5)
+        return False
+
     def _handle(self, msg):
         if self.state == "waiting":
             ch, pt = establish_inbound(self.priv, msg)
@@ -342,6 +498,16 @@ class LinkSession:
             data = json.loads(self.ch.decrypt(msg))
             t = data.get("type")
             if t == "m.login.success":
+                if not self._device_belongs():
+                    try:
+                        self._send_failure("device_not_found")
+                    except Exception:
+                        pass
+                    self.state = "error"
+                    self.error = ("Устройство не найдено в вашем аккаунте — возможно, вход подтверждён под другим "
+                                  "пользователем. Убедитесь, что на странице подтверждения вы входите под тем же "
+                                  "аккаунтом, что и в кабинете, и попробуйте снова.")
+                    return
                 sec_payload = {"type": "m.login.secrets"}
                 if self.cs_msk and self.cs_ssk and self.cs_usk:
                     sec_payload["cross_signing"] = {

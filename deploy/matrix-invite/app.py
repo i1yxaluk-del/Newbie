@@ -54,6 +54,8 @@ MAS_OIDC_SEC = os.getenv("MAS_OIDC_CLIENT_" + "SECRET", "")
 OIDC_REDIRECT = INVITE_BASE + "/auth/callback"
 COOKIE = "mxsession"
 
+qrlink.configure(MAS_BASE, MAS_ADMIN_BASE, MAS_CLIENT_ID, MAS_CLIENT_SEC, SYNAPSE_URL)
+
 USER_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{1,31}$")
 
 app = FastAPI()
@@ -1185,8 +1187,7 @@ def cabinet(request: Request) -> Response:
   <h2>Приложение на телефоне</h2>
   <p class="muted">Постоянная ссылка для первичной настройки: откройте её на телефоне — MSPShield получит адрес сервера автоматически, останется войти.</p>
   <p><a class="btn btn-main" href="{EXA_LOGIN_URL}">Открыть в приложении</a></p>
-  <p class="muted">Эту же ссылку можно открыть камерой по QR-коду ниже. Он подходит только для открытия приложения и подстановки сервера — не выбирайте в приложении «Войти с QR-кодом» для этого кода, для такого входа есть отдельный QR в карточке ниже.</p>
-  <p><img src="/qr-setup.png" alt="QR-код для настройки приложения" width="190" height="190"></p>
+  <p class="muted">Для ручного ввода в приложении: сервер <span class="mono">{MATRIX_DOMAIN}</span>, логин — <span class="mono">{jid}</span>.</p>
 </div>
 <div class="card">
   <h2>Вход в приложение по QR-коду</h2>
@@ -1433,6 +1434,7 @@ LINK_PAGE_BODY = r"""
 <div class="card" id="card-done" style="display:none">
   <h2>Готово ✅</h2>
   <p>Приложение подключено. Можно закрыть эту страницу.</p>
+  <p><a class="btn btn-main" href="/u">Перейти в личный кабинет</a></p>
 </div>
 <div class="card" id="card-error" style="display:none">
   <h2>Не получилось</h2>
@@ -1503,6 +1505,10 @@ def u_link_start(request: Request) -> dict:
         st = qrlink.start_session(sess["jid"], SYNAPSE_URL, DB)
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "message": "Не удалось создать код: " + str(e)[:130]}
+    if getattr(st, "cs_status", "") == "foreign":
+        return {"ok": False, "message": "У аккаунта уже настроено шифрование на другом устройстве. "
+                                     "Вход по QR из кабинета — только для первичной настройки; "
+                                     "подтвердите вход с существующего устройства."}
     return {"ok": True, "sid": st.id, "qr": "data:image/png;base64," + st.qr_png_b64}
 
 

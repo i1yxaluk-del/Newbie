@@ -26,6 +26,13 @@ from fastapi import FastAPI, Header, HTTPException, Request
 
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
+import sys as _sys
+
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).parent))
+import msc4108 as qrlink
+
 DB_DIR = os.getenv("DB_DIR", "/opt/matrix-invite/data")
 DB = os.path.join(DB_DIR, "invites.db")
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
@@ -1172,6 +1179,7 @@ def cabinet(request: Request) -> Response:
   <h2>Подключение</h2>
   <p class="muted">Ссылка открывает Element с уже выбранным сервером — дальше войдите своим ID и паролем. В мобильном приложении при первом входе укажите сервер {MATRIX_DOMAIN}; сам вход идёт через фирменную страницу MSPShield.</p>
   <p><a class="btn btn-main" href="https://e.msp-claude.online/#/login?server={MATRIX_DOMAIN}">Открыть Element</a></p>
+  <p class="muted">При первом входе может появиться запрос «Подтвердите это устройство» — так Element защищает шифрование. Его можно отложить (закрыть или «Позже») и пользоваться сразу; подтвердить устройство можно позже с телефона.</p>
 </div>
 <div class="card">
   <h2>Приложение на телефоне</h2>
@@ -1182,11 +1190,10 @@ def cabinet(request: Request) -> Response:
 </div>
 <div class="card">
   <h2>Вход в приложение по QR-коду</h2>
-  <p class="muted"><b>Вход на телефон без логина и пароля.</b> Нужен компьютер с веб-версией MSPShield:</p>
-  <p class="muted">1. Откройте <a href="https://e.msp-claude.online/" target="_blank">веб-версию MSPShield</a> на компьютере и войдите в свой аккаунт.<br>
-  2. Нажмите на свой аватар (слева вверху) и выберите «Привязать новое устройство» — откроется QR-код.<br>
-  3. На телефоне в приложении выберите «Войти с QR-кодом» и отсканируйте <b>этот</b> код с экрана компьютера.</p>
-  <p class="muted">Приложение войдёт автоматически и получит ключи шифрования — пароль и логин вводить не нужно.</p>
+  <p class="muted"><b>Вход на телефон без логина и пароля.</b> Откройте мастер — он покажет код для приложения:</p>
+  <p><a class="btn btn-main" href="/u/link">Связать приложение</a></p>
+  <p class="muted">В приложении выберите «Войти с QR-кодом», отсканируйте код с экрана и введите двухзначный код, который появится на телефоне.</p>
+  <p class="muted">Запасной способ: <a href="https://e.msp-claude.online/" target="_blank">веб-версия</a> → аватар → «Привязать новое устройство» → приложение сканирует код оттуда.</p>
 </div>
 <div class="card">
   <h2>Сменить пароль</h2>
@@ -1398,6 +1405,129 @@ def wire_dm(new_user, row):
                 _mas_api("POST", "/api/admin/v1/personal-sessions/" + urllib.parse.quote(ps2) + "/revoke", {})
         except Exception:
             pass
+
+
+LINK_PAGE_BODY = r"""
+<div class="card">
+  <h1>Связать приложение</h1>
+  <p class="muted">Вход на телефон без логина и пароля: приложение отсканирует код и войдёт автоматически.</p>
+</div>
+<div class="card" id="card-wait">
+  <h2>1. Отсканируйте код</h2>
+  <p class="muted">На телефоне откройте MSPShield, нажмите «Войти с QR-кодом» и наведите камеру на код:</p>
+  <p style="text-align:center"><img id="qr" alt="QR-код" style="width:230px;height:230px;background:#fff;border:1px solid #e3e3e3;border-radius:12px;padding:10px"></p>
+  <p class="muted" id="status-wait">Создаю код…</p>
+</div>
+<div class="card" id="card-code" style="display:none">
+  <h2>2. Код с телефона</h2>
+  <p class="muted">На телефоне появился двухзначный код. Введите его — так мы убедимся, что сканирование безопасно:</p>
+  <p><input id="code" inputmode="numeric" maxlength="2" autocomplete="off" style="font-size:22px;width:80px;text-align:center"> <button class="btn btn-main" id="code-btn">Подтвердить</button></p>
+  <p class="muted" id="code-msg"></p>
+</div>
+<div class="card" id="card-confirm" style="display:none">
+  <h2>3. Подтвердите вход</h2>
+  <p class="muted">Нажмите кнопку и подтвердите вход на открывшейся странице MSPShield:</p>
+  <p><a class="btn btn-main" id="confirm-link" target="_blank" rel="noopener">Открыть страницу подтверждения</a></p>
+  <p class="muted">После подтверждения приложение войдёт автоматически — эта страница обновится сама.</p>
+</div>
+<div class="card" id="card-done" style="display:none">
+  <h2>Готово ✅</h2>
+  <p>Приложение подключено. Можно закрыть эту страницу.</p>
+</div>
+<div class="card" id="card-error" style="display:none">
+  <h2>Не получилось</h2>
+  <p class="muted" id="err-msg"></p>
+  <p><button class="btn btn-main" onclick="start()">Попробовать ещё раз</button></p>
+</div>
+<script>
+(function(){
+  var sid = null, timer = null, busy = false;
+  function el(id){ return document.getElementById(id); }
+  function show(id){ ['card-wait','card-code','card-confirm','card-done','card-error'].forEach(function(x){ el(x).style.display = (x===id ? '' : 'none'); }); }
+  function fail(msg){ el('err-msg').textContent = msg || 'Попробуйте ещё раз.'; show('card-error'); }
+  function start(){
+    show('card-wait'); el('status-wait').textContent = 'Создаю код…';
+    fetch('/u/link/start', {method:'POST'}).then(function(r){ return r.json(); }).then(function(d){
+      if(!d.ok){ fail(d.message); return; }
+      sid = d.sid; el('qr').src = d.qr; el('status-wait').textContent = 'Жду сканирования…';
+      if(timer) clearInterval(timer);
+      timer = setInterval(poll, 1500);
+      poll();
+    }).catch(function(){ fail('Сеть недоступна'); });
+  }
+  function poll(){
+    if(!sid || busy) return;
+    busy = true;
+    fetch('/u/link/status?sid=' + encodeURIComponent(sid)).then(function(r){ return r.json(); }).then(function(d){
+      busy = false;
+      if(!d.ok) return;
+      if(d.state === 'code' || d.state === 'code_ok'){ show('card-code'); }
+      else if(d.state === 'confirm'){ if(d.confirm_url) el('confirm-link').href = d.confirm_url; show('card-confirm'); }
+      else if(d.state === 'done'){ if(timer) clearInterval(timer); show('card-done'); }
+      else if(d.state === 'expired'){ if(timer) clearInterval(timer); fail('Время действия кода истекло.'); }
+      else if(d.state === 'error'){ if(timer) clearInterval(timer); fail(d.error); }
+    }).catch(function(){ busy = false; });
+  }
+  el('code-btn').addEventListener('click', function(){
+    var code = (el('code').value || '').replace(/\D/g, '').slice(0, 2);
+    if(code.length !== 2){ el('code-msg').textContent = 'Введите две цифры.'; return; }
+    el('code-btn').disabled = true;
+    fetch('/u/link/code', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({sid: sid, code: code})})
+      .then(function(r){ return r.json(); }).then(function(d){
+        el('code-btn').disabled = false;
+        if(!d.ok){ el('code-msg').textContent = d.message || 'Не получилось, попробуйте ещё раз.'; return; }
+        el('code-msg').textContent = '';
+        poll();
+      }).catch(function(){ el('code-btn').disabled = false; el('code-msg').textContent = 'Сеть недоступна'; });
+  });
+  start();
+})();
+</script>
+"""
+
+
+@app.get("/u/link")
+def u_link_page(request: Request) -> Response:
+    sess = _get_session(request)
+    if not sess:
+        return RedirectResponse("/auth/login")
+    return _page("Связать приложение — MSPShield", LINK_PAGE_BODY)
+
+
+@app.post("/u/link/start")
+def u_link_start(request: Request) -> dict:
+    sess = _get_session(request)
+    if not sess:
+        raise HTTPException(status_code=401, detail="auth")
+    try:
+        st = qrlink.start_session(sess["jid"], SYNAPSE_URL)
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "message": "Не удалось создать код: " + str(e)[:130]}
+    return {"ok": True, "sid": st.id, "qr": "data:image/png;base64," + st.qr_png_b64}
+
+
+@app.get("/u/link/status")
+def u_link_status(request: Request, sid: str) -> dict:
+    sess = _get_session(request)
+    if not sess:
+        raise HTTPException(status_code=401, detail="auth")
+    st = qrlink.get_session(sid)
+    if not st or st.jid != sess["jid"]:
+        return {"ok": False, "message": "Сессия не найдена"}
+    r = st.poll()
+    r["ok"] = True
+    return r
+
+
+@app.post("/u/link/code")
+def u_link_code(request: Request, payload: dict) -> dict:
+    sess = _get_session(request)
+    if not sess:
+        raise HTTPException(status_code=401, detail="auth")
+    st = qrlink.get_session(str(payload.get("sid") or ""))
+    if not st or st.jid != sess["jid"]:
+        return {"ok": False, "message": "Сессия не найдена"}
+    return st.submit_code(payload.get("code", ""))
 
 
 @app.get("/qr-setup.png")

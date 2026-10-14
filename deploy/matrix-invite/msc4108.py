@@ -1,0 +1,370 @@
+# -*- coding: utf-8 -*-
+"""MSC4108 QR login for the personal cabinet (device G, displays QR).
+
+Implements the Element-compatible ECIES channel (X25519 + HKDF-SHA512 +
+ChaCha20-Poly1305) and the full sign-in flow:
+QR -> scan -> check code -> device authorization grant -> confirmation -> done.
+
+No matrix access token required: the rendezvous session API and the app-side
+login are performed by the other device; this side only drives the channel.
+"""
+import base64
+import json
+import secrets as _secrets
+import subprocess
+import threading
+import time
+import urllib.error
+import urllib.request
+
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
+from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+
+APP = "MATRIX_QR_CODE_LOGIN"
+RZ_PATH = "/_matrix/client/unstable/org.matrix.msc4108/rendezvous"
+TTL = 300
+
+
+# ---------------------------------------------------------------- base64 ---
+
+def b64e(data):
+    return base64.b64encode(bytes(data)).decode().rstrip("=")
+
+
+def b64d(text):
+    pad = "=" * ((4 - len(text) % 4) % 4)
+    return base64.b64decode(text + pad)
+
+
+# ----------------------------------------------------------------- crypto ---
+
+def gen_priv():
+    return X25519PrivateKey.generate()
+
+
+def pub_b64(priv):
+    raw = priv.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+    return b64e(raw)
+
+
+def _hkdf(shared, info, length):
+    return HKDF(algorithm=hashes.SHA512(), length=length, salt=None, info=info.encode()).derive(shared)
+
+
+class Channel:
+    """Established ECIES channel (vodozemac EstablishedEcies equivalent)."""
+
+    def __init__(self, shared, gp_b64, sp_b64, role):
+        self.gp = gp_b64
+        self.sp = sp_b64
+        if role == "G":
+            enc_info = f"{APP}_ENCKEY_G|{gp_b64}|{sp_b64}"
+            dec_info = f"{APP}_ENCKEY_S|{gp_b64}|{sp_b64}"
+        else:
+            enc_info = f"{APP}_ENCKEY_S|{gp_b64}|{sp_b64}"
+            dec_info = f"{APP}_ENCKEY_G|{gp_b64}|{sp_b64}"
+        self.enc_key = _hkdf(shared, enc_info, 32)
+        self.dec_key = _hkdf(shared, dec_info, 32)
+        self.check_bytes = _hkdf(shared, f"{APP}_CHECKCODE|{gp_b64}|{sp_b64}", 2)
+        self.enc_n = 0
+        self.dec_n = 0
+
+    @staticmethod
+    def _nonce(n):
+        return n.to_bytes(16, "little")[:12]
+
+    def encrypt(self, plaintext):
+        ct = ChaCha20Poly1305(self.enc_key).encrypt(self._nonce(self.enc_n), plaintext, None)
+        self.enc_n += 1
+        return b64e(ct)
+
+    def decrypt(self, message):
+        pt = ChaCha20Poly1305(self.dec_key).decrypt(self._nonce(self.dec_n), b64d(message), None)
+        self.dec_n += 1
+        return pt
+
+    def check_code(self):
+        b = self.check_bytes
+        return "%d%d" % (b[0] % 10, b[1] % 10)
+
+
+def _shared_secret(priv, peer_pub_b64):
+    peer = X25519PublicKey.from_public_bytes(b64d(peer_pub_b64))
+    shared = priv.exchange(peer)
+    if shared == b"\x00" * 32:
+        raise ValueError("non-contributory key")
+    return shared
+
+
+def establish_inbound(priv, initial_message):
+    ct_b64, sp_b64 = initial_message.split("|", 1)
+    shared = _shared_secret(priv, sp_b64)
+    gp = pub_b64(priv)
+    ch = Channel(shared, gp, sp_b64, "G")
+    pt = ch.decrypt(ct_b64)
+    return ch, pt
+
+
+def establish_outbound(priv, peer_pub_b64, initial):
+    """Device S side of the channel (used by tests/tools)."""
+    shared = _shared_secret(priv, peer_pub_b64)
+    sp = pub_b64(priv)
+    ch = Channel(shared, peer_pub_b64, sp, "S")
+    ct = ch.encrypt(initial)
+    return ch, f"{ct}|{sp}"
+
+
+# ------------------------------------------------------------------- qr -----
+
+def qr_png_b64(data: bytes) -> str:
+    import os as _os
+    import tempfile
+
+    fd, path = tempfile.mkstemp(prefix="qr-", suffix=".bin")
+    try:
+        with _os.fdopen(fd, "wb") as fh:
+            fh.write(data)
+        p = subprocess.run(
+            ["qrencode", "-8", "-t", "PNG", "-s", "6", "-m", "2", "-r", path, "-o", "-"],
+            capture_output=True, timeout=15,
+        )
+    finally:
+        try:
+            _os.unlink(path)
+        except OSError:
+            pass
+    if p.returncode != 0:
+        raise RuntimeError("qrencode failed: " + p.stderr.decode("utf-8", "replace")[:150])
+    return base64.b64encode(p.stdout).decode()
+
+
+# ------------------------------------------------------------------ http ----
+
+def _http(method, url, data=None, headers=None, timeout=20):
+    req = urllib.request.Request(url, data=data, method=method)
+    for k, v in (headers or {}).items():
+        req.add_header(k, v)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return r.status, r.read(), {k.lower(): v for k, v in r.headers.items()}
+    except urllib.error.HTTPError as e:
+        return e.code, e.read(), {k.lower(): v for k, v in (e.headers or {}).items()}
+
+
+# --------------------------------------------------------------- session ----
+
+class LinkSession:
+    def __init__(self, jid, base_url):
+        self.jid = jid
+        self.base_url = base_url.rstrip("/")
+        self.id = _secrets.token_urlsafe(9)
+        self.created = time.time()
+        self.expires_at = self.created + TTL
+        self.lock = threading.Lock()
+        self.state = "init"
+        self.error = None
+        self.qr_png_b64 = None
+        self.url = None
+        self.etag = None
+        self.priv = None
+        self.gp_b64 = None
+        self.ch = None
+        self.expected_code = None
+        self.protocol = None
+        self.device_id = None
+        self.confirm_url = None
+        self.last_err = None
+
+    # -- transport helpers --
+    def _rz_get(self):
+        hdrs = {}
+        if self.etag:
+            hdrs["If-None-Match"] = self.etag
+        st, raw, h = _http("GET", self.url, headers=hdrs)
+        if h.get("etag"):
+            self.etag = h["etag"]
+        if st == 404:
+            self.state = "expired"
+            return None
+        if st == 200 and h.get("content-type", "").startswith("text/plain"):
+            return raw.decode()
+        return None
+
+    def _rz_put(self, data_str):
+        st = raw = None
+        for _ in range(2):
+            hdrs = {"Content-Type": "text/plain"}
+            if self.etag:
+                hdrs["If-Match"] = self.etag
+            st, raw, h = _http("PUT", self.url, data=data_str.encode(), headers=hdrs)
+            if st in (200, 201, 202):
+                if h.get("etag"):
+                    self.etag = h["etag"]
+                return True
+            _ = self._rz_get()
+        raise RuntimeError("rendezvous PUT failed: %s %s" % (st, (raw or b"")[:150]))
+
+    # -- flow --
+    def start(self):
+        self.priv = gen_priv()
+        self.gp_b64 = pub_b64(self.priv)
+        st, raw, h = _http("POST", self.base_url + RZ_PATH, data=b"",
+                           headers={"Content-Type": "text/plain"})
+        if st not in (200, 201):
+            raise RuntimeError("rendezvous create failed: %s %s" % (st, raw[:150]))
+        d = json.loads(raw.decode())
+        self.url = d["url"]
+        self.etag = h.get("etag")
+        server = self.base_url.split("://", 1)[1].split("/", 1)[0]
+        ub = self.url.encode()
+        qr = b"MATRIX" + bytes([0x02, 0x04]) + b64d(self.gp_b64)
+        qr += len(ub).to_bytes(2, "big") + ub
+        sb = server.encode()
+        qr += len(sb).to_bytes(2, "big") + sb
+        self.qr_png_b64 = qr_png_b64(qr)
+        self.state = "waiting"
+
+    def _send_failure(self, reason):
+        msg = self.ch.encrypt(json.dumps({"type": "m.login.failure", "reason": reason}).encode())
+        self._rz_put(msg)
+
+    def _send_accepted(self):
+        acc = self.ch.encrypt(json.dumps({"type": "m.login.protocol_accepted"}).encode())
+        self._rz_put(acc)
+        self.state = "confirm"
+        self._start_keepalive()
+
+    def _start_keepalive(self):
+        """Keep the rendezvous session alive while waiting for the final messages."""
+        if getattr(self, "_ka_started", False):
+            return
+        self._ka_started = True
+
+        def loop():
+            for _ in range(80):
+                time.sleep(25)
+                try:
+                    self.poll()
+                except Exception:  # noqa: BLE001
+                    pass
+                if self.state in ("done", "error", "expired"):
+                    break
+
+        t = threading.Thread(target=loop, daemon=True)
+        t.start()
+
+    def _handle(self, msg):
+        if self.state == "waiting":
+            ch, pt = establish_inbound(self.priv, msg)
+            if pt != b"MATRIX_QR_CODE_LOGIN_INITIATE":
+                raise RuntimeError("bad init plaintext: %r" % (pt[:60],))
+            self.ch = ch
+            self.expected_code = ch.check_code()
+            ok = ch.encrypt(b"MATRIX_QR_CODE_LOGIN_OK")
+            self._rz_put(ok)
+            self.state = "code"
+            return
+        if self.state in ("code", "code_ok"):
+            if self.protocol is not None:
+                return
+            data = json.loads(self.ch.decrypt(msg))
+            t = data.get("type")
+            if t == "m.login.failure":
+                self.state = "error"
+                self.error = "Вход отменён на телефоне"
+                return
+            if t != "m.login.protocol":
+                self._send_failure("unexpected_message_received")
+                self.state = "error"
+                self.error = "Неожиданный ответ устройства"
+                return
+            if data.get("protocol") != "device_authorization_grant":
+                self._send_failure("unsupported_protocol")
+                self.state = "error"
+                self.error = "Устройство не поддерживает вход по QR"
+                return
+            dag = data.get("device_authorization_grant") or {}
+            self.confirm_url = dag.get("verification_uri_complete") or dag.get("verification_uri")
+            self.device_id = data.get("device_id")
+            self.protocol = data
+            if self.state == "code_ok":
+                self._send_accepted()
+            return
+        if self.state == "confirm":
+            data = json.loads(self.ch.decrypt(msg))
+            t = data.get("type")
+            if t == "m.login.success":
+                sec = self.ch.encrypt(json.dumps({"type": "m.login.secrets"}).encode())
+                self._rz_put(sec)
+                self.state = "done"
+            elif t == "m.login.declined":
+                self.state = "error"
+                self.error = "Вход отклонён"
+            elif t == "m.login.failure":
+                self.state = "error"
+                self.error = "Ошибка на телефоне: " + str(data.get("reason"))
+            else:
+                self._send_failure("unexpected_message_received")
+                self.state = "error"
+                self.error = "Неожиданный ответ устройства"
+            return
+
+    def poll(self):
+        with self.lock:
+            if self.state in ("done", "error", "expired"):
+                return self.status()
+            if time.time() > self.expires_at:
+                self.state = "expired"
+                return self.status()
+            try:
+                msg = self._rz_get()
+                if msg:
+                    self._handle(msg)
+            except Exception as e:  # noqa: BLE001 - keep the loop alive
+                self.last_err = str(e)[:200]
+            return self.status()
+
+    def submit_code(self, code):
+        with self.lock:
+            if self.state != "code":
+                return {"ok": False, "message": "Сейчас код не требуется"}
+            code = "".join(ch for ch in str(code) if ch.isdigit())[:2]
+            if len(code) != 2:
+                return {"ok": False, "message": "Введите две цифры"}
+            if code != self.expected_code:
+                return {"ok": False, "message": "Код не совпадает — проверьте цифры на телефоне"}
+            self.state = "code_ok"
+            if self.protocol is not None:
+                self._send_accepted()
+            return {"ok": True, "state": self.state}
+
+    def status(self):
+        return {
+            "state": self.state,
+            "done": self.state == "done",
+            "error": self.error,
+            "confirm_url": self.confirm_url if self.state == "confirm" else None,
+            "expires_in": max(0, int(self.expires_at - time.time())),
+        }
+
+
+_SESSIONS = {}
+_LOCK = threading.Lock()
+
+
+def start_session(jid, base_url):
+    st = LinkSession(jid, base_url)
+    st.start()
+    now = time.time()
+    with _LOCK:
+        for k in [k for k, v in _SESSIONS.items() if v.expires_at + 600 < now]:
+            _SESSIONS.pop(k, None)
+        _SESSIONS[st.id] = st
+    return st
+
+
+def get_session(sid):
+    with _LOCK:
+        return _SESSIONS.get(sid)

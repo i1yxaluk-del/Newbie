@@ -90,7 +90,7 @@ export default function Nav() {
             <a
               href={`tel:${c.phone.replace(/[\s()\-–—]/g, "")}`}
               data-testid="nav-phone"
-              className="hidden md:inline-flex"
+              aria-label={`Позвонить ${c.phone}`}
               style={{
                 fontSize: 13,
                 color: "var(--stone)",
@@ -102,8 +102,8 @@ export default function Nav() {
                 letterSpacing: ".02em",
               }}
             >
-              <Phone size={13} color="var(--forest)" />
-              {c.phone}
+              <Phone size={15} color="var(--forest)" />
+              <span className="hidden md:inline" style={{ whiteSpace: "nowrap" }}>{c.phone}</span>
             </a>
           )}
           <a

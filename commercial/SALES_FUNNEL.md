@@ -6,34 +6,34 @@
 | Qualified | подтверждены РФ/B2B и значимый IT-контур | need, authority, timing, budget range | назначен Discovery |
 | Discovery | согласован созвон | интервью; технические действия только по письменному разрешению | evidence и рекомендуемый пакет |
 | Proposal | есть подтверждённая потребность | одно КП: пакет, scope, exclusions, onboarding, цена | решение/вопросы |
-| Gold Capacity Check | клиент выбрал Gold | staffing/cost/legal/DR/P1 gate | capacity approved либо waitlist/Lost |
+| Gold | клиент выбрал Gold | состав SIEM/DR, окно реакции, лимиты | КП с составом и ценой |
 | Contract | условия и capacity согласованы | единый договор + Order Form + DPA | подписано и оплачено |
 | Won | договор и onboarding оплачены | передача в onboarding | продажа закрыта |
 | Lost/Nurture | нет решения | код причины и дата следующего контакта | закрыто без зависания |
 
-Gold проходит отдельную стадию. Нельзя перейти из Proposal сразу в Contract, обещать дату старта или SLA до письменного capacity approval владельца.
+Для Gold на этапе Proposal фиксируются состав расширенного контура и окно реакции.
 
 ## SLA продаж
 
 - входящая заявка: ответ в тот же рабочий день;
 - предложение слотов: 1 рабочий день;
 - обычное КП: до 2 рабочих дней после discovery;
-- предварительный Gold solution outline: до 3 рабочих дней;
-- Gold capacity decision: после подтверждения кандидатов, стоимости и drills, без фиктивного быстрого срока;
+- Gold solution outline: до 3 рабочих дней;
+- Gold: финальное КП после подтверждения состава и стоимости;
 - follow-up: +3, +7 и +14 дней, затем Lost/Nurture.
 
 ## Причины Lost/Waitlist
 
-`not_icp`, `no_budget`, `no_authority`, `timing`, `no_response`, `competitor`, `inhouse`, `security_or_legal_mismatch`, `capacity_limit`, `scope_unsupported`. Для подходящего Gold без текущей ёмкости использовать waitlist с датой следующей проверки, а не обещать запуск.
+`not_icp`, `no_budget`, `no_authority`, `timing`, `no_response`, `competitor`, `inhouse`, `security_or_legal_mismatch`, `capacity_limit`, `scope_unsupported`. Для нестандартного Gold-запроса сроки фиксируются после уточнения состава.
 
 ## Метрики
 
-Первые 30 qualified leads формируют baseline. Далее считаются stage conversion, median days, MRR, onboarding revenue, margin, Lost reason и отдельно: Gold requests, capacity-approved rate, стоимость усиления и срок формирования ротации.
+Первые 30 qualified leads формируют baseline. Далее считаются stage conversion, median days, MRR, onboarding revenue, margin, Lost reason и отдельно: Gold requests, конверсия и стоимость расширенного состава.
 
-## Недельный лимит пилота
+## Недельный лимит приёмки
 
 - 20–30 персонализированных касаний;
 - не более 4 discovery;
 - не более 2 обычных КП;
-- не более одного активного Gold capacity assessment одновременно;
+- не более одного активного Gold-запроса одновременно;
 - один 30-минутный sales review.

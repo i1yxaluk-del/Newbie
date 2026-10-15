@@ -9,13 +9,13 @@ monthly contribution = MRR × economic margin
 LTV36 = monthly contribution × min(expected_lifetime_months, 36)
 ```
 
-Economic margin берётся из `unit_economics.md`: Bronze 64,6%, Silver 64,5%, Gold Future 53,4%.
+Economic margin берётся из `unit_economics.md`: Bronze 64,6%, Silver 64,5%, Gold 37,1%.
 
 | Пакет | MRR | Contribution/мес | LTV12 | LTV24 | LTV36 |
 |---|---:|---:|---:|---:|---:|
 | Bronze | 25 000 ₽ | 16 150 ₽ | 193 800 ₽ | 387 600 ₽ | 581 400 ₽ |
 | Silver | 50 000 ₽ | 32 250 ₽ | 387 000 ₽ | 774 000 ₽ | 1 161 000 ₽ |
-| Gold Future | 120 000 ₽ | 64 100 ₽ | 769 200 ₽ | 1 538 400 ₽ | 2 307 600 ₽ |
+| Gold | 85 000 ₽ | 31 550 ₽ | 378 600 ₽ | 757 200 ₽ | 1 135 800 ₽ |
 
 Setup fee и разовые проекты не включаются в базовый LTV. Они учитываются отдельно после фактической трудоёмкости.
 

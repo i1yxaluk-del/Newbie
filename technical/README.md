@@ -8,7 +8,7 @@
 |---|---|---:|---:|
 | Bronze Pilot | доступен | 25 000 ₽ | 2 ч инженера/мес |
 | Silver Managed | доступен | 50 000 ₽ | 4 ч инженера/мес |
-| Gold On Demand | после capacity gate | от 120 000 ₽ | базово 8 ч, далее Order Form |
+| Gold | доступен | от 85 000 ₽ | SIEM Wazuh + Kaspersky, квартальный DR-drill |
 
 ## Мастер-гайды
 

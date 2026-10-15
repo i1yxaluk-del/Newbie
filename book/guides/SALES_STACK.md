@@ -23,7 +23,7 @@ Scope превращается в базовые часы, переменные 
 - Qualified: ICP, проблема, authority и ориентир бюджета;
 - Discovery: назначена встреча и согласованы участники;
 - Proposal: есть подтверждённый scope и расчёт;
-- Gold Capacity Check: staffing и readiness проверены;
+- Gold: состав (SIEM/DR) и окно реакции согласованы;
 - Contract: согласованы договор и дата;
 - Won: оплата/условие запуска и handoff в onboarding.
 

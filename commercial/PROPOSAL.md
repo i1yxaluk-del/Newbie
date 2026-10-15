@@ -10,7 +10,7 @@
 
 ## Рекомендация
 
-Пакет: `[Bronze Pilot / Silver Managed / Gold On Demand]`.
+Пакет: `[Bronze / Silver / Gold]`.
 
 | Параметр | Значение |
 |---|---|
@@ -22,17 +22,12 @@
 | Ручное время | `[значение]` |
 | Сверхлимит | от 3 500 ₽/ч |
 
-## Дополнительный раздел для Gold
+## Дополнение для Gold
 
-- статус: `[предварительная оценка / capacity approved]`;
-- состав ротации и backup responder: `[ ]`;
-- внешние специалисты, NDA/DPA и допуск: `[ ]`;
-- P1/escalation/DR drill evidence: `[ ]`;
-- дата готовности: `[ ]`;
-- capacity reserve и pass-through: `[ ]`;
-- margin после усиления: `[ ]`.
-
-До `capacity approved` документ является предварительным solution outline, а не офертой с обещанным SLA или датой запуска.
+- состав расширенного контура: SIEM Wazuh + Kaspersky, DR-сценарий: `[ ]`;
+- окно реакции и каналы эскалации: `[ ]`;
+- evidence: P1/escalation drill, restore: `[ ]`;
+- pass-through расходы (лицензии EDR, storage): `[ ]`.
 
 ## Acceptance onboarding
 
@@ -40,4 +35,4 @@
 
 ## Следующий шаг
 
-Bronze/Silver: scope → Order Form → договор → оплата → onboarding. Gold: сначала capacity assessment и письменный gate, затем финальные Order Form, договор, оплата и onboarding.
+Дальше: scope → Order Form → договор → оплата → onboarding.

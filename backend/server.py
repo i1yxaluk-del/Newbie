@@ -286,15 +286,15 @@ async def deliver_to_crm(lead_doc: Dict[str, Any]) -> None:
     """Background task: пробуем все настроенные каналы доставки лида."""
     if telegram.is_enabled():
         try:
-            await telegram.send(lead_doc)
-            inc_crm("telegram", "ok")
+            sent = await telegram.send(lead_doc)
+            inc_crm("telegram", "ok" if sent else "error")
         except Exception:  # noqa: BLE001
             inc_crm("telegram", "error")
 
     if email_integration.is_enabled():
         try:
-            await email_integration.send(lead_doc)
-            inc_crm("email", "ok")
+            sent = await email_integration.send(lead_doc)
+            inc_crm("email", "ok" if sent else "error")
         except Exception:  # noqa: BLE001
             inc_crm("email", "error")
 
@@ -304,8 +304,8 @@ async def deliver_to_crm(lead_doc: Dict[str, Any]) -> None:
 
     if max_integration.is_alert_channel():
         try:
-            await max_integration.send(lead_doc)
-            inc_crm("max", "ok")
+            sent = await max_integration.send(lead_doc)
+            inc_crm("max", "ok" if sent else "error")
         except Exception:  # noqa: BLE001
             inc_crm("max", "error")
 
@@ -366,6 +366,7 @@ async def _create_lead_from_max(
         "max_user_id": user_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "status": "new",
+        "delivery_enqueued": False,
     }
     await db.leads.insert_one(doc)
     logger.info("max bot lead created: %s · user=%s", lead_id, user_id)
@@ -632,6 +633,9 @@ async def create_lead(
         **data,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "status": "new",
+        "delivery_enqueued": False,
+        "consent_version": "2026-10-15" if data.get("consent") is True else None,
+        "consent_recorded_at": datetime.now(timezone.utc).isoformat() if data.get("consent") is True else None,
     }
     await db.leads.insert_one(doc)
     logger.info("lead created: %s · %s · %s", doc["id"], doc["company"], doc["tariff"])

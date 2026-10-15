@@ -4,6 +4,8 @@
 
 Эта карта разделяет **документы**, **исполняемый код** и **историю**. В каждой работе сначала открывается index, затем конкретная инструкция.
 
+Три входа: [Маркетинг](../marketing/README.md) · [Разработка](../development/README.md) · [Документация](README.md). [Правила структуры](REPOSITORY_GUIDE.md), [архив](arhive/README.md).
+
 ## Продажи
 
 ```text
@@ -17,6 +19,7 @@ commercial/README.md
 ```
 
 - [Коммерческое оглавление](../commercial/README.md)
+- [Бизнес-план РФ: рынок, конкуренты, финансы, запуск](../commercial/BUSINESS_PLAN.md)
 - [Единый договор](../contracts/README.md)
 - После оплаты: [клиентский lifecycle](operations/CLIENT_LIFECYCLE.md)
 
@@ -32,6 +35,7 @@ docs/deployment/README.md
 
 - [Оглавление deployment](deployment/README.md)
 - [Что является кодом deployment](../deploy/README.md)
+- [Карта сервисов и доказательства воспроизводимости](deployment/SERVICE_MAP.md)
 - [Уроки deployment](deployment/DEPLOYMENT_LESSONS.md)
 - [Ревизия свежести всего репозитория](audit/repository_deployment_freshness_2026-09.md)
 
@@ -80,6 +84,8 @@ Prometheus → Alertmanager → msp-max-alerter:9095/alert
 ## Обучение и допуск
 
 - [Программа Junior](training/README.md)
+- [Курс Wazuh: основы, практика, расширение и экзамен](training/wazuh/README.md)
+- [Практический Bronze exam](training/BRONZE_EXAM.md)
 - [Как работать с production](training/JUNIOR_OPERATIONS_GUIDE.md)
 - [Deployment/migration labs](training/DEPLOYMENT_MIGRATION_LABS.md)
 - [Runbooks](runbooks/README.md)
@@ -96,7 +102,7 @@ Prometheus → Alertmanager → msp-max-alerter:9095/alert
 
 ## Что не является источником истины
 
-`analysis/`, старые `marketing/`, `docs/sales/`, audit reports и postmortem объясняют историю, но не определяют текущие цену, SLA или deployment-команды. Их ссылки должны вести обратно в канонический index.
+`*/arhive/`, старые audit reports и postmortem объясняют историю, но не определяют текущие цену, SLA или deployment-команды. Маркетинг теперь начинается с `marketing/README.md`, финансовые источники — `commercial/`, разработка — `development/README.md`.
 
 ## Если ссылка сломана
 

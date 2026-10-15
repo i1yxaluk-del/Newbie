@@ -34,7 +34,7 @@
 
 - внешний скан: `scripts/production-readiness/external_scan.sh`;
 - restore: `technical/0_Common/scripts/dr_drill.sh <tenant> --full`;
-- результат restore содержит измеренные RTO/RPO в JSON;
+- JSON `dr_drill.sh` подтверждает только файловую фазу (`restore_only`); прикладные RTO/RPO фиксируются отдельно после запуска системы и проверки данных;
 - backend production запускается через `secure_server:app`;
 - SmartCaptcha fail-closed по умолчанию;
 - CRM delivery сохраняется в MongoDB outbox и повторяется после рестарта.

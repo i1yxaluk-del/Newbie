@@ -29,6 +29,10 @@ need("scripts/deployment/preflight.sh", "BOM/CRLF")
 need("README.md", "docs/README.md")
 need("docs/README.md", "CLIENT_LIFECYCLE.md")
 need("docs/training/README.md", "DEPLOYMENT_MIGRATION_LABS.md")
+need("docs/training/README.md", "BRONZE_EXAM.md")
+need("docs/deployment/README.md", "SERVICE_MAP.md")
+ban("docs/deployment/DEPLOY_RUNBOOK.md", "grep smtp_auth")
+ban("docs/deployment/DEPLOY_RUNBOOK.md", "--preemptible")
 
 if errors:
     print("OPERATIONAL CONSISTENCY FAILED")

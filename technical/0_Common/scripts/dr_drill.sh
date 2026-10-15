@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# Назначение: восстановить backup tenant и измерить фактические RTO/RPO.
+# Назначение: проверить чтение backup tenant и измерить файловую фазу restore.
 # Где запускать: в чистом изолированном окружении с установленными restic и jq.
 # Входы: имя tenant; второй параметр --full включает полное восстановление.
 # Секреты: читаются только из /etc/restic/tenants/<tenant>.env, не печатаются.
 # Побочные эффекты: временные файлы в /tmp и evidence в /var/log/dr_drill.
-# Проверка успеха: JSON status=passed и минимум один непустой файл.
+# Проверка успеха: JSON status=restore_only и непустые файлы; прикладная приёмка отдельно.
 # Откат: временный каталог удаляется автоматически; production не изменяется.
 set -euo pipefail
+umask 077
 
 TENANT="${1:-}"
 MODE="${2:-smoke}"
@@ -28,7 +29,7 @@ START_EPOCH="$(date +%s)"
 echo "=== DR drill: $TENANT · $MODE · $STAMP ===" | tee -a "$LOG"
 # Читаем только 3% данных для быстрой проверки репозитория до восстановления.
 restic check --read-data-subset=3% 2>&1 | tee -a "$LOG"
-SNAP_JSON="$(restic snapshots --json | jq '.[-1]')"
+SNAP_JSON="$(restic snapshots --json | jq 'sort_by(.time) | last')"
 SNAP="$(jq -r '.id' <<<"$SNAP_JSON")"
 SNAP_TIME="$(jq -r '.time' <<<"$SNAP_JSON")"
 [[ "$SNAP" != "null" && -n "$SNAP" ]] || { echo "FAIL: snapshot не найден" | tee -a "$LOG"; exit 2; }
@@ -41,7 +42,8 @@ if [[ "$MODE" == "--full" ]]; then
   restic restore "$SNAP" --target "$TMP_DIR" 2>&1 | tee -a "$LOG"
 else
   # Smoke-режим восстанавливает первый файл и доказывает чтение данных, но не полный RTO сервиса.
-  FIRST_FILE="$(restic ls "$SNAP" --json | jq -r '.[] | select(.type=="file") | .path' | head -1)"
+  # restic ls --json выдаёт поток объектов JSON, не один массив.
+  FIRST_FILE="$(restic ls "$SNAP" --json | jq -sr '[.[] | select(.type=="file") | .path] | first // empty')"
   [[ -n "$FIRST_FILE" ]] || { echo "FAIL: в snapshot нет файлов" | tee -a "$LOG"; exit 2; }
   restic restore "$SNAP" --target "$TMP_DIR" --include "$FIRST_FILE" 2>&1 | tee -a "$LOG"
 fi
@@ -54,6 +56,6 @@ BYTES="$(du -sb "$TMP_DIR" | cut -f1)"
 jq -n --arg tenant "$TENANT" --arg mode "$MODE" --arg snapshot "$SNAP" \
   --arg snapshot_time "$SNAP_TIME" --argjson rto "$RTO_SECONDS" \
   --argjson rpo "$RPO_SECONDS" --argjson files "$FOUND" --argjson bytes "$BYTES" \
-  '{status:"passed",tenant:$tenant,mode:$mode,snapshot:$snapshot,snapshot_time:$snapshot_time,rto_seconds:$rto,rpo_seconds:$rpo,restored_files:$files,restored_bytes:$bytes}' \
+  '{status:"restore_only",service_verified:false,tenant:$tenant,mode:$mode,snapshot:$snapshot,snapshot_time:$snapshot_time,file_restore_seconds:$rto,snapshot_age_seconds:$rpo,restored_files:$files,restored_bytes:$bytes}' \
   | tee "$RESULT"
-echo "PASS: RTO=${RTO_SECONDS}s RPO=${RPO_SECONDS}s evidence=$RESULT" | tee -a "$LOG"
+echo "RESTORE ONLY: file_restore=${RTO_SECONDS}s snapshot_age=${RPO_SECONDS}s evidence=$RESULT; прикладной RTO/RPO не подтверждён" | tee -a "$LOG"

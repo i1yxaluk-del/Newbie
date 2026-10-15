@@ -119,11 +119,11 @@ export default function DashboardWide() {
               letterSpacing: ".05em",
             }}
           >
-            client-llc / production · web-01 + 1c-01 + db-01
+            ДЕМО · синтетические данные · web-01 + 1c-01 + db-01
           </span>
         </div>
         <span style={{ fontFamily: "var(--fm)", fontSize: 10, color: C.stoneLt }}>
-          last 24h · обновлено 12 с назад
+          Пример интерфейса, не фактические метрики и не SLA
         </span>
       </div>
 
@@ -137,7 +137,7 @@ export default function DashboardWide() {
         }}
       >
         <StatPanel title="Uptime · 30 дней" value="99.97" unit="%" sub="2 окна обслуживания" />
-        <StatPanel title="MTTR P1 · среднее" value="38" unit="мин" sub="цель ≤ 60 мин" />
+        <StatPanel title="MTTR P1 · пример" value="38" unit="мин" sub="демо, не обязательство" />
         <StatPanel title="Активных алертов" value="0" sub="за последние 6 ч" />
         <StatPanel
           title="Backups · последние 24ч"

@@ -1,6 +1,8 @@
 # Deploy Runbook — production VM с нуля
 
-Короткий порядок развёртывания MSPShield на одной production VM (Yandex Cloud).
+Порядок развёртывания MSPShield на одной VM. Имя `deploy/yandex/` историческое;
+фактического провайдера (Yandex Cloud / Cloud.ru), IP и сервисы сверить по inventory.
+Сначала [`SERVICE_MAP.md`](SERVICE_MAP.md): Matrix/MAS не входят в основной Compose автоматически.
 Полная теория и архитектура: [`deploy/yandex/README.md`](../../deploy/yandex/README.md).
 Уроки, превращённые в настройки: [`DEPLOYMENT_LESSONS.md`](DEPLOYMENT_LESSONS.md).
 
@@ -10,12 +12,14 @@
 - Домен `msp-claude.online`, SSH-ключ `~/.ssh/id_ed25519_yc_new`.
 - Docker Desktop / 7-Zip не обязательны, но удобны.
 
-## 1. ВМ в Yandex Cloud
+## 1. ВМ в Yandex Cloud (только для этого провайдера)
+
+Для платного сервиса по умолчанию непрерываемая VM. Preemptible — только стенд или явно принятый риск без противоречащего SLA. Для Cloud.ru использовать его provisioning, не `yc`. Размер ниже — пример, не sizing для всего Matrix/SIEM-стека. SSH разрешить только операторскому CIDR; fingerprint сверить через console.
 
 ```bash
 yc compute instance create --name msp-cloud-vm \
   --zone ru-central1-a --create-boot-disk image-folder-id=standard-images,image-family=ubuntu-2204-lts \
-  --preemptible --memory 4 --cores 2 \
+  --memory 4 --cores 2 \
   --network-interface subnet-name=default,nat-ip-version=ipv4 \
   --metadata-from-file user-data=deploy/yandex/cloud-init.yaml \
   --ssh-key ~/.ssh/id_ed25519_yc_new.pub
@@ -58,7 +62,22 @@ cd /opt/msp/Newbie/deploy/yandex && docker compose up -d            # mongo, bac
 cd /opt/msp/Newbie/deploy/yandex/monitoring && docker compose up -d # prometheus, grafana, alertmanager, max-alerter…
 ```
 
-## 6. Caddy
+## 6. Frontend и Caddy
+
+Основной Compose не содержит frontend. Node 20 / Yarn 1.22.22, зафиксированный commit:
+
+```bash
+cd /opt/msp/Newbie/frontend
+yarn install --frozen-lockfile
+CI=true yarn build
+# После проверки build и сохранения предыдущего release для rollback:
+sudo install -d /var/www/landing
+sudo cp -a build/. /var/www/landing/
+```
+
+`REACT_APP_*` фиксируются при сборке; пустой backend URL = same-origin `/api`.
+CAPTCHA site/server keys должны совпадать. До включения формы утвердить оператора ПДн
+и отдельное согласие. Bootstrap-генерация secrets не является обычным обновлением.
 
 ```bash
 sudo systemctl enable --now caddy
@@ -77,12 +96,12 @@ Caddyfile уже в репозитории (`deploy/yandex/Caddyfile`): доме
 ## 7. Stalwart (если нужна почта)
 
 1. SSH-tunnel: `ssh -L 8080:127.0.0.1:8080 ubuntu@<IP>` → `http://localhost:8080/admin`.
-2. Wizard: hostname `mail.<domain>`, хранилище RocksDB, админ-аккаунт.
+2. Выбрать direct MX (текущий Compose Cloud.ru) либо Postbox relay; зафиксировать в manifest. Wizard: hostname `mail.<domain>`, RocksDB, персональный админ.
 3. Домен + ящики `admin@`, `sales@`, `alert@` (пароли — в secrets).
-4. Маршрут: `postbox-outbound` → `postbox.cloud.yandex.net:465` implicit TLS, auth = ключ Postbox.
-5. **MTA → Outbound → Strategy → Routing**: `IF is_local_domain(rcpt_domain) THEN 'local' ELSE 'postbox-outbound'`.
+4. Relay: `postbox-outbound` → `postbox.cloud.yandex.net:465`, TLS и auth = ключ Postbox. Direct MX: подтверждённый outbound TCP/25, PTR, собственная DKIM-подпись и контроль репутации.
+5. Проверить effective routing в Stalwart и тестовой отправкой: env не доказывает настройку сохранённого config. Для relay локальные домены → local, остальные → postbox-outbound; для direct — согласованный MX route.
 6. **Перезапустить контейнер Stalwart** (стратегия применяется после рестарта).
-7. DKIM: подпись делает Postbox — опубликовать CNAME `<selector>._domainkey → <selector>.dkim.pstbx.ru` из консоли Postbox (собственный ключ Stalwart не нужен).
+7. DKIM relay: CNAME из консоли Postbox. Direct MX: запись из Stalwart и соответствующий signing key. Проверить подпись полученного письма, не только DNS.
 8. TLS: импортировать сертификаты Caddy для `mail.<domain>` (авто-ACME Stalwart недоступен — 443 занят Caddy).
 
 ## 8. DNS (у регистратора)
@@ -104,10 +123,10 @@ CNAME <selector>._domainkey    → <selector>.dkim.pstbx.ru   (Postbox; точн
 
 ## 9. Alertmanager
 
-Entrypoint сам подставит `SMTP_AUTH_USER/PASSWORD` и `ALERTMANAGER_WEBHOOK_TOKEN`. Проверка:
+Entrypoint подставляет секреты. Проверять синтаксис и доставку без печати rendered config:
 
 ```bash
-docker exec msp-alertmanager grep smtp_auth /etc/alertmanager/alertmanager.yml
+docker exec msp-alertmanager amtool check-config /etc/alertmanager/alertmanager.yml >/dev/null
 ```
 
 ## 10. vm_watcher (операторская Windows-станция)
@@ -141,12 +160,12 @@ powershell -File C:\Users\<user>\vm_watcher\install.ps1
 
 ## 13. Харденинг SSH (после того как AWG-туннель проверен)
 
-По умолчанию публичный SSH открыт с 0.0.0.0/0 — иначе нельзя развернуть ВМ до поднятия AWG.
-После проверки туннеля закрываем публичный вход: остаётся только `10.9.0.0/24`:
+Bootstrap SSH разрешить только с операторского IP/CIDR. После проверки VPN закрыть
+временное правило, сохраняя проверенный console-доступ и вторую сессию:
 
 ```bash
 # на ВМ: оставить SSH только из VPN-подсети
-sudo ufw delete allow 22/tcp          # удалит и v4, и v6 «Anywhere»
+sudo ufw status numbered             # выбрать конкретное временное правило после проверки VPN/console
 sudo ufw status numbered | grep 22    # должен остаться только "22/tcp ALLOW IN 10.9.0.0/24"
 
 # на рабочей станции (yc):
@@ -159,11 +178,12 @@ yc vpc security-group update-rules --id <sg-id> --delete-rule-id <ssh-rule-id>
 
 ```bash
 yc vpc security-group update-rules --id <sg-id> \
-  --add-rule "direction=ingress,protocol=tcp,port=22,v4-cidrs=0.0.0.0/0"
-# на ВМ: sudo ufw allow 22/tcp  — и после ремонта снова закрыть
+  --add-rule "direction=ingress,protocol=tcp,port=22,v4-cidrs=<OPERATOR_IP>/32"
+# При необходимости временный UFW allow только от того же IP через console.
+# После восстановления удалить оба временных правила.
 ```
 
-Применено на production 28.09.2026: публичный 22 закрыт на уровнях SG и ufw.
+Историческая запись не подтверждает текущий firewall: проверить effective SG, UFW/Docker и IPv6 после сетевого change.
 
 ## 14. Интеграции лидов (Postbox SMTP + Kaiten)
 

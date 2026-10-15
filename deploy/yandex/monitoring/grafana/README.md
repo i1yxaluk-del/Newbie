@@ -1,5 +1,13 @@
 # Grafana — MSPShield Theme
 
+## Календарь backup (15.10.2026)
+
+Календарь встроен в существующий **MSPShield — Backups** (`/d/mspshield-backups`, панель 5), заменяя state-timeline: матрица «host × дата МСК» в палитре лендинга, без внешнего panel plugin. Отдельный календарный dashboard удалён. Exporter `scripts/backup_calendar.py` читает реальную историю `restic_backup_success` и `restic_backup_timestamp_seconds` из Prometheus; systemd `backup-calendar.timer` обновляет textfile каждые 5 минут. Зелёный — успешный наблюдавшийся job; серый — нет наблюдений. Это не подтверждение restore и не доказательство сохранности snapshot.
+
+Файлы units находятся в `deploy/yandex/monitoring/`. На VM exporter установлен в `/opt/msp-tools/backup_calendar.py`; вывод — `/var/lib/node_exporter/textfile_collector/backup_calendar.prom`. При возрасте export >15 минут календарь скрывается. `verify_calendar.py` проверяет provisioned dashboard и серии, не печатая credentials. Для выбранного repo текущая матрица имеет семь дат; короткий сбой между scrape может не попасть в историю — подробный audit jobs требует отдельного журнала выполнения.
+
+Новый dashboard появляется после доставки JSON на VM и provisioning scan; `git push` сам по себе файлы на сервер не доставляет. Точное совпадение со screenshot не проверено без визуального просмотра.
+
 Каталог содержит всё необходимое, чтобы Grafana 10.4 на ВМ выглядела как часть сайта **msp-claude.online**: кремовый фон, лесной зелёный бренд, шрифты Cormorant Garamond + DM Sans + DM Mono.
 
 ---
@@ -112,7 +120,7 @@ build: ./grafana/theme   # вместо image: grafana/grafana:10.4.2
 
 1. Создать JSON в `dashboards/<name>.json`
 2. Использовать палитру из таблицы выше для `thresholds.steps[].color`
-3. `git push` — провижионер подхватит за 30 секунд (`updateIntervalSeconds: 30`)
+3. Доставить проверенный JSON в смонтированный каталог VM; провижионер подхватит за 30 секунд (`updateIntervalSeconds: 30`).
 
 Шаблон threshold-блока:
 
@@ -137,8 +145,8 @@ build: ./grafana/theme   # вместо image: grafana/grafana:10.4.2
 | Дашборд не появился в UI                 | JSON невалиден / нет `uid`                       | `docker logs msp-grafana \| grep -i provision`  |
 | Datasource не подключился                | Prometheus ещё не healthy                        | Подождать 30s или перезапустить grafana         |
 | CSS не применился                        | `index.html` не пропатчен                        | См. секцию "Подключение кастомного CSS"         |
-| 401 при логине                           | Пароль из `.env` не совпадает с тем что в БД     | `docker volume rm msp-grafana-data` + reset     |
-| Кастомные шрифты не подгружаются         | CSP блокирует Google Fonts                       | `content_security_policy = false` в `grafana.ini` (уже стоит) |
+| 401 при логине                           | Пароль из `.env` не совпадает с тем что в БД     | Проверить учётную запись, согласовать reset через Grafana CLI; не удалять volume |
+| Кастомные шрифты не подгружаются         | CSP/внешний источник                              | Использовать системные/local fonts; не отключать CSP ради оформления |
 
 ---
 

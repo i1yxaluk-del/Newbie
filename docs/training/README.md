@@ -17,7 +17,8 @@
 2. `week_01.md`…`week_12.md` — теория и базовая практика.
 3. [`DEPLOYMENT_MIGRATION_LABS.md`](DEPLOYMENT_MIGRATION_LABS.md) — реальные уроки deployment.
 4. [`../runbooks/README.md`](../runbooks/README.md) — incident response.
-5. Итоговый Bronze exam.
+5. [`BRONZE_EXAM.md`](BRONZE_EXAM.md) — итоговый экзамен с проверяемыми результатами и формой допуска.
+6. [`Курс Wazuh`](wazuh/README.md) — основы → лабораторные → расширение → экзамен. [Технические конфигурации](../../deploy/wazuh-lab/README.md) открывает наставник при развёртывании, не вместо учебного курса.
 
 ## Обязательные навыки L2
 

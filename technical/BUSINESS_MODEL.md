@@ -1,6 +1,6 @@
 # Бизнес-модель и контроль маржи
 
-Канонические цифры находятся в [`../docs/PRICING_SOURCE_OF_TRUTH.md`](../docs/PRICING_SOURCE_OF_TRUTH.md). Этот документ объясняет операционную механику.
+Канонические цифры находятся в [`../commercial/PRICING.md`](../commercial/PRICING.md), сценарии прибыли/мощности и источники рынка — в [`../commercial/BUSINESS_PLAN.md`](../commercial/BUSINESS_PLAN.md). Этот документ объясняет операционную механику.
 
 ## Формула
 

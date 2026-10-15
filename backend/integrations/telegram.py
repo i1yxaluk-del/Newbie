@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
+from html import escape
 from typing import Any, Dict, Optional
 
 import httpx
@@ -32,34 +33,29 @@ def is_alert_channel() -> bool:
 
 
 def _format_message(lead: Dict[str, Any]) -> str:
-    lines = [
-        "<b>🛡 Новая заявка MSPShield</b>",
-        f"<b>Имя:</b> {lead.get('name', '—')}",
-        f"<b>Компания:</b> {lead.get('company', '—')}",
-        f"<b>Контакт:</b> {lead.get('contact', '—')}",
-        f"<b>Email:</b> {lead.get('email') or '—'}",
-        f"<b>Серверы:</b> {lead.get('servers', '—')}",
-        f"<b>Тариф:</b> {lead.get('tariff', '—')}",
-        f"<b>Потери/год:</b> {lead.get('downtime_loss') or '—'}",
-        f"<b>Сообщение:</b> {lead.get('message') or '—'}",
-        f"<b>Источник:</b> {lead.get('source') or 'landing'}",
-    ]
-    return "\n".join(lines)
+    fields = [("Имя", "name"), ("Компания", "company"), ("Контакт", "contact"),
+              ("Email", "email"), ("Серверы", "servers"), ("Тариф", "tariff"),
+              ("Потери/год", "downtime_loss"), ("Сообщение", "message"), ("Источник", "source")]
+    return "<b>🛡 Новая заявка MSPShield</b>\n" + "\n".join(
+        f"<b>{label}:</b> {escape(str(lead.get(key) or '—'))}" for label, key in fields
+    )
 
 
-async def send(lead: Dict[str, Any]) -> None:
+async def send(lead: Dict[str, Any]) -> bool:
     if not is_enabled():
-        return
+        return False
     text = _format_message(lead)
     url = f"https://api.telegram.org/bot{TG_BOT_TOKEN}/sendMessage"
     try:
         async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as http:
-            await http.post(
+            response = await http.post(
                 url,
                 json={"chat_id": TG_CHAT_ID, "text": text, "parse_mode": "HTML"},
             )
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("telegram notify failed lead=%s: %s", lead.get("id"), exc)
+        return response.is_success and response.json().get("ok") is True
+    except Exception:  # noqa: BLE001
+        logger.warning("telegram notify failed lead=%s", lead.get("id"))
+        return False
 
 
 async def send_alert_text(

@@ -5,6 +5,7 @@
 | Шаг | Документ / инструмент |
 |---:|---|
 | 1 | [`local_dev.md`](local_dev.md) — локальная проверка приложения |
+| 1 | [`SERVICE_MAP.md`](SERVICE_MAP.md) — границы сервисов, зависимости и evidence |
 | 2 | [DEPLOY_RUNBOOK.md](DEPLOY_RUNBOOK.md) — пошаговое развёртывание VM с нуля |
 | 2 | [`../../deploy/yandex/README.md`](../../deploy/yandex/README.md) — одна production VM |
 | 3 | [`../../scripts/deployment/preflight.sh`](../../scripts/deployment/preflight.sh) — env/Compose/security gate |
@@ -15,6 +16,8 @@
 | 7 | [`troubleshooting.md`](troubleshooting.md) — диагностика |
 
 ## Другие сценарии
+
+- [Применение landing, календаря и учебного Wazuh 15.10.2026](ROLLOUT_2026-10-15.md) — фактически проверенные результаты и откат.
 
 - [`landing_production.md`](landing_production.md) — Terraform/Ansible вариант; использовать только после отдельного решения перейти с single-VM pilot.
 - [`tenant_onboarding.md`](tenant_onboarding.md) — подключение клиентского tenant после подписанного scope.
@@ -28,4 +31,4 @@
 - snapshot/backup и доказанный restore;
 - исторические команды из postmortem и текущий runbook.
 
-При конфликте документации приоритет: root `README` → этот index → canonical runbook → code/CI.
+При конфликте источников приоритет у кода и CI, затем канонического документа и профильного index. Название каталога `deploy/yandex/` не доказывает текущего облачного провайдера: есть конфигурация/журнал перехода на Cloud.ru; используйте подтверждённый inventory среды.

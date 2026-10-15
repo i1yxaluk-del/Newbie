@@ -2,7 +2,15 @@
 
 Управляемый IT-сервис для малого и среднего бизнеса: monitoring, backup, защищённый доступ и реакция в договорное окно.
 
-> **Начинайте не с поиска файлов, а с нужного маршрута ниже.** Полная карта: [`docs/NAVIGATION.md`](docs/NAVIGATION.md).
+## Три рабочих раздела
+
+| Раздел | Что делать |
+|---|---|
+| **[Маркетинг и продажи](marketing/README.md)** | рынок → оффер → реклама → воронка → КП → договор |
+| **[Разработка](development/README.md)** | приложение → сервисы → инфраструктура → проверки → публикация |
+| **[Документация](docs/README.md)** | эксплуатация → runbooks → обучение → приёмка |
+
+Полная карта: [`docs/NAVIGATION.md`](docs/NAVIGATION.md). [Правила структуры и архивирования](docs/REPOSITORY_GUIDE.md).
 
 ## Маршруты работы
 
@@ -16,6 +24,7 @@
 | Разобрать инцидент | [`docs/runbooks/README.md`](docs/runbooks/README.md) | severity → runbook → evidence → postmortem |
 | Настроить MAX | [`docs/MAX_SETUP.md`](docs/MAX_SETUP.md) | webhook → ручная авторизация → test alert |
 | Обучить Junior | [`docs/training/README.md`](docs/training/README.md) | guide → weeks → labs → допуск |
+| Обучить Wazuh | [`docs/training/wazuh/README.md`](docs/training/wazuh/README.md) | основы → synthetic events → FIM/SCA → экзамен |
 | Разрабатывать приложение | [`docs/NAVIGATION.md#разработка`](docs/NAVIGATION.md#разработка) | backend/frontend → tests → PR |
 | Понять готовность | [`docs/PROJECT_8_OF_10.md`](docs/PROJECT_8_OF_10.md) | gates → evidence → ограничения |
 
@@ -40,7 +49,7 @@
 | [`technical/`](technical/README.md) | технический состав тарифов | reference после прайса |
 | [`infra/`](infra/README.md) | Terraform/IaC альтернативного контура | не основной pilot path |
 | `backend/`, `frontend/` | приложение и тесты | разработка |
-| `analysis/`, `marketing/`, `docs/sales/` | исторические материалы/redirects | не источник истины |
+| `*/arhive/` | исторические модели, материалы и retired scripts | история, не текущие инструкции |
 
 ## Приоритет при конфликте
 
@@ -49,7 +58,7 @@
 3. профильный index/README;
 4. исторические audit, analysis и postmortem.
 
-Тарифы: Bronze от 25 000 ₽/мес, Silver от 50 000 ₽/мес, Gold от 85 000 ₽/мес. Monitoring 24/7 не означает 24/7 реакцию инженера, если это отдельно не согласовано в договоре.
+Тарифы: Bronze от 25 000 ₽/мес, Silver от 50 000 ₽/мес, Gold от 120 000 ₽/мес после проверки мощности. Monitoring 24/7 не означает 24/7 реакцию инженера; окно и состав фиксируются в договоре.
 
 ## Проверка ссылок
 

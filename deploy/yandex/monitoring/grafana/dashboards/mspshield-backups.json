@@ -169,41 +169,40 @@
   },
   {
     "datasource": { "type": "prometheus", "uid": "prometheus" },
-    "description": "История статуса бэкапа за 7 дней. Зелёный = OK, жёлтый = в процессе, красный = FAIL, серый = нет данных.",
+    "description": "Календарь последних 7 дат МСК: зелёный — успешный наблюдавшийся job, красный — ошибка, жёлтый — выполняется, серый — нет данных. Не доказывает restore. Данные старше 15 минут скрываются.",
     "fieldConfig": {
       "defaults": {
         "color": { "mode": "thresholds" },
         "mappings": [
-          { "options": { "0": { "color": "#b91c1c", "index": 0, "text": "FAIL" }, "1": { "color": "#1b4d3e", "index": 1, "text": "OK" }, "2": { "color": "#b45309", "index": 2, "text": "RUN" } }, "type": "value" }
+          { "options": { "-1": { "color": "#78746a", "text": "Нет данных" }, "0": { "color": "#b91c1c", "text": "Ошибка" }, "1": { "color": "#1b4d3e", "text": "Успешно" }, "2": { "color": "#b45309", "text": "В работе" } }, "type": "value" }
         ],
         "thresholds": { "mode": "absolute", "steps": [{ "color": "#525252", "value": null }, { "color": "#b91c1c", "value": 0 }, { "color": "#1b4d3e", "value": 1 }] },
-        "custom": { "fillOpacity": 80, "lineWidth": 1, "spanNulls": true }
+        "custom": { "align": "center", "cellOptions": { "type": "color-background" }, "minWidth": 90 },
+        "noValue": "Нет данных"
       },
       "overrides": []
     },
     "gridPos": { "h": 8, "w": 18, "x": 0, "y": 4 },
     "id": 5,
     "options": {
-      "legend": { "displayMode": "hidden", "placement": "bottom", "showLegend": false },
-      "mergeValues": true,
-      "rowHeight": 0.9,
-      "showValue": "never",
-      "tooltip": { "mode": "single", "sort": "none" },
-      "xTickLabelRotation": 0,
-      "xTickLabelSpacing": 100
+      "showHeader": true,
+      "cellHeight": "lg",
+      "footer": { "show": false }
     },
     "pluginVersion": "10.4.2",
     "targets": [
       {
         "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "expr": "restic_backup_success{repo=\"mspshield-backups-new\"}",
+        "expr": "msp_backup_day_status{repo=\"mspshield-backups-new\"} and on() (time() - msp_backup_calendar_generated_seconds < 900)",
         "legendFormat": "{{host}}",
         "refId": "A",
-        "range": true
+        "instant": true,
+        "format": "table"
       }
     ],
-    "title": "Backups · 7 дней",
-    "type": "state-timeline"
+    "title": "Календарь backup · 7 дней МСК",
+    "transformations": [{ "id": "groupingToMatrix", "options": { "columnField": "date", "rowField": "host", "valueField": "Value", "emptyValue": "null" } }],
+    "type": "table"
   },
   {
     "datasource": { "type": "prometheus", "uid": "prometheus" },
@@ -304,6 +303,6 @@
 "timezone": "Europe/Moscow",
 "title": "MSPShield — Backups",
 "uid": "mspshield-backups",
-"version": 2,
+"version": 3,
 "weekStart": "monday"
 }

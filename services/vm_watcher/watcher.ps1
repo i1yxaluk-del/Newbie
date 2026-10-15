@@ -21,7 +21,8 @@ $LogPath = Join-Path $PSScriptRoot "vm-watcher.log"
 
 function Write-Log([string]$Message) { Add-Content $LogPath "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] $Message" -Encoding UTF8 }
 function Test-Tcp443 {
-    try { $client = [Net.Sockets.TcpClient]::new(); $task = $client.ConnectAsync($Target, $Port); if (-not $task.Wait(3000)) { return $false }; $client.Dispose(); return $true } catch { return $false }
+    $client = [Net.Sockets.TcpClient]::new()
+    try { $task = $client.ConnectAsync($Target, $Port); if (-not $task.Wait(3000)) { return $false }; return $true } catch { return $false } finally { $client.Dispose() }
 }
 
 # Cloud.ru Evolution: OAuth-ключ -> access_token (TTL ~1 час), затем статус ВМ.
@@ -57,7 +58,7 @@ while ($true) {
     if ($fails -ge $FailThreshold -and -not $alerted) {
         $state = Get-VmStatus; Write-Log "Cloud.ru VM state=$state"
         if ($state -eq "running") {
-            Send-Alert "MSP VM RUNNING, но TCP/$Port недоступен: проверьте Caddy/SG/маршрут (SSH только через AmneziaWG, 10.9.0.1)"
+            Send-Alert "MSP VM RUNNING, но TCP/$Port недоступен: проверьте Caddy/SG/маршрут (адрес управления — в приватном inventory)"
         } elseif ($state -eq "stopped" -or $state -eq "stopping") {
             Send-Alert "MSP VM ОСТАНОВЛЕНА ($state). Запустите её в консоли Cloud.ru (API старта ВМ в Evolution не публикует)."
         } else {
@@ -65,5 +66,5 @@ while ($true) {
         }
         $alerted = $true
     }
-    Start-Sleep 30
+    Start-Sleep $IntervalSeconds
 }

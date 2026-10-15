@@ -10,5 +10,9 @@
 | `validate_markdown_links.py` | проверка переходов в основных MD-оглавлениях |
 | `kaiten_bootstrap.py` | начальная настройка Kaiten |
 | `max_setup_webhook.py` | настройка webhook, не авторизация userbot |
+| [`backup_calendar.py`](backup_calendar.py) | реальные наблюдения backup → textfile → календарь внутри существующего Backups |
+| [`deployment/publish_landing.py`](deployment/publish_landing.py) | публикация готовой сборки со старой версией для rollback |
+| [`deployment/integrate_backup_calendar.py`](deployment/integrate_backup_calendar.py) | точечная замена панели live Backups с backup JSON |
+| [`deployment/verify_calendar.py`](deployment/verify_calendar.py) | проверка Grafana provisioning и серий без вывода credentials |
 
 Перед запуском откройте связанный runbook. Не выводите `.env`, токены и session data в терминал или CI-log.

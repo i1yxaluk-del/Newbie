@@ -47,19 +47,19 @@ python scripts/kaiten_bootstrap.py
 
 | Задача | Где это в проекте | Почему Kaiten, а не Mongo напрямую |
 |---|---|---|
-| Воронка продаж (6 стадий) | [`sales/funnel_6_stages.md`](sales/funnel_6_stages.md) | визуальная Kanban-доска, drag-n-drop стадий |
-| BANT-Q квалификация лидов | [`sales/bant_q_script.md`](sales/bant_q_script.md) | чек-листы и кастомные поля прямо в карточке |
+| Воронка продаж | [`commercial/SALES_FUNNEL.md`](../commercial/SALES_FUNNEL.md) | визуальная Kanban-доска, drag-n-drop стадий |
+| Квалификация лидов | [`commercial/SALES_PLAYBOOK.md`](../commercial/SALES_PLAYBOOK.md) | чек-листы и кастомные поля прямо в карточке |
 | Account-management активных клиентов | [`deployment/tenant_onboarding.md`](deployment/tenant_onboarding.md) | отдельная доска с клиентами на удержании |
-| Управление инцидентами (P1/P2/P3) | SLA-таблицы в [`contracts/v2/build/03_prilozhenie_2_sla.docx`](../contracts/v2/build/03_prilozhenie_2_sla.docx) | приоритеты и SLA-таймеры |
+| Управление инцидентами (P1/P2/P3) | [`MSA, раздел 10`](../contracts/MSP_SERVICE_AGREEMENT.md#10-sla) | приоритеты и SLA-таймеры |
 | Личное обучение (week_01..week_12) | [`training/week_*.md`](training/) | бэклог обучающих карточек, ретро |
-| Спринты (раз в 2 недели) | [`roadmap/etape_4_sprints.md`](roadmap/etape_4_sprints.md) | стандартный sprint board |
+| План запуска | [`Бизнес-план 30/60/90`](../commercial/BUSINESS_PLAN.md) | задачи по gates и фактической мощности |
 
 **Где Kaiten НЕ источник истины:**
 
 - **Лиды как сырые данные** — храним в MongoDB (`backend/server.py`, коллекция `leads`).
   Kaiten — это **рабочая поверхность** для лидов, но не БД. Если Kaiten умрёт —
   список лидов восстанавливается из Mongo.
-- **Договоры и акты** — Word/ЭДО (см. `contracts/v2/`).
+- **Договоры и акты** — Word/ЭДО, источник `contracts/MSP_SERVICE_AGREEMENT.md`.
 - **Тех. документация** — Markdown в Git (`docs/`), не Kaiten.
 - **Секреты и доступы клиентов** — Vaultwarden (см. [`deployment/secrets_management.md`](deployment/secrets_management.md)).
   Никогда не клади пароли в карточки Kaiten.
@@ -206,7 +206,7 @@ COLUMNS = [
 - Контактные лица (имя, телефон, email);
 - Согласованный канал связи (Telegram / email / ticket);
 - Дата ближайшего weekly-sync;
-- Ссылка на Periметр обслуживания (наш Приложение № 3 из `contracts/v2/`).
+- Ссылка на подписанный Периметр (Приложение 2 текущего MSA; клиентский dossier хранится приватно).
 
 #### Board: Incidents · P1/P2/P3
 
@@ -225,7 +225,7 @@ COLUMNS = [
 ─── P4 / Запросы ──── (не SLA, плановое)
 ```
 
-Связь с SLA Приложения № 2 — см. `contracts/v2/build/03_prilozhenie_2_sla.docx`.
+Связь с SLA — раздел 10 `contracts/MSP_SERVICE_AGREEMENT.md` и подписанный Order Form.
 
 ### 3.3. Space 3 — Internal · Личное
 
@@ -454,7 +454,7 @@ Onboarded:       2026-04-15
 - Технический:  Иванов И.И., +7 999 ..., ivan@...
 - Платёжный:    Петрова А.С., +7 999 ..., buh@...
 
-Периметр:        contracts/v2/build/04_prilozhenie_3_perimetr.docx
+Периметр:        подписанное Приложение 2 текущего MSA, ссылка в приватном dossier
                  (заполненный шаблон в Vaultwarden / семейный шкаф)
 
 Особенности:

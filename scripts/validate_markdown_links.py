@@ -18,6 +18,12 @@ INDEXES = [
     'docs/checklists/README.md', 'deploy/README.md',
     'migration/README.md', 'services/README.md', 'scripts/README.md',
     'technical/README.md', 'infra/README.md',
+    'marketing/README.md', 'development/README.md', 'docs/REPOSITORY_GUIDE.md',
+    'docs/training/wazuh/README.md', 'docs/training/wazuh/01_BASICS.md',
+    'docs/training/wazuh/02_LABS.md', 'docs/training/wazuh/03_CLIENT_READINESS.md',
+    'docs/training/wazuh/04_EXAM.md', 'deploy/wazuh-lab/README.md',
+    'analysis/README.md', 'analysis/arhive/README.md', 'marketing/arhive/README.md',
+    'docs/arhive/README.md', 'contracts/arhive/README.md', 'commercial/arhive/README.md',
 ]
 LINK = re.compile(r'(?<!!)\[[^\]]*\]\(([^)]+)\)')
 errors = []

@@ -5,7 +5,7 @@
 >
 > Цены — ориентиры 2026 года, могут корректироваться +/- 15% по сложности.
 >
-> **Tariff-aware продажи:** см. [`../analysis/addon_catalog.md`](../analysis/addon_catalog.md) — там же разделение на общие (A1–A6) и tariff-specific (B1–B7) ADDON. Ниже — полный технический прайс-лист по категориям (WEB/1C/AD/...).
+> Исторический технический каталог, не текущий прайс. Актуальные допработы и ограничения: [`../commercial/PRICING.md`](../commercial/PRICING.md). Старый коммерческий каталог сохранён в [`../analysis/arhive/addon_catalog.md`](../analysis/arhive/addon_catalog.md).
 
 ## Доступность по тарифам (экспресс-матрица)
 

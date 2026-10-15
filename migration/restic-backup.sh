@@ -5,6 +5,7 @@
 # Проверка успеха: метрика restic_backup_success=1 и `restic snapshots --latest 1`.
 # Откат: сервисы автоматически запускаются в trap даже при ошибке.
 set -Eeuo pipefail
+umask 077
 
 DEPLOY_DIR="${DEPLOY_DIR:-/opt/msp/Newbie/deploy/yandex}"
 MONITORING_DIR="$DEPLOY_DIR/monitoring"
@@ -17,6 +18,13 @@ REPO_LABEL="${BACKUP_REPO_LABEL:-mspshield-backups-new}"
 STARTED_AT="$(date +%s)"
 RESTART_MAIN=()
 RESTART_MONITORING=()
+
+# Не допускать двух backup одновременно и удаления произвольного каталога через env.
+exec 9>/var/lock/msp-restic-backup.lock
+flock -n 9 || { echo "ERROR: backup уже выполняется" >&2; exit 1; }
+[[ "$STAGING" == /opt/msp-backups/* && "$STAGING" != *".."* && ! -L "$STAGING" ]] || {
+  echo "ERROR: BACKUP_STAGING должен быть отдельным каталогом внутри /opt/msp-backups" >&2; exit 1;
+}
 
 log() { echo "[$(date -Iseconds)] $*" | tee -a "$LOG"; }
 write_metrics() {
@@ -32,13 +40,21 @@ restic_backup_timestamp_seconds{host="$HOST_LABEL",repo="$REPO_LABEL"} $2
 # TYPE restic_backup_size_bytes gauge
 restic_backup_size_bytes{host="$HOST_LABEL",repo="$REPO_LABEL"} $3
 EOF
+  # Метрики не содержат секретов и должны читаться непривилегированным node-exporter.
+  chmod 644 "${METRICS_FILE}.tmp"
   mv "${METRICS_FILE}.tmp" "$METRICS_FILE"
 }
 restart_services() {
   if ((${#RESTART_MAIN[@]})); then (cd "$DEPLOY_DIR" && docker compose --profile mail start "${RESTART_MAIN[@]}") || true; fi
   if ((${#RESTART_MONITORING[@]})); then (cd "$MONITORING_DIR" && docker compose start "${RESTART_MONITORING[@]}") || true; fi
 }
-trap restart_services EXIT
+finish() {
+  local result=$?
+  restart_services
+  if ((result != 0)); then write_metrics 0 "$STARTED_AT" 0; fi
+  exit "$result"
+}
+trap finish EXIT
 
 source /etc/restic/env.sh
 : "${RESTIC_REPOSITORY:?RESTIC_REPOSITORY не задан}"

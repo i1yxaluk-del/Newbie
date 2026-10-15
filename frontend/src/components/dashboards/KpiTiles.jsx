@@ -9,9 +9,9 @@ const C = {
 };
 
 const TILES = [
-  { label: "Uptime", value: "99.9", unit: "%", note: "Цель Bronze" },
-  { label: "MTTR P1", value: "≤ 60", unit: "мин", note: "Цель Silver" },
-  { label: "Backup age", value: "< 24", unit: "ч", note: "Verify ежедневно" },
+  { label: "P1 Bronze", value: "≤ 4", unit: "раб. ч", note: "В подписанное окно" },
+  { label: "P1 Silver", value: "≤ 2", unit: "раб. ч", note: "Начало диагностики" },
+  { label: "Restore", value: "Тест", unit: "", note: "RTO/RPO по результату" },
 ];
 
 export default function KpiTiles() {

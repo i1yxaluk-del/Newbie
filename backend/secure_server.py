@@ -40,6 +40,8 @@ class RequireExplicitConsentMiddleware:
         more = True
         while more:
             message = await receive()
+            if message["type"] == "http.disconnect":
+                return
             chunks.append(message.get("body", b""))
             more = message.get("more_body", False)
         body = b"".join(chunks)
@@ -47,7 +49,7 @@ class RequireExplicitConsentMiddleware:
             payload = json.loads(body or b"{}")
         except (json.JSONDecodeError, UnicodeDecodeError):
             payload = {}
-        if payload.get("consent") is not True:
+        if not isinstance(payload, dict) or payload.get("consent") is not True:
             response = JSONResponse(
                 {"detail": "consent_required"}, status_code=400
             )
@@ -88,7 +90,7 @@ async def verify_smartcaptcha_strict(token: str | None, client_ip: str) -> bool:
         return response.json().get("status") == "ok"
     except Exception as exc:  # noqa: BLE001
         fail_open = os.environ.get("SMARTCAPTCHA_FAIL_OPEN", "false").lower() == "true"
-        logger.error("SmartCaptcha verification unavailable; fail_open=%s: %s", fail_open, exc)
+        logger.error("SmartCaptcha verification unavailable; fail_open=%s; error=%s", fail_open, type(exc).__name__)
         return fail_open
 
 
@@ -112,17 +114,14 @@ def _enabled_channels() -> list[str]:
 
 async def _send_channel(channel: str, lead: Dict[str, Any]) -> bool:
     if channel == "telegram":
-        await server.telegram.send(lead)
-        return True
+        return await server.telegram.send(lead)
     if channel == "email":
-        await server.email_integration.send(lead)
-        return True
+        return await server.email_integration.send(lead)
     if channel == "webhook":
         code = await server.webhook.send(lead)
         return bool(code and 200 <= code < 300)
     if channel == "max":
-        await server.max_integration.send(lead)
-        return True
+        return await server.max_integration.send(lead)
     if channel == "kaiten":
         card = await server.kaiten.create_card(lead)
         if not card or not card.get("id"):
@@ -132,7 +131,7 @@ async def _send_channel(channel: str, lead: Dict[str, Any]) -> bool:
             {"$set": {"kaiten_card_id": card["id"]}},
         )
         return True
-    return True
+    return False
 
 
 async def _process_delivery(lead_id: str) -> None:
@@ -152,7 +151,7 @@ async def _process_delivery(lead_id: str) -> None:
                 failures[channel] = "delivery returned false"
                 server.inc_crm(channel, "error")
         except Exception as exc:  # noqa: BLE001
-            failures[channel] = str(exc)[:300]
+            failures[channel] = type(exc).__name__
             server.inc_crm(channel, "error")
 
     current = await server.db.crm_outbox.find_one({"lead_id": lead_id})
@@ -173,8 +172,12 @@ async def _process_delivery(lead_id: str) -> None:
 
 
 async def durable_deliver_to_crm(lead: Dict[str, Any]) -> None:
+    stored = await server.db.leads.find_one({"id": lead["id"]}, {"delivery_enqueued": 1})
+    if stored and stored.get("delivery_enqueued"):
+        return
     channels = _enabled_channels()
     if not channels:
+        await server.db.leads.update_one({"id": lead["id"]}, {"$set": {"delivery_enqueued": True}})
         return
     now = datetime.now(timezone.utc)
     await server.db.crm_outbox.update_one(
@@ -189,7 +192,8 @@ async def durable_deliver_to_crm(lead: Dict[str, Any]) -> None:
         }},
         upsert=True,
     )
-    await _process_delivery(lead["id"])
+    await server.db.leads.update_one({"id": lead["id"]}, {"$set": {"delivery_enqueued": True}})
+    # Единственный poller владеет отправкой: background request не конкурирует с ним.
 
 
 server.deliver_to_crm = durable_deliver_to_crm
@@ -198,11 +202,18 @@ server.deliver_to_crm = durable_deliver_to_crm
 async def _outbox_worker() -> None:
     while True:
         now = datetime.now(timezone.utc)
-        cursor = server.db.crm_outbox.find(
-            {"next_retry_at": {"$lte": now}}, {"lead_id": 1}
-        ).limit(20)
-        async for job in cursor:
-            await _process_delivery(job["lead_id"])
+        try:
+            # Восстановить очередь для лида, если процесс умер после insert, до enqueue.
+            cursor = server.db.leads.find({"delivery_enqueued": False}, {"_id": 0}).limit(20)
+            async for lead in cursor:
+                await durable_deliver_to_crm(lead)
+            cursor = server.db.crm_outbox.find(
+                {"next_retry_at": {"$lte": now}}, {"lead_id": 1}
+            ).limit(20)
+            async for job in cursor:
+                await _process_delivery(job["lead_id"])
+        except Exception as exc:  # worker должен переживать временную недоступность БД.
+            logger.error("Outbox poll failed: %s", type(exc).__name__)
         await asyncio.sleep(30)
 
 
@@ -210,6 +221,7 @@ async def _outbox_worker() -> None:
 async def _start_outbox_worker() -> None:
     await server.db.crm_outbox.create_index("lead_id", unique=True)
     await server.db.crm_outbox.create_index("next_retry_at")
+    await server.db.leads.create_index("delivery_enqueued")
     app.state.outbox_task = asyncio.create_task(_outbox_worker())
 
 

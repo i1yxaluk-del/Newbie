@@ -73,10 +73,11 @@ async def send_message(chat_id: Optional[str | int] = None, user_id: Optional[st
     return None
 
 
-async def send(lead: Dict[str, Any]) -> None:
+async def send(lead: Dict[str, Any]) -> bool:
     """Отправляет лид в чат; durable outbox отвечает за повтор после сбоя."""
     if is_alert_channel():
-        await send_message(chat_id=MAX_ALERT_CHAT_ID, text=_format_alert(lead))
+        return await send_message(chat_id=MAX_ALERT_CHAT_ID, text=_format_alert(lead)) is not None
+    return False
 
 
 async def send_alert_text(text: str, chat_id: Optional[str | int] = None, fmt: str = "markdown") -> bool:
@@ -124,21 +125,21 @@ def welcome_buttons() -> List[List[Dict[str, Any]]]:
 
 
 def tariffs_buttons() -> List[List[Dict[str, Any]]]:
-    """Gold показывается как roadmap, а не как доступное круглосуточное обслуживание."""
+    """Gold требует capacity gate и не включает автоматическое 24/7."""
     return [[{"type": "callback", "text": "Bronze · от 25 000 ₽", "payload": "tariff_bronze"}],
             [{"type": "callback", "text": "Silver · от 50 000 ₽", "payload": "tariff_silver"}],
-            [{"type": "callback", "text": "Gold Future · от 120 000 ₽", "payload": "tariff_gold"}],
+            [{"type": "callback", "text": "Gold · от 120 000 ₽ · после оценки", "payload": "tariff_gold"}],
             [{"type": "callback", "text": "← Назад", "payload": "back_to_welcome"}]]
 
 
 WELCOME_TEXT = "Здравствуйте 👋\n\nЯ — бот МСП Облако. Помогу сравнить пакеты и передать заявку специалисту."
 TARIFFS_TEXT = ("**Bronze** — автомониторинг, backup, P1 до 4 рабочих часов.\n"
                 "**Silver** — AD/логи/Ansible, P1 до 2 рабочих часов.\n"
-                "**Gold Future** — roadmap от 120 000 ₽, закрыт до on-call ротации.\n\n"
+                "**Gold** — от 120 000 ₽ после проверки мощности, SIEM/DR по scope, лицензии отдельно.\n\n"
                 "Мониторинг 24/7 не означает круглосуточное дежурство инженера.")
 TARIFF_DETAILS: Dict[str, str] = {
     "tariff_bronze": "**Bronze от 25 000 ₽**\n2 инженерных часа; сверхлимит от 3 500 ₽/ч.",
     "tariff_silver": "**Silver от 50 000 ₽**\n4 инженерных часа; проекты и лицензии отдельно.",
-    "tariff_gold": "**Gold Future от 120 000 ₽**\nЗакрыт до ротации и подтверждения DR.",
+    "tariff_gold": "**Gold от 120 000 ₽**\nТолько после capacity gate и подтверждения DR; окно и состав по договору, без автоматического 24/7.",
 }
 CALC_TEXT = "Укажите серверы, AD, критичные системы, рабочее окно и контакт. Цена определяется после аудита."

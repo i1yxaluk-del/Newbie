@@ -1,0 +1,13 @@
+[Unit]
+Description=MSP backup calendar from observed Prometheus history
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/msp-tools/backup_calendar.py
+User=root
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/node_exporter/textfile_collector

@@ -44,6 +44,16 @@ log "mongodump: $MONGO_ARCHIVE"
 
 [[ -s "$DEPLOY_DIR/.env" && -s "$MONITORING_DIR/.env" ]] || { log "ERROR: сначала создайте новые .env"; exit 1; }
 
+# Проверить комплект ДО остановки сервисов и mongorestore --drop.
+# Mail обязателен при наличии любого его артефакта либо REQUIRE_MAIL=true.
+find_artifact vaultwarden-data.tar.gz >/dev/null || { log "ERROR: нет обязательного Vaultwarden archive"; exit 1; }
+find_artifact max-session.tar.gz >/dev/null || { log "ERROR: нет обязательного MAX session archive"; exit 1; }
+if [[ "${REQUIRE_MAIL:-false}" == "true" ]] || find_artifact stalwart-etc.tar.gz >/dev/null || find_artifact stalwart-data.tar.gz >/dev/null; then
+  find_artifact stalwart-etc.tar.gz >/dev/null && find_artifact stalwart-data.tar.gz >/dev/null || {
+    log "ERROR: mail требует оба артефакта stalwart-etc и stalwart-data"; exit 1;
+  }
+fi
+
 (cd "$MONITORING_DIR" && docker compose down) || true
 (cd "$DEPLOY_DIR" && docker compose --profile mail down) || true
 cd "$DEPLOY_DIR"

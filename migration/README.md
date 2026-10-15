@@ -1,5 +1,7 @@
 # Миграция MSPShield на новую VM
 
+Перед запуском: [`../docs/deployment/SERVICE_MAP.md`](../docs/deployment/SERVICE_MAP.md). Скрипт ниже покрывает основной Compose и MAX; Matrix/MAS/PostgreSQL и другие отдельные сервисы требуют собственных consistent backup/restore. Общий архив `/opt` это не заменяет.
+
 ## Принципы
 
 - переносим данные и отдельно проверенные session artifacts, а не старые `.env`;
@@ -55,7 +57,7 @@ sudo docker exec -it msp-max-alerter python -m max_alerter.auth --authorize
 ## Журнал выполнения (28.09.2026)
 
 - Перенесено успешно: Mongo (`mongorestore --drop`), `vaultwarden-data`, `stalwart-etc` + `stalwart-data`, `max-session`.
-- Подтверждено на практике: `restore-on-vm.sh` требует **плоскую раскладку** файлов в `MIGRATION_DIR`:
+- Исторический обход: ранее требовалась плоская раскладка; текущий `find_artifact()` поддерживает `MIGRATION_DIR`, его `volumes/` и вложенный `opt/msp-backups/current{/volumes}`. Для однозначной приёмки рекомендуется плоский проверенный комплект:
 
   ```text
   /tmp/migration/mongodump.archive.gz

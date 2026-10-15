@@ -11,12 +11,14 @@
 | CRM | заявка переживает рестарт и повторяется через outbox | реализовано, семантика at-least-once |
 | Форма | явное согласие обязательно; CAPTCHA fail-closed | реализовано |
 | Backup | full restore в чистую среду с измеренными RTO/RPO | обязательный gate перед критичным клиентом |
-| Договоры | MSA + тариф + SLA + периметр + DPA/NDA | канонический комплект в `contracts/canonical/` |
-| Экономика | труд, налог, банк и incident reserve включены | `PRICING_SOURCE_OF_TRUTH.md` |
+| Договоры | MSA + тариф + SLA + периметр + DPA/NDA | [`../contracts/MSP_SERVICE_AGREEMENT.md`](../contracts/MSP_SERVICE_AGREEMENT.md); review и заполнение ещё требуют evidence |
+| Экономика | труд, налог, банк и incident reserve включены | [`../commercial/PRICING.md`](../commercial/PRICING.md), сценарии — [`../commercial/BUSINESS_PLAN.md`](../commercial/BUSINESS_PLAN.md) |
 | Обучение | Junior имеет уровни допуска и практический экзамен | `docs/training/README.md` |
 | Обещания | лендинг, КП, бот и договор используют одни цены/SLA | проверяется `validate_business_consistency.py` |
 
 ## Gate перед первым критичным клиентом
+
+Конфигурация в Git и зелёный CI не подтверждают фактический production. Статус каждого gate: дата, commit, проверяющий, среда, ожидаемый/фактический результат, ссылка на закрытое evidence без секретов. Пока свидетельства не представлены — **Unknown**, а не «готово 8/10». Текущая независимая ревизия: [`audit/REALITY_REVIEW_2026-10.md`](audit/REALITY_REVIEW_2026-10.md).
 
 Все пункты должны иметь ссылку на evidence:
 

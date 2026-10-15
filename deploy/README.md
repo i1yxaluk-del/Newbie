@@ -13,3 +13,5 @@
 5. Для переноса перейти в [`../migration/README.md`](../migration/README.md).
 
 Корневой `docker-compose.yml` не подменяет production runbook; текущий pilot path зафиксирован в `deploy/yandex/`.
+
+Учебные контуры: [`wazuh-lab/`](wazuh-lab/README.md), [программа Wazuh](../docs/training/wazuh/README.md). Изолированный lab на Astra не является production-клиентским внедрением.

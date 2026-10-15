@@ -1,4 +1,19 @@
-# Disaster Recovery
+# Disaster Recovery: текущий single-VM контур
+
+Для Caddy + Docker Compose использовать [карту сервисов](SERVICE_MAP.md), [deploy](DEPLOY_RUNBOOK.md), [migration](../../migration/README.md) и [пошаговую миграцию](MIGRATION_RUNBOOK.md). Старый сценарий nginx/systemd/Terraform ниже относится к альтернативному `infra/` и **не исполняется на single-VM Compose**.
+
+## Актуальный порядок
+
+1. Назначить incident owner; проверить внешний HTTPS/TCP, DNS, provider console и host. Не утверждать, что клиентские системы не затронуты, до проверки зависимостей.
+2. Через проверенный console/VPN посмотреть `systemctl status caddy` и `docker compose -f /opt/msp/Newbie/deploy/yandex/docker-compose.yml ps`, затем health loopback. Перед передачей логов удалить секреты/ПДн.
+3. При потере VM подготовить новую из зафиксированной версии, новых env и проверенных артефактов. Не выполнять `terraform -replace` для ресурсов вне этого state.
+4. Restore — в чистый target по migration runbook с остановкой writers. Mongo — логический dump, не `/var/lib/mongodb` хостового systemd. Matrix/MAS/PostgreSQL требуют собственных consistent backups.
+5. До DNS switch: прикладное чтение данных, выборочные counts, alert/resolved, backup/restore evidence, rollback и ответственный. RTO/RPO измеряются, а не копируются из старой оценки.
+6. Возобновить операции после acceptance; закрыть инцидент с timeline и планом устранения общей точки отказа.
+
+---
+
+## Архивный альтернативный контур infra (только после проверки применимости)
 
 Что делать, если прод упал. Короткий практический план.
 

@@ -51,7 +51,7 @@ export default function SlaTimeline() {
               color: C.stone,
             }}
           >
-            SLA · последний инцидент
+            ДЕМО · вымышленный инцидент
           </div>
           <div
             style={{
@@ -63,7 +63,7 @@ export default function SlaTimeline() {
             }}
           >
             MTTR <span style={{ color: C.forest }}>45 мин</span>{" "}
-            <span style={{ fontSize: 14, color: C.stoneLt }}>· цель ≤ 60 мин</span>
+            <span style={{ fontSize: 14, color: C.stoneLt }}>· пример, не гарантия RTO</span>
           </div>
         </div>
         <div

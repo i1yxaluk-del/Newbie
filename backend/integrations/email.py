@@ -17,6 +17,8 @@ import logging
 import os
 import smtplib
 import uuid
+import asyncio
+from html import escape
 from datetime import datetime, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -74,7 +76,7 @@ def _build_html(lead: Dict[str, Any]) -> str:
     ]
     trs = "\n".join(
         f'<tr><td style="padding:6px 12px;font-weight:600;color:#1b4d3e;white-space:nowrap">{l}</td>'
-        f'<td style="padding:6px 12px">{v}</td></tr>'
+        f'<td style="padding:6px 12px">{escape(str(v))}</td></tr>'
         for l, v in rows
     )
     return f"""<html><body style="font-family:DM Sans,Arial,sans-serif;color:#1a1815;margin:0;padding:24px;background:#f5f1e8">
@@ -85,9 +87,9 @@ MSPShield — Новая заявка</div>
 </div></body></html>"""
 
 
-async def send(lead: Dict[str, Any]) -> None:
+def _send_sync(lead: Dict[str, Any]) -> bool:
     if not is_enabled():
-        return
+        return False
     recipients = _recipients()
     now = datetime.now(timezone.utc)
 
@@ -116,8 +118,15 @@ async def send(lead: Dict[str, Any]) -> None:
                 srv.ehlo("msp-claude.online")
         if SMTP_USER and SMTP_PASSWORD:
             srv.login(SMTP_USER, SMTP_PASSWORD)
-        srv.sendmail(SMTP_FROM, recipients, msg.as_string())
+        refused = srv.sendmail(SMTP_FROM, recipients, msg.as_string())
         srv.quit()
         logger.info("lead email sent to=%s lead=%s", recipients, lead.get("id"))
-    except Exception as exc:
-        logger.warning("lead email failed lead=%s: %s", lead.get("id"), exc)
+        return not refused
+    except Exception:
+        logger.warning("lead email failed lead=%s", lead.get("id"))
+        return False
+
+
+async def send(lead: Dict[str, Any]) -> bool:
+    """SMTP не блокирует event loop; False оставляет канал в production outbox."""
+    return await asyncio.to_thread(_send_sync, lead)

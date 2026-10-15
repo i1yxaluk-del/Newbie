@@ -153,8 +153,9 @@ export default function Pricing() {
                      marginTop: 4,
                    }}
                  >
-                   {p.setup}
-                 </div>
+                    {p.setup}
+                  </div>
+                  {p.limit && <p style={{ fontSize: 13, marginTop: 8 }}>{p.limit}</p>}
               </div>
 
               <ul style={{ listStyle: "none", padding: 0, marginBottom: 28 }}>

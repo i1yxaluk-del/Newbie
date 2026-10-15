@@ -1,6 +1,6 @@
 # Yandex Cloud production deployment
 
-Канонический сценарий для текущего пилота: одна VM, Caddy, Docker Compose, monitoring stack и отдельные encrypted backups.
+Канонический single-VM контур кода: Caddy, Docker Compose, monitoring и encrypted backups. Название каталога историческое; provider/регион и сервисы подтверждаются inventory. Сначала [`SERVICE_MAP.md`](../../docs/deployment/SERVICE_MAP.md), полный порядок — [`DEPLOY_RUNBOOK.md`](../../docs/deployment/DEPLOY_RUNBOOK.md).
 
 ## Порядок
 
@@ -8,7 +8,7 @@
 2. Разместить репозиторий в `/opt/msp/Newbie`.
 3. Создать новые env; не копировать старые cloud credentials.
 4. Выполнить preflight.
-5. Запустить application stack и monitoring.
+5. Собрать frontend и установить статику/Caddy; запустить application stack и monitoring.
 6. Проверить health, MAX session и Postbox email.
 7. Выполнить тестовый P1.
 8. Создать backup и clean-room restore evidence.

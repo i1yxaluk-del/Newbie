@@ -2,11 +2,25 @@
 
 [← Главная](../README.md) · [Полная карта](NAVIGATION.md)
 
+## Рабочие подкаталоги
+
+| Раздел | Вход |
+|---|---|
+| Эксплуатация и клиент | [operations](operations/README.md), [onboarding](onboarding/README.md) |
+| Развёртывание и восстановление | [deployment](deployment/README.md) |
+| Инциденты и регулярные работы | [runbooks](runbooks/README.md), [checklists](checklists/README.md) |
+| Обучение | [Junior](training/README.md), [курс Wazuh](training/wazuh/README.md) |
+| Текущая ревизия | [аудит РФ и риски](audit/REALITY_REVIEW_2026-10.md) |
+| История | [arhive](arhive/README.md) |
+
+[Маркетинг](../marketing/README.md) и [разработка](../development/README.md) имеют отдельные входы. [Правила размещения](REPOSITORY_GUIDE.md).
+
 ## Источники истины
 
 | Область | Канонический документ |
 |---|---|
 | цены, лимиты, маржа | [`../commercial/PRICING.md`](../commercial/PRICING.md) |
+| рынок РФ, финансовые сценарии и запуск | [`../commercial/BUSINESS_PLAN.md`](../commercial/BUSINESS_PLAN.md) |
 | воронка и sales scripts | [`../commercial/README.md`](../commercial/README.md) |
 | договор | [`../contracts/MSP_SERVICE_AGREEMENT.md`](../contracts/MSP_SERVICE_AGREEMENT.md) |
 | readiness и gates | [`PROJECT_8_OF_10.md`](PROJECT_8_OF_10.md) |
@@ -19,6 +33,7 @@
 ## По задаче
 
 - Продажи: [`../commercial/README.md`](../commercial/README.md)
+- Независимая ревизия и остаточные риски: [`audit/REALITY_REVIEW_2026-10.md`](audit/REALITY_REVIEW_2026-10.md)
 - Договор: [`../contracts/README.md`](../contracts/README.md)
 - Deploy: [`deployment/README.md`](deployment/README.md)
 - Migration/DR: [`../migration/README.md`](../migration/README.md)

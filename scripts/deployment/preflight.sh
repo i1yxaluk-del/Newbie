@@ -43,10 +43,18 @@ for filename in sys.argv[1:]:
     for line in Path(filename).read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if line and not line.startswith("#") and "=" in line:
-            key, value = line.split("=", 1); values[key.strip()] = value.strip()
+            key, value = line.split("=", 1); values[key.strip()] = value.strip().strip('"\'')
     label = next(key for key in required if filename.endswith(key))
     missing = [key for key in required[label] if not values.get(key)]
     if missing: raise SystemExit(f"ERROR: {filename}: пустые {', '.join(missing)}")
+    for key in required[label]:
+        value = values[key]
+        if value.lower() in {"changeme", "change-me", "dev-admin-token-local-testing-only", "admin", "password"} or value.startswith("<"):
+            raise SystemExit(f"ERROR: {filename}: шаблонное значение {key}")
+    if label == "backend/.env" and values.get("MAX_BOT_TOKEN") and not values.get("MAX_WEBHOOK_SECRET"):
+        raise SystemExit("ERROR: включён MAX bot без MAX_WEBHOOK_SECRET")
+    if label == "backend/.env" and values.get("SMARTCAPTCHA_FAIL_OPEN", "false").lower() == "true":
+        raise SystemExit("ERROR: production CAPTCHA fail-open требует отдельного решения, не допускается этим preflight")
 print("ENV OK")
 PY
 

@@ -133,7 +133,7 @@ export default function CTAForm() {
         smartcaptcha_token: captchaToken || undefined,
       };
       await axios.post(`${API}/leads`, payload);
-      toast.success("Заявка отправлена — свяжемся в течение 2 часов");
+      toast.success("Заявка отправлена — ответим в ближайшее рабочее окно");
       setDone(true);
       reachGoal("form_submit");
     } catch (err) {
@@ -185,7 +185,7 @@ export default function CTAForm() {
               Бесплатный
               <br />
               <em style={{ color: "var(--forest)", fontStyle: "italic" }}>
-                экспресс-аудит
+                разговор об IT
               </em>
               <br />
               за 30 минут
@@ -200,8 +200,8 @@ export default function CTAForm() {
                 maxWidth: 460,
               }}
             >
-              Конкретные риски вашей инфраструктуры и подбор тарифа.
-              Онлайн, без обязательств — только факты.
+              Обсудим критичные сервисы, backup и требуемое окно реакции.
+              Без входа в системы и сканирования. Технический аудит — по письменному согласованию.
             </p>
 
             <div style={{ marginBottom: 36 }}>
@@ -209,7 +209,7 @@ export default function CTAForm() {
                 className="tag-dot"
                 style={{ marginBottom: 12, color: "var(--stone-lt)" }}
               >
-                Что вы увидите через неделю
+                Что фиксируем при подключении
               </div>
               <KpiTiles />
             </div>
@@ -223,9 +223,9 @@ export default function CTAForm() {
               }}
             >
               {[
-                "Проверяем бэкапы: делаются, проверяются, восстанавливаются",
-                "Смотрим открытые порты и доступы уволенных сотрудников",
-                "Оцениваем дисковое пространство и прогноз заполнения",
+                "Уточняем, какие backup и restore-проверки уже выполняются",
+                "Обсуждаем доступы и границы технического обследования",
+                "Определяем критичные системы и допустимое окно работ",
                 "Даём конкретные рекомендации и предварительный расчёт",
               ].map((t) => (
                 <li
@@ -260,7 +260,7 @@ export default function CTAForm() {
               {[
                 ["30 мин", "длительность"],
                 ["0 ₽", "стоимость"],
-                ["≤ 2 ч", "до ответа"],
+                ["Раб. окно", "ответ на заявку"],
               ].map(([n, l]) => (
                 <div key={l}>
                   <div
@@ -331,8 +331,8 @@ export default function CTAForm() {
                       marginBottom: 20,
                     }}
                   >
-                    Свяжемся в течение 2 часов в рабочее время.
-                    <br />В нерабочее — утром следующего рабочего дня.
+                    Ответим в ближайшее рабочее окно.
+                    <br />Время созвона согласуем отдельно.
                   </p>
                   <button
                     type="button"
@@ -505,11 +505,15 @@ export default function CTAForm() {
                       style={{ marginTop: 3, flexShrink: 0 }}
                     />
                     <span>
-                      Я согласен с{" "}
+                      Даю{" "}
+                      <a href="/docs/consent.html" target="_blank" rel="noopener noreferrer" style={{ color: "var(--forest)", textDecoration: "underline" }}>
+                        согласие на обработку персональных данных
+                      </a>{" "}
+                      для ответа на заявку и ознакомлен с{" "}
                       <a href="/docs/privacy.html" target="_blank" rel="noopener noreferrer" style={{ color: "var(--forest)", textDecoration: "underline" }}>
                         политикой обработки персональных данных
                       </a>{" "}
-                      в соответствии с 152-ФЗ. Данные не передаются третьим лицам.
+                      . Сервисы обработки и порядок отзыва указаны в документах.
                     </span>
                   </label>
 
@@ -528,7 +532,7 @@ export default function CTAForm() {
                     className="btn-core btn-primary"
                     style={{ width: "100%", padding: 14, marginTop: 6, opacity: sending ? 0.6 : 1 }}
                   >
-                    {sending ? "Отправка…" : "Получить бесплатный IT-аудит →"}
+                    {sending ? "Отправка…" : "Обсудить инфраструктуру →"}
                   </button>
                   <p
                     style={{
@@ -541,7 +545,7 @@ export default function CTAForm() {
                   >
                     Подробнее:{" "}
                     <a href="/docs/offer.html" target="_blank" rel="noopener noreferrer" style={{ color: "var(--stone)", textDecoration: "underline" }}>
-                      оферта
+                      условия сотрудничества
                     </a>
                     {" · "}
                     <a href="/docs/sla.html" target="_blank" rel="noopener noreferrer" style={{ color: "var(--stone)", textDecoration: "underline" }}>

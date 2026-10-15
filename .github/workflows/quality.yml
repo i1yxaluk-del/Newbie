@@ -46,7 +46,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: bash -n scripts/deployment/preflight.sh migration/restic-backup.sh migration/restore-on-vm.sh migration/diag.sh deploy/yandex/monitoring/alertmanager/entrypoint.sh
+      - run: bash -n scripts/deployment/preflight.sh migration/restic-backup.sh migration/restore-on-vm.sh migration/diag.sh deploy/yandex/monitoring/alertmanager/entrypoint.sh technical/0_Common/scripts/dr_drill.sh
   max-alerter-unit:
     runs-on: ubuntu-latest
     steps:
@@ -67,7 +67,7 @@ jobs:
           cache-dependency-path: backend/requirements.txt
       - run: pip install -r backend/requirements.txt
       - run: python -m compileall -q backend scripts
-      - run: pytest -q backend/tests/test_kaiten_integration.py backend/tests/test_alertmanager.py backend/tests/test_max_integration.py
+      - run: pytest -q backend/tests/test_kaiten_integration.py backend/tests/test_alertmanager.py backend/tests/test_max_integration.py backend/tests/test_secure_delivery.py scripts/tests/test_backup_calendar.py
   frontend-build:
     runs-on: ubuntu-latest
     defaults:

@@ -1,6 +1,6 @@
 ---
 # ──────────────────────────────────────────────────────────────
-# site.yml · полное применение конфигурации на всю инфру
+# site.yml · альтернативная схема nginx/systemd, НЕ текущая Caddy/Compose VM
 # ──────────────────────────────────────────────────────────────
 # RU: Точка входа для Ansible. Запускается после `terraform apply`
 # и разовой инициализации bastion'а (awg_bootstrap.sh).
@@ -10,7 +10,9 @@
 #   2. landing-стек (nginx + FastAPI + mongo) только на mspshield-landing.
 #   3. AmneziaWG-hub (форк WireGuard с обфускацией handshake против РКН-DPI)
 #      только на mspshield-bastion. См. docs/runbooks/R-08.md.
-#   4. Тенанты — по тегам: tier_bronze / tier_silver / tier_gold.
+#   4. Ниже есть только этапы tier_bronze и tier_silver, не tier_gold.
+# Оба этапа выберут одну группу tenants при запуске без --tags: это не выбор тарифа.
+# До применения проверить --list-hosts и --list-tasks с конкретными --limit/--tags.
 #
 # Запуск полного прогона:
 #   ansible-playbook playbooks/site.yml
@@ -20,8 +22,8 @@
 #   ansible-playbook playbooks/site.yml --tags tier_silver --limit acme
 # ──────────────────────────────────────────────────────────────
 
-# Entry-point playbook: applies baseline role to every host,
-# then tier-specific roles where relevant.
+# baseline не имеет тарифного тега: запуск с --tags может его пропустить.
+# Роль меняет SSH/UFW, а landing ниже создаёт отдельные systemd/Mongo-службы.
 
 - name: Baseline hardening (all hosts)
   hosts: all

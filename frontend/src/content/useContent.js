@@ -16,11 +16,13 @@ import defaultContent from "./landing.ru.json";
 const STORAGE_KEY = "msp_landing_override";
 
 function isPlainObject(x) {
+  // Здесь проверяем только тип для слияния; это не проверка схемы содержимого JSON.
   return x !== null && typeof x === "object" && !Array.isArray(x);
 }
 
-// Deep-merge override into base. Arrays are REPLACED (not merged) so
-// removing a plan/FAQ item works as expected.
+// Вложенные объекты сливаются, массивы заменяются целиком: удаление пункта FAQ
+// не должно оставлять старый элемент. null/неверный тип могут заменить поле;
+// корректный JSON ещё не гарантирует пригодность данных для компонента.
 export function mergeContent(base, override) {
   if (!override) return base;
   if (!isPlainObject(base) || !isPlainObject(override)) return override;
@@ -32,6 +34,7 @@ export function mergeContent(base, override) {
 }
 
 function readOverride() {
+  // Черновик относится только к этому браузеру, не меняет JSON на сервере.
   if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -47,6 +50,7 @@ function readOverride() {
 let cached = null;
 
 function getResolved() {
+  // Кэш избегает JSON.parse при каждом чтении; события ниже лишь сбрасывают его.
   if (cached) return cached;
   const override = readOverride();
   cached = mergeContent(defaultContent, override);
@@ -69,7 +73,8 @@ if (typeof window !== "undefined") {
  * Хук возвращает текущий контент — дефолт + override.
  * Не реактивный: компоненты должны полагаться на единый render-цикл.
  * Если редактор пишет в localStorage, он диспатчит msp:content-changed —
- * приложение само вызовет re-render через App.jsx (см. useContentRefreshKey).
+ * сброс кэша сам по себе не перерисовывает React-компоненты: вызывающая сторона
+ * должна инициировать обновление. Здесь нет сетевой публикации изменений.
  */
 export function useContent() {
   return getResolved();

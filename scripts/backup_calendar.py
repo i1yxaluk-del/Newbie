@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 
 
 def query(base, expression, start, end):
+    """Прочитать временной ряд по общей сетке 300 секунд; отказ прервать исключением."""
     params = urlencode({"query": expression, "start": start, "end": end, "step": 300})
     with urlopen(base + "/api/v1/query_range?" + params, timeout=25) as response:
         result = json.load(response)
@@ -23,6 +24,12 @@ def query(base, expression, start, end):
 
 
 def calendar(status_series, timestamp_series, now, tz):
+    """Сопоставить статус с датой самого задания, не с датой повторного наблюдения.
+
+    Ключ строки — (host, repo); значение дня — (время задания, время наблюдения,
+    статус). Последняя пара времён выигрывает; -1 означает отсутствие данных.
+    Поэтому вчерашний успех, всё ещё видимый в Prometheus, не красит сегодня.
+    """
     dates = [(now.astimezone(tz).date() - timedelta(days=i)).isoformat() for i in reversed(range(7))]
     timestamps = {}
     for series in timestamp_series:
@@ -46,6 +53,7 @@ def calendar(status_series, timestamp_series, now, tz):
 
 
 def render(rows, now):
+    """Преобразовать таблицу в текст Prometheus; timestamp нужен для контроля свежести."""
     lines = ["# HELP msp_backup_day_status Observed job status: -1=no data, 0=failed, 1=success, 2=running",
              "# TYPE msp_backup_day_status gauge"]
     for (host, repo), days in sorted(rows.items()):
@@ -58,6 +66,7 @@ def render(rows, now):
 
 
 def main():
+    """Прочитать историю и атомарно заменить файл; старый остаётся при ошибке запроса."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--prometheus", default="http://127.0.0.1:9090")
     parser.add_argument("--output", default="/var/lib/node_exporter/textfile_collector/backup_calendar.prom")

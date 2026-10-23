@@ -20,6 +20,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-7s %(na
 log = logging.getLogger("matrix_alerter")
 
 WEBHOOK_TOKEN = os.environ.get("WEBHOOK_TOKEN", "").strip()
+# Входной секрет Alertmanager не равен паролю Matrix. HS — homeserver сообщений,
+# LOGIN_BASE — endpoint входа MAS; ROOMS — разрешённые ID комнат, не имена людей.
 ALLOW_INSECURE_WEBHOOK = os.environ.get("ALLOW_INSECURE_WEBHOOK", "false").lower() == "true"
 HS = os.environ.get("MATRIX_HS", "https://m.msp-claude.online").rstrip("/")
 LOGIN_BASE = os.environ.get("MATRIX_LOGIN_URL", "https://bastion.msp-claude.online").rstrip("/")
@@ -34,6 +36,7 @@ _tok = {"value": ""}
 
 
 def _login() -> str:
+    """Получить access token для служебной учётки; пустая строка означает отказ входа."""
     if not USER or not PASS:
         log.error("MATRIX_ALERT_USER / MATRIX_ALERT_PASSWORD не заданы")
         return ""
@@ -64,12 +67,14 @@ def _login() -> str:
 
 
 def _token() -> str:
+    """Переиспользовать token в памяти процесса; при HTTP 401/403 отправитель сбросит его."""
     if _tok["value"]:
         return _tok["value"]
     return _login()
 
 
 def _format_alert(alert: dict, payload_status: str) -> str:
+    """Собрать один текст: labels задают объект/важность, annotations — описание/инструкцию."""
     labels = alert.get("labels") or {}
     ann = alert.get("annotations") or {}
     sev = str(labels.get("severity", "P3")).upper()
@@ -89,6 +94,7 @@ def _format_alert(alert: dict, payload_status: str) -> str:
 
 
 def _format_payload(payload: dict) -> str:
+    """Объединить пачку Alertmanager; пустая строка означает отсутствие alerts."""
     alerts = payload.get("alerts")
     if not isinstance(alerts, list) or not alerts:
         return ""
@@ -98,6 +104,11 @@ def _format_payload(payload: dict) -> str:
 
 
 def _send(text: str):
+    """Последовательно отправить в ROOMS; вернуть число успехов и последнюю ошибку.
+
+    Синхронный HTTP здесь блокирует вызывающую функцию. Частичный успех не равен
+    доставке всем комнатам; receive_alert сейчас считает успехом хотя бы одну.
+    """
     sent = 0
     last = ""
     for rid in ROOMS:
@@ -129,12 +140,14 @@ def _send(text: str):
 
 @app.on_event("startup")
 async def _startup() -> None:
+    """Попытаться войти заранее; это не проверка будущей доставки в каждую комнату."""
     if USER and PASS:
         _login()
 
 
 @app.post("/alert")
 async def receive_alert(request: Request):
+    """Проверить входной секрет и формат, затем отправить сообщения; очередь не долговечна."""
     if WEBHOOK_TOKEN:
         if not hmac.compare_digest(request.headers.get("Authorization", ""), AUTH + WEBHOOK_TOKEN):
             return JSONResponse({"detail": "Invalid token"}, status_code=401)
@@ -156,6 +169,7 @@ async def receive_alert(request: Request):
 
 @app.get("/health")
 async def health():
+    """Проверить только наличие настроек; HTTP 200 не доказывает доступность Matrix."""
     configured = bool(WEBHOOK_TOKEN and USER and PASS and ROOMS)
     code = 200 if (configured or ALLOW_INSECURE_WEBHOOK) else 503
     return JSONResponse(

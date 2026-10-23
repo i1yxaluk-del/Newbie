@@ -1,9 +1,12 @@
 ---
+# Пустые секреты намеренны: значения поступают из закрытого хранилища клиента.
+# repository — адрес хранилища; password — шифрование restic, S3 key — доступ к API.
 restic_repository: ""
 restic_password: ""
 restic_s3_key_id: ""
 restic_s3_key_secret: ""
 restic_paths:
+  # Это файловые пути, не гарантия согласованной копии работающей БД.
   - /etc
   - /home
   - /var/log
@@ -13,4 +16,5 @@ restic_include_mongodump: false
 # Пример: "mongodb://mspshield_admin:PWD@127.0.0.1:27017/?authSource=admin"
 restic_mongo_uri: ""
 restic_schedule: "*-*-* 02:30:00"
+# systemd OnCalendar использует часовой пояс узла; задержка распределяет нагрузку.
 restic_randomized_delay: "30m"

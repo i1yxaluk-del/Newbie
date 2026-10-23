@@ -1,4 +1,8 @@
 ---
+# Назначение: пакетная подготовка Debian/Ubuntu, SSH и UFW альтернативного контура.
+# Повышенные права задаются вызывающим сценарием. Не применять на Astra lab:
+# PasswordAuthentication/AllowUsers и UFW способны отрезать действующий доступ.
+# validate проверяет синтаксис sshd, но не пригодность ключа/маршрута оператора.
 - name: apt cache update
   ansible.builtin.apt:
     update_cache: true

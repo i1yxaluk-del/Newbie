@@ -18,6 +18,7 @@
 ## Другие сценарии
 
 - [Применение landing, календаря и учебного Wazuh 15.10.2026](ROLLOUT_2026-10-15.md) — фактически проверенные результаты и откат.
+- [Прикладные правила и панели Wazuh 16.10.2026](WAZUH_BUSINESS_ROLLOUT_2026-10-16.md) — конкретный прогон, штатные SSH/FIM и ограничения.
 
 - [`landing_production.md`](landing_production.md) — Terraform/Ansible вариант; использовать только после отдельного решения перейти с single-VM pilot.
 - [`tenant_onboarding.md`](tenant_onboarding.md) — подключение клиентского tenant после подписанного scope.

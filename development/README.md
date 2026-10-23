@@ -4,6 +4,8 @@
 
 ## Приложение
 
+Для Junior: [карта чтения кода](../docs/development/CODE_READING.md), [Ansible](../docs/training/ansible/README.md), [ревизия пояснений](../docs/audit/JUNIOR_READABILITY_REVIEW.md).
+
 | Задача | Рабочий каталог | Особенность |
 |---|---|---|
 | API и интеграции | [`backend/`](../backend/) | local `server:app`, production `secure_server:app`, MongoDB, один outbox worker |

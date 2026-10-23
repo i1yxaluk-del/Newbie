@@ -1,7 +1,9 @@
-"""Production wrapper: strict consent, configurable CAPTCHA and durable delivery.
+"""Рабочая точка входа API: согласие, CAPTCHA и очередь доставки в MongoDB.
 
-The existing server module remains usable for local development. Production
-Docker images start this module so pilot safety policy cannot be skipped.
+Импорт server сначала создаёт приложение и читает .env, затем этот модуль
+добавляет проверку тела запроса и заменяет функции проверки CAPTCHA/доставки.
+Это тот же объект app, а не второй API. Запускать с одним worker: отправитель
+внутри процесса не имеет межпроцессной блокировки. Подробнее: docs/development/CODE_READING.md.
 """
 from __future__ import annotations
 
@@ -22,16 +24,18 @@ app = server.app
 
 
 class RequireExplicitConsentMiddleware:
-    """Reject lead payloads unless consent is explicitly true.
+    """Требовать JSON-объект с consent=true перед обычной проверкой модели.
 
-    The body is replayed to FastAPI after validation so the normal Pydantic
-    validation and route behavior remain unchanged.
+    ASGI receive отдаёт тело частями и только один раз. После чтения возвращаем
+    сохранённые байты FastAPI через replay_receive, иначе обработчик не увидит их.
     """
 
     def __init__(self, app):
+        """Сохранить следующий обработчик цепочки ASGI, не создавать новое приложение."""
         self.app = app
 
     async def __call__(self, scope, receive, send):
+        """Проверить только POST /api/leads; остальные запросы передать без изменений."""
         if scope["type"] != "http" or scope["method"] != "POST" or scope["path"] != "/api/leads":
             await self.app(scope, receive, send)
             return
@@ -59,6 +63,7 @@ class RequireExplicitConsentMiddleware:
         sent = False
 
         async def replay_receive():
+            """Один раз вернуть сохранённое тело последующему обработчику."""
             nonlocal sent
             if sent:
                 return {"type": "http.request", "body": b"", "more_body": False}
@@ -72,7 +77,11 @@ app.add_middleware(RequireExplicitConsentMiddleware)
 
 
 async def verify_smartcaptcha_strict(token: str | None, client_ip: str) -> bool:
-    """Fail closed by default; SMARTCAPTCHA_FAIL_OPEN=true is an explicit choice."""
+    """При настроенном ключе отклонить запрос без подтверждения CAPTCHA.
+
+    Пустой ключ означает выключенную интеграцию. Сбой провайдера по умолчанию
+    не пропускает запрос; явный FAIL_OPEN меняет эту политику и требует решения.
+    """
     if not server.SMARTCAPTCHA_SERVER_KEY:
         return True
     if not token:
@@ -98,6 +107,7 @@ server.verify_smartcaptcha = verify_smartcaptcha_strict
 
 
 def _enabled_channels() -> list[str]:
+    """Снять список настроенных получателей на момент постановки заявки в очередь."""
     channels = []
     if server.telegram.is_enabled():
         channels.append("telegram")
@@ -113,6 +123,7 @@ def _enabled_channels() -> list[str]:
 
 
 async def _send_channel(channel: str, lead: Dict[str, Any]) -> bool:
+    """Отправить в один канал; True — подтверждённый успех адаптера, не чтение человеком."""
     if channel == "telegram":
         return await server.telegram.send(lead)
     if channel == "email":
@@ -135,6 +146,12 @@ async def _send_channel(channel: str, lead: Dict[str, Any]) -> bool:
 
 
 async def _process_delivery(lead_id: str) -> None:
+    """Повторить оставшиеся каналы заявки; успешные убрать, ошибки назначить на потом.
+
+    pending — ещё не подтверждённые получатели. next_retry_at хранит время UTC.
+    Отказ одного канала не мешает другим. После аварии возможна повторная отправка
+    между внешним успехом и его записью в Mongo: это не гарантия «ровно один раз».
+    """
     job = await server.db.crm_outbox.find_one({"lead_id": lead_id})
     if not job:
         return
@@ -159,6 +176,7 @@ async def _process_delivery(lead_id: str) -> None:
         await server.db.crm_outbox.delete_one({"lead_id": lead_id})
         return
     attempts = int((current or job).get("attempts", 0)) + 1
+    # Увеличиваем паузу 60, 120, 240... секунд, максимум час: не атакуем сбойный API.
     delay = min(3600, 30 * (2 ** min(attempts, 7)))
     await server.db.crm_outbox.update_one(
         {"lead_id": lead_id},
@@ -172,6 +190,12 @@ async def _process_delivery(lead_id: str) -> None:
 
 
 async def durable_deliver_to_crm(lead: Dict[str, Any]) -> None:
+    """Записать задание до отметки delivery_enqueued; саму отправку выполняет poller.
+
+    Маркер в leads позволяет подобрать заявку после аварии до создания задания.
+    Если каналы выключены, заявка остаётся в базе, но автоматической отправки при
+    их позднем включении не будет: требуется отдельное операторское решение.
+    """
     stored = await server.db.leads.find_one({"id": lead["id"]}, {"delivery_enqueued": 1})
     if stored and stored.get("delivery_enqueued"):
         return
@@ -200,6 +224,11 @@ server.deliver_to_crm = durable_deliver_to_crm
 
 
 async def _outbox_worker() -> None:
+    """Каждые 30 секунд подобрать новые/просроченные задания, до 20 за проход.
+
+    Старые записи без явного delivery_enqueued=False не подбираются: нельзя
+    массово повторно отправлять исторические заявки без согласованной миграции.
+    """
     while True:
         now = datetime.now(timezone.utc)
         try:
@@ -219,6 +248,7 @@ async def _outbox_worker() -> None:
 
 @app.on_event("startup")
 async def _start_outbox_worker() -> None:
+    """Создать индексы поиска и единственный фоновый цикл при запуске API."""
     await server.db.crm_outbox.create_index("lead_id", unique=True)
     await server.db.crm_outbox.create_index("next_retry_at")
     await server.db.leads.create_index("delivery_enqueued")
@@ -227,6 +257,7 @@ async def _start_outbox_worker() -> None:
 
 @app.on_event("shutdown")
 async def _stop_outbox_worker() -> None:
+    """Запросить остановку фонового цикла; задания остаются в Mongo для нового процесса."""
     task = getattr(app.state, "outbox_task", None)
     if task:
         task.cancel()

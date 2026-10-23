@@ -1,7 +1,8 @@
-"""Kaiten CRM integration.
+"""Доставка заявки в Kaiten; исходная запись остаётся в MongoDB.
 
-MongoDB remains the source of truth. Kaiten is an optional work surface for the
-pilot team and may run on the free plan while it satisfies the team's needs.
+Модуль читает окружение при импорте: backend/server.py должен загрузить .env раньше.
+external_id связывает карточку с lead.id и помогает искать прежнюю отправку.
+Это защита от части дублей, не атомарная гарантия при параллельных запросах.
 """
 from __future__ import annotations
 
@@ -25,6 +26,7 @@ HTTP_TIMEOUT = 10.0
 
 
 def is_enabled() -> bool:
+    """Проверить наличие адреса, токена, доски и колонки; сеть здесь не проверяется."""
     return bool(
         KAITEN_DOMAIN
         and KAITEN_API_TOKEN
@@ -34,6 +36,7 @@ def is_enabled() -> bool:
 
 
 def _api_base() -> str:
+    """Дополнить домен схемой HTTPS, если оператор задал только имя workspace."""
     domain = KAITEN_DOMAIN
     if "://" not in domain:
         domain = "https://" + domain
@@ -41,6 +44,7 @@ def _api_base() -> str:
 
 
 def _headers() -> Dict[str, str]:
+    """Собрать HTTP-заголовки с секретом; результат нельзя печатать в журнал."""
     return {
         "Authorization": f"Bearer {KAITEN_API_TOKEN}",
         "Content-Type": "application/json",
@@ -49,10 +53,12 @@ def _headers() -> Dict[str, str]:
 
 
 def _as_int(value: str) -> Any:
+    """Числовой ID преобразовать в int, остальные значения оставить для проверки API."""
     return int(value) if value.isdigit() else value
 
 
 def _format_description(lead: Dict[str, Any]) -> str:
+    """Выбрать поля заявки для карточки; здесь есть ПДн, получатель должен быть разрешён."""
     fields = [
         ("Имя", lead.get("name")),
         ("Компания", lead.get("company")),
@@ -72,6 +78,7 @@ def _format_description(lead: Dict[str, Any]) -> str:
 
 
 def build_card_payload(lead: Dict[str, Any]) -> Dict[str, Any]:
+    """Создать тело POST: доска/колонка обязательны, дорожка lane_id — необязательна."""
     title = (
         f"[{lead.get('tariff', 'undecided')}] "
         f"{lead.get('company', '')} · {lead.get('name', '')}"
@@ -91,7 +98,7 @@ def build_card_payload(lead: Dict[str, Any]) -> Dict[str, Any]:
 def _select_exact_card(
     cards: Iterable[Dict[str, Any]], external_id: str
 ) -> Optional[Dict[str, Any]]:
-    """Return only an exact external_id match."""
+    """Не принять похожую карточку: external_id должен совпасть полностью."""
     expected = str(external_id)
     for card in cards:
         if str(card.get("external_id") or "") == expected:
@@ -100,6 +107,7 @@ def _select_exact_card(
 
 
 async def find_card_by_external_id(external_id: str) -> Optional[Dict[str, Any]]:
+    """Найти прежнюю карточку; None означает также сбой поиска, не только отсутствие."""
     if not external_id or not is_enabled():
         return None
     try:
@@ -122,6 +130,11 @@ async def find_card_by_external_id(external_id: str) -> Optional[Dict[str, Any]]
 
 
 async def create_card(lead: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Найти/создать карточку с ограниченными повторами; None оставляет работу очереди.
+
+    Ошибки 4xx, кроме 429, не повторяем в этом вызове: обычно нужны права/настройка.
+    Внешняя production-очередь может вызвать адаптер снова после своей паузы.
+    """
     if not is_enabled():
         return None
 
@@ -186,6 +199,7 @@ async def create_card(lead: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
 
 async def verify() -> Dict[str, Any]:
+    """Проверить учётную запись запросом только чтения, не создавать тестовую заявку."""
     if not (KAITEN_DOMAIN and KAITEN_API_TOKEN):
         return {
             "ok": False,

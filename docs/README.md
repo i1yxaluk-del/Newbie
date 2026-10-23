@@ -41,6 +41,7 @@
 - Инцидент: [`runbooks/README.md`](runbooks/README.md)
 - Регулярные работы: [`checklists/README.md`](checklists/README.md)
 - Junior: [`training/README.md`](training/README.md)
+- Владелец и начинающий маркетолог: [`книга и маршруты`](../book/README.md)
 
 ## По ролям
 

@@ -11,6 +11,7 @@ import sys
 import yaml
 
 root = Path("/home/service/wazuh-lab")
+# Код верхнего уровня исполняется сразу при запуске/импорте: не импортировать как библиотеку.
 project = root / "upstream/single-node"
 catalog = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8-sig"))
 if not catalog.get("messages") or not all(isinstance(v, str) for v in catalog["messages"].values()):
@@ -35,6 +36,7 @@ volumes = compose["services"]["wazuh.dashboard"]["volumes"]
 if mount not in volumes:
     volumes.append(mount)
 registration = locale_dir / "i18nrc.json"
+# Одного JSON на диске недостаточно: этот файл регистрирует каталог у загрузчика i18n.
 registration.write_text(json.dumps({"translations": ["../../src/translations/ru-RU.json"]}), encoding="utf-8")
 registration.chmod(0o644)
 registration_mount = str(registration) + ":/usr/share/wazuh-dashboard/plugins/wazuhCore/.i18nrc.json:ro"

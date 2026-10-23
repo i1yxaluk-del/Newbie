@@ -16,6 +16,8 @@
 #     -e client=acme -e '{"critical_services":["sshd","nginx","postgresql"]}'
 # ──────────────────────────────────────────────────────────────
 - hosts: "{{ client | default('tenants') }}"
+  # Вопреки комментарию «client обязателен» код допускает всех tenants по умолчанию.
+  # Оператор должен явно выбрать client/--limit и проверить --list-hosts до запуска.
   become: true
   serial: "{{ batch_size | default(1) }}"
   max_fail_percentage: 0
@@ -39,6 +41,7 @@
       when: reboot_required.stat.exists
 
     - name: Health-check after reboot — critical systemd units
+      # is-active проверяет службу, не прикладной запрос/данные; финальная приёмка отдельно.
       ansible.builtin.shell: >
         systemctl is-active {{ item }}
       loop: "{{ critical_services | default(['sshd']) }}"

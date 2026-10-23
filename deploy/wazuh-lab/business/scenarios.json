@@ -1,0 +1,14 @@
+[
+  {"case":"backup_failure","tenant":"trade-demo","asset":"erp-db-demo","event":"backup_job","status":"failed","approved":"true","expected_rule":"100201"},
+  {"case":"restore_failure","tenant":"trade-demo","asset":"erp-db-demo","event":"restore_check","status":"failed","approved":"true","expected_rule":"100202"},
+  {"case":"privilege_without_ticket","tenant":"office-demo","asset":"directory-demo","event":"privilege_change","status":"observed","approved":"false","expected_rule":"100203"},
+  {"case":"config_without_ticket","tenant":"office-demo","asset":"vpn-demo","event":"config_change","status":"observed","approved":"false","expected_rule":"100204"},
+  {"case":"protection_disabled","tenant":"office-demo","asset":"workstation-demo","event":"endpoint_protection","status":"disabled","approved":"false","expected_rule":"100205"},
+  {"case":"export_without_ticket","tenant":"trade-demo","asset":"erp-demo","event":"application_export","status":"observed","approved":"false","expected_rule":"100206"},
+  {"case":"stale_collection","tenant":"office-demo","asset":"collector-demo","event":"collection_health","status":"stale","approved":"true","expected_rule":"100207"},
+  {"case":"application_unavailable","tenant":"trade-demo","asset":"erp-demo","event":"application_service","status":"unavailable","approved":"true","expected_rule":"100208"},
+  {"case":"backup_success_control","tenant":"trade-demo","asset":"erp-db-demo","event":"backup_job","status":"success","approved":"true","expected_rule":"100200"},
+  {"case":"approved_config_control","tenant":"office-demo","asset":"vpn-demo","event":"config_change","status":"observed","approved":"true","expected_rule":"100200"},
+  {"case":"approved_privilege_control","tenant":"office-demo","asset":"directory-demo","event":"privilege_change","status":"observed","approved":"true","expected_rule":"100200"},
+  {"case":"approved_export_control","tenant":"trade-demo","asset":"erp-demo","event":"application_export","status":"observed","approved":"true","expected_rule":"100200"}
+]

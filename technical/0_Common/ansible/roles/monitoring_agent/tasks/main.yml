@@ -1,4 +1,7 @@
 ---
+# Два независимых потока: node_exporter→Prometheus и Promtail→Loki.
+# community.general.ufw — внешняя коллекция, не встроенный модуль ansible-core.
+# Проверить поддерживаемый сборщик журналов и checksum загрузки перед внедрением.
 - name: install node_exporter
   ansible.builtin.apt:
     name: prometheus-node-exporter
@@ -30,6 +33,8 @@
     state: present
 
 - name: promtail — unpack
+  # creates проверяет лишь наличие старого бинарника: новая version сама по себе
+  # не заставит распаковать обновление. До upgrade требуется отдельное решение.
   ansible.builtin.unarchive:
     src: "/tmp/promtail-{{ monitoring_agent_promtail_version }}.zip"
     dest: /usr/local/bin/

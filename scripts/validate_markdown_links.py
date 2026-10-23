@@ -24,7 +24,18 @@ INDEXES = [
     'docs/training/wazuh/04_EXAM.md', 'deploy/wazuh-lab/README.md',
     'analysis/README.md', 'analysis/arhive/README.md', 'marketing/arhive/README.md',
     'docs/arhive/README.md', 'contracts/arhive/README.md', 'commercial/arhive/README.md',
+    'docs/training/wazuh/05_EVENT_THEORY.md', 'docs/training/wazuh/06_CASES.md',
+    'docs/training/wazuh/07_OPERATIONS.md', 'docs/training/ansible/README.md',
+    'docs/training/ansible/01_THEORY.md', 'docs/training/ansible/02_PRACTICE.md',
+    'docs/training/ansible/03_PROJECT_CASES.md', 'docs/training/ansible/04_REVIEW_AND_EXAM.md',
+    'docs/development/CODE_READING.md', 'docs/audit/JUNIOR_READABILITY_REVIEW.md',
+    'docs/development/CONFIGURATION_GUIDE.md',
+    'docs/training/wazuh/08_RF_BUSINESS_CASES.md', 'docs/training/wazuh/09_BUSINESS_PLATFORM.md',
+    'deploy/wazuh-lab/business/README.md',
 ]
+# Книга — редактируемые объяснения + собранные главы; архивные срезы не active index.
+INDEXES += [str(p.relative_to(ROOT)).replace('\\', '/') for p in (ROOT/'book').rglob('*.md')
+            if 'arhive' not in p.parts]
 LINK = re.compile(r'(?<!!)\[[^\]]*\]\(([^)]+)\)')
 errors = []
 

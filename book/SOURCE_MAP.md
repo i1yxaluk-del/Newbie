@@ -1,14 +1,26 @@
-# Карта источников проекта
+# Карта источников книги
 
-| Задача | Глава | Канонический вход |
-|---|---|---|
-| Продать услугу | [Продажи, воронка и удержание клиента](chapters/14-продажи-удержание-и-рост.md) | [`commercial/README.md`](https://github.com/i1yxaluk-del/Newbie/blob/main/commercial/README.md) |
-| Подготовить договор | [Договор, Order Form, SLA и персональные данные](chapters/15-договор-sla-и-пдн.md) | [`contracts/README.md`](https://github.com/i1yxaluk-del/Newbie/blob/main/contracts/README.md) |
-| Развернуть production | [Yandex Cloud и полное развёртывание VM](chapters/03-yandex-cloud-и-развертывание.md) | [`docs/deployment/README.md`](https://github.com/i1yxaluk-del/Newbie/blob/main/docs/deployment/README.md) |
-| Перенести VM | [Резервные копии, восстановление и перенос VM](chapters/09-backup-restore-migration.md) | [`migration/README.md`](https://github.com/i1yxaluk-del/Newbie/blob/main/migration/README.md) |
-| Подключить клиента | [Клиент: от Won до offboarding](chapters/11-жизненный-цикл-клиента.md) | [`docs/operations/README.md`](https://github.com/i1yxaluk-del/Newbie/blob/main/docs/operations/README.md) |
-| Разобрать инцидент | [Инцидент: важность, инструкция, подтверждение и разбор](chapters/10-инциденты-runbook-и-postmortem.md) | [`docs/runbooks/README.md`](https://github.com/i1yxaluk-del/Newbie/blob/main/docs/runbooks/README.md) |
-| Настроить MAX | [Мониторинг, Alertmanager и MAX](chapters/07-monitoring-prometheus-max.md) | [`docs/MAX_SETUP.md`](https://github.com/i1yxaluk-del/Newbie/blob/main/docs/MAX_SETUP.md) |
-| Обучить Junior | [Обучение Junior и безопасная передача работы](chapters/16-обучение-junior-и-передача.md) | [`docs/training/README.md`](https://github.com/i1yxaluk-del/Newbie/blob/main/docs/training/README.md) |
-| Разрабатывать приложение | [Разработка: Git, backend, frontend, тесты и Pull Request](chapters/02-git-разработка-и-проверки.md) | [`docs/NAVIGATION.md`](https://github.com/i1yxaluk-del/Newbie/blob/main/docs/NAVIGATION.md) |
-| Понять готовность | [Модель пилота, границы и готовность 8/10](chapters/12-модель-пилота-и-готовность.md) | [`docs/PROJECT_8_OF_10.md`](https://github.com/i1yxaluk-del/Newbie/blob/main/docs/PROJECT_8_OF_10.md) |
+| Глава | Канонические документы и код |
+|---|---|
+| [Что покупает клиент и за что отвечает владелец](chapters/00-product.md) | [`commercial/PRICING.md`](../commercial/PRICING.md), [`docs/operations/PILOT_OPERATING_MODEL.md`](../docs/operations/PILOT_OPERATING_MODEL.md) |
+| [Карта системы: запрос, данные, люди и зависимости](chapters/01-system.md) | [`docs/deployment/SERVICE_MAP.md`](../docs/deployment/SERVICE_MAP.md), [`docs/deployment/ROLLOUT_2026-10-15.md`](../docs/deployment/ROLLOUT_2026-10-15.md) |
+| [Linux, сеть, DNS и защищённый доступ](chapters/02-linux-network.md) | [`docs/training/JUNIOR_OPERATIONS_GUIDE.md`](../docs/training/JUNIOR_OPERATIONS_GUIDE.md), [`services/vm_watcher/README.md`](../services/vm_watcher/README.md) |
+| [Git, GitHub, проверки и три состояния проекта](chapters/03-git-ci.md) | [`.github/workflows/quality.yml`](../.github/workflows/quality.yml), [`development/README.md`](../development/README.md) |
+| [Контейнеры, виртуальная машина и развёртывание](chapters/04-containers-cloud.md) | [`deploy/yandex/docker-compose.yml`](../deploy/yandex/docker-compose.yml), [`docs/deployment/DEPLOY_RUNBOOK.md`](../docs/deployment/DEPLOY_RUNBOOK.md) |
+| [Python, FastAPI, MongoDB и очередь доставки](chapters/05-application.md) | [`backend/server.py`](../backend/server.py), [`backend/secure_server.py`](../backend/secure_server.py), [`backend/integrations/kaiten.py`](../backend/integrations/kaiten.py) |
+| [Лендинг, React, форма, согласие и публикация](chapters/06-landing.md) | [`frontend/package.json`](../frontend/package.json), [`frontend/src/content/useContent.js`](../frontend/src/content/useContent.js), [`scripts/deployment/publish_landing.py`](../scripts/deployment/publish_landing.py) |
+| [Prometheus, Grafana и доставка оповещений](chapters/07-monitoring.md) | [`docs/MAX_SETUP.md`](../docs/MAX_SETUP.md), [`scripts/backup_calendar.py`](../scripts/backup_calendar.py), [`services/matrix_alerter/alerter.py`](../services/matrix_alerter/alerter.py) |
+| [Почта, Stalwart, Postbox и проверка доставки](chapters/08-mail.md) | [`deploy/yandex/docker-compose.yml`](../deploy/yandex/docker-compose.yml), [`deploy/yandex/STALWART_RELAY_MODE.md`](../deploy/yandex/STALWART_RELAY_MODE.md) |
+| [Vaultwarden, Matrix, MAS, Element и дополнительные сервисы](chapters/09-access-chat.md) | [`deploy/mas/README.md`](../deploy/mas/README.md), [`deploy/matrix-invite/app.py`](../deploy/matrix-invite/app.py), [`docs/deployment/SERVICE_MAP.md`](../docs/deployment/SERVICE_MAP.md) |
+| [Резервные копии, восстановление и миграция](chapters/10-backup.md) | [`migration/README.md`](../migration/README.md), [`migration/restic-backup.sh`](../migration/restic-backup.sh), [`technical/0_Common/scripts/dr_drill.sh`](../technical/0_Common/scripts/dr_drill.sh) |
+| [Ansible: управляемое изменение состояния](chapters/11-ansible.md) | [`docs/training/ansible/README.md`](../docs/training/ansible/README.md), [`docs/training/ansible/03_PROJECT_CASES.md`](../docs/training/ansible/03_PROJECT_CASES.md) |
+| [Wazuh: от события до решения бизнес-задачи](chapters/12-wazuh.md) | [`docs/training/wazuh/README.md`](../docs/training/wazuh/README.md), [`docs/training/wazuh/08_RF_BUSINESS_CASES.md`](../docs/training/wazuh/08_RF_BUSINESS_CASES.md), [`deploy/wazuh-lab/business/dashboards.py`](../deploy/wazuh-lab/business/dashboards.py) |
+| [Инциденты, изменения и связь с клиентом](chapters/13-incident.md) | [`docs/runbooks/README.md`](../docs/runbooks/README.md), [`docs/runbooks/R-01.md`](../docs/runbooks/R-01.md), [`docs/runbooks/R-03.md`](../docs/runbooks/R-03.md) |
+| [Подключение, регулярное обслуживание и завершение договора](chapters/14-client.md) | [`docs/operations/CLIENT_LIFECYCLE.md`](../docs/operations/CLIENT_LIFECYCLE.md), [`docs/onboarding/README.md`](../docs/onboarding/README.md), [`docs/checklists/README.md`](../docs/checklists/README.md) |
+| [Экономика, цена, мощность и денежный резерв](chapters/15-finance.md) | [`commercial/PRICING.md`](../commercial/PRICING.md), [`commercial/BUSINESS_PLAN.md`](../commercial/BUSINESS_PLAN.md) |
+| [Маркетинг с нуля: клиент, проблема, рынок и предложение](chapters/16-market.md) | [`marketing/README.md`](../marketing/README.md), [`commercial/BUSINESS_PLAN.md`](../commercial/BUSINESS_PLAN.md), [`commercial/SALES_PLAYBOOK.md`](../commercial/SALES_PLAYBOOK.md) |
+| [Контент, каналы, реклама и план эксперимента](chapters/17-content.md) | [`commercial/ADS.md`](../commercial/ADS.md), [`frontend/src/content/landing.ru.json`](../frontend/src/content/landing.ru.json) |
+| [Продажи: от обращения до оплаты и передачи инженеру](chapters/18-sales.md) | [`commercial/SALES_FUNNEL.md`](../commercial/SALES_FUNNEL.md), [`commercial/PROPOSAL.md`](../commercial/PROPOSAL.md), [`docs/KAITEN_SETUP.md`](../docs/KAITEN_SETUP.md) |
+| [Аналитика: Метрика, CRM, конверсии и стоимость клиента](chapters/19-analytics.md) | [`commercial/SALES_FUNNEL.md`](../commercial/SALES_FUNNEL.md), [`frontend/src/utils/metrika.js`](../frontend/src/utils/metrika.js) |
+| [Договор, SLA, персональные данные и обещания](chapters/20-law.md) | [`contracts/MSP_SERVICE_AGREEMENT.md`](../contracts/MSP_SERVICE_AGREEMENT.md), [`frontend/public/docs/privacy.html`](../frontend/public/docs/privacy.html), [`frontend/public/docs/consent.html`](../frontend/public/docs/consent.html) |
+| [Передача работы, обучение и два сквозных экзамена](chapters/21-team-exam.md) | [`docs/training/BRONZE_EXAM.md`](../docs/training/BRONZE_EXAM.md), [`docs/training/wazuh/04_EXAM.md`](../docs/training/wazuh/04_EXAM.md), [`docs/audit/JUNIOR_READABILITY_REVIEW.md`](../docs/audit/JUNIOR_READABILITY_REVIEW.md) |

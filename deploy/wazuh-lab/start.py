@@ -6,14 +6,17 @@ from pathlib import Path
 import subprocess
 
 project = Path("/home/service/wazuh-lab/upstream/single-node")
+# Это bootstrap, а не обычный restart: ниже генератор может перевыпустить TLS.
 if not (project / "docker-compose.yml").is_file():
     raise SystemExit("Сначала prepare.py")
 setting = Path("/etc/sysctl.d/90-msp-wazuh-lab.conf")
+# vm.max_map_count — лимит отображений памяти Linux для indexer, не объём RAM.
 if setting.exists() and "Wazuh lab indexer requirement" not in setting.read_text():
     raise SystemExit("Чужая sysctl настройка: нужен review")
 setting.write_text("# Wazuh lab indexer requirement\nvm.max_map_count=262144\n")
 subprocess.run(["/sbin/sysctl", "-w", "vm.max_map_count=262144"], check=True)
 base = ["/home/service/wazuh-lab/tools/docker-compose", "-p", "msp-wazuh-lab"]
+# -p отделяет имена контейнеров/томов от других Compose-проектов на этой VM.
 subprocess.run(base + ["config", "--quiet"], cwd=project, check=True)
 subprocess.run(base + ["-f", "generate-indexer-certs.yml", "run", "--rm", "generator"], cwd=project, check=True)
 # bind dirs не заполняются образом автоматически, в отличие от обычного named volume.

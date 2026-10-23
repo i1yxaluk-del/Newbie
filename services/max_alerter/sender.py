@@ -31,12 +31,18 @@ ALERT_EMAIL_TO = os.environ.get("ALERT_EMAIL_TO", "").strip()
 MAX_FAILURE_COOLDOWN = int(os.environ.get("MAX_FAILURE_COOLDOWN", "300"))
 FAILED_LOG = Path(os.environ.get("FAILED_LOG", "/data/failed_alerts.log"))
 _client: Optional[object] = None
+# _client_lock не даёт двум запросам одновременно создать клиента в одном процессе.
+# Состояние сессии на диске сохраняет вход, _max_retry_after — только паузу в памяти.
 _client_lock = asyncio.Lock()
 _max_retry_after: Optional[datetime] = None
 
 
 async def get_client():
-    """Возвращает pymax Client только при наличии persisted session."""
+    """Создать/переиспользовать клиента только с сохранённой оператором сессией.
+
+    ready ждёт событие on_start максимум 30 секунд. Наличие файла — необходимая,
+    но не достаточная проверка: сессию мог отозвать поставщик. SMS здесь не запускается.
+    """
     global _client
     async with _client_lock:
         if _client is not None:
@@ -66,7 +72,7 @@ async def get_client():
 
 
 async def send_to_max(chat_id: int, text: str) -> bool:
-    """Отправляет в MAX; cooldown защищает от retry storm."""
+    """Отправить в MAX; после ошибки выдержать паузу, чтобы не засыпать API повторами."""
     global _max_retry_after
     try:
         now = datetime.now(timezone.utc)

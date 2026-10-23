@@ -1,0 +1,383 @@
+{
+  "format": 2,
+  "chapters": [
+    {
+      "file": "00-product.md",
+      "lesson_sha256": "6ab8c5ca9d21905ef041bcef14da200d41f2988917792685adcb7be262bc1b45",
+      "chapter_sha256": "da8bb31b6f72d8c470675e93217a826fc1df6cfd01cca7094970e3669b2d1daa",
+      "sources": [
+        {
+          "path": "commercial/PRICING.md",
+          "sha256": "b43031144af7a38ad51eafeb3fe9f2ad29c0f78ec2f04d033c7227e46d742ca0"
+        },
+        {
+          "path": "docs/operations/PILOT_OPERATING_MODEL.md",
+          "sha256": "f87e762adca7454e425c9c5a3ba78a7ac537ee535fd897557440eee677461b6b"
+        }
+      ]
+    },
+    {
+      "file": "01-system.md",
+      "lesson_sha256": "756a36408dc1e687ec40af915272cfa16cd61fbd3da4bcfd427b967573992943",
+      "chapter_sha256": "703ba79998256e68735b6d48841933b031db1ff950075c9b5e10cd0556d03917",
+      "sources": [
+        {
+          "path": "docs/deployment/SERVICE_MAP.md",
+          "sha256": "bb3acb71d2f7714532c2874abd4ad05dd4843e75f83402179eec9b77e99707cb"
+        },
+        {
+          "path": "docs/deployment/ROLLOUT_2026-10-15.md",
+          "sha256": "1411cdb3d456b48f9904034ed2e966374680d573ccd67b5c3def3c8f4d35fcd4"
+        }
+      ]
+    },
+    {
+      "file": "02-linux-network.md",
+      "lesson_sha256": "4cd6a8e4b8c3720764d55fc614555dd71fa2b3b89d969e05dfa2333168b60631",
+      "chapter_sha256": "e30848db41bc8c748cc01b3228dd151ea21d66ead1639d780b46132512c62ef0",
+      "sources": [
+        {
+          "path": "docs/training/JUNIOR_OPERATIONS_GUIDE.md",
+          "sha256": "5304125760bb42d3a8e16c7aa3a44ca4d41db1bc31843ecc491c8d21b41c82b6"
+        },
+        {
+          "path": "services/vm_watcher/README.md",
+          "sha256": "f9b622bfb51ad9cbeda87cbeba8c7a61928555b90835e071977303cc1ea0cadd"
+        }
+      ]
+    },
+    {
+      "file": "03-git-ci.md",
+      "lesson_sha256": "6e8bd628c8f33020b210ec42f6a6259384a7d5df84e667dc6ebd05cf10e2856d",
+      "chapter_sha256": "e92bad65315190e1f8fa329b8bfc03ee312e458687e2eb79d436a8226e9e2ff7",
+      "sources": [
+        {
+          "path": ".github/workflows/quality.yml",
+          "sha256": "0f593b4dd682766094f73e449fcf14d83bbd0fd816b62c3ff488b88e52abcec0"
+        },
+        {
+          "path": "development/README.md",
+          "sha256": "cc40c919dd17ac25503f59e41f5b818f5ed29229418630f239d859603de132b7"
+        }
+      ]
+    },
+    {
+      "file": "04-containers-cloud.md",
+      "lesson_sha256": "7e0f6d1df6b763a3327be34f6c16c861eaf73b7634501c538453f081a4e7573a",
+      "chapter_sha256": "50b02f713f15677c1ed9ddd0860c83317b0aef4ada9159eeff45a99227de10cf",
+      "sources": [
+        {
+          "path": "deploy/yandex/docker-compose.yml",
+          "sha256": "a3f1ba0314b9777565e95fbe51f1127f1d480891757094d18bdefa388af7e1f4"
+        },
+        {
+          "path": "docs/deployment/DEPLOY_RUNBOOK.md",
+          "sha256": "45aafebf5293836dfe6fe10fcdde23bfbe379baec6df0bc21fc2533535d27410"
+        }
+      ]
+    },
+    {
+      "file": "05-application.md",
+      "lesson_sha256": "392a53c49dd7b842a78c3fa78f9e57ed924556e61aa088bfea01685bcb0b30d7",
+      "chapter_sha256": "9818c464ede560e7dd2cd93e7e5c0129e67568c39a861d98ce491b4a4a13ad38",
+      "sources": [
+        {
+          "path": "backend/server.py",
+          "sha256": "47287a0cc958a7a999f1a6e3a34e21b79e7d9f879cba6061fa522b9fb28021e8"
+        },
+        {
+          "path": "backend/secure_server.py",
+          "sha256": "b252ec8355b15ded31bf28fe8d15ec3c7e10f7db86ed23ba94e04dd98d9fd250"
+        },
+        {
+          "path": "backend/integrations/kaiten.py",
+          "sha256": "4bf51ebf650bade8a747d080ba54395a613a841ca37f574317d0c492d3e682d3"
+        }
+      ]
+    },
+    {
+      "file": "06-landing.md",
+      "lesson_sha256": "d0b13a74c4bcc72b0130166ad3127e5482915215afe3fd1c7ef3dbb8b9f97eba",
+      "chapter_sha256": "a6ca7c2bbad397084c70fe4ce5c5535c901c8ff44350ab9a34072a05c88dc0ff",
+      "sources": [
+        {
+          "path": "frontend/package.json",
+          "sha256": "8bd61e9e55bfa58fe8db87da1ccecb0bc6f2ff267e090d3a20164b877a57fe4d"
+        },
+        {
+          "path": "frontend/src/content/useContent.js",
+          "sha256": "c4eb3280449a9940c4f30535821296bf410825c5133350b7ce79448da96c00c7"
+        },
+        {
+          "path": "scripts/deployment/publish_landing.py",
+          "sha256": "0ace308bf1d0d99819017c539781b7f03c90165f7392016dabaa92033703858c"
+        }
+      ]
+    },
+    {
+      "file": "07-monitoring.md",
+      "lesson_sha256": "5017731301d13da60d271224d68ab512c08518de93df9ceb6609f6dce3f50719",
+      "chapter_sha256": "3ab7cafefe42e123de522dbc80aac8ee29f8ee8c90dfce1f74da34c1ef638750",
+      "sources": [
+        {
+          "path": "docs/MAX_SETUP.md",
+          "sha256": "442ed4ffd37d7c21fa0fc78567783f31a3eb8bb930e67970620bd08dadadbe0a"
+        },
+        {
+          "path": "scripts/backup_calendar.py",
+          "sha256": "001a972345189248077c26ad4b979f5f43fa24280e16e54491cd6c9c5032c7fa"
+        },
+        {
+          "path": "services/matrix_alerter/alerter.py",
+          "sha256": "6c66d097f7c53453cf238c8388ac91853ea122654501fcae0b5f4d945bd95137"
+        }
+      ]
+    },
+    {
+      "file": "08-mail.md",
+      "lesson_sha256": "fcf1fa7a43440f82a5aa4e45231e143cc8ba989e5863621d2dd6d4746afd5b8f",
+      "chapter_sha256": "ccb6e141ea493c637850561e397e803b64b2e872b5ecb06e3392b5b0f0419751",
+      "sources": [
+        {
+          "path": "deploy/yandex/docker-compose.yml",
+          "sha256": "a3f1ba0314b9777565e95fbe51f1127f1d480891757094d18bdefa388af7e1f4"
+        },
+        {
+          "path": "deploy/yandex/STALWART_RELAY_MODE.md",
+          "sha256": "f8c28834675856d35e1ad0557c5c5ee7c89ae8f236a28a35d9c062fd0371fe22"
+        }
+      ]
+    },
+    {
+      "file": "09-access-chat.md",
+      "lesson_sha256": "354fdc349df79e70fbd62d345a28484aa33f7b0c3997687c15c2347c261b391f",
+      "chapter_sha256": "4903cc738b9f1841a6802eac49546f26b994eb1e83eb58480819c62bd67a5512",
+      "sources": [
+        {
+          "path": "deploy/mas/README.md",
+          "sha256": "0bcad9108cdac8455a5b0f39446b3e31c402a9f677854625d0413d8e693e07b6"
+        },
+        {
+          "path": "deploy/matrix-invite/app.py",
+          "sha256": "57e198764f4aa954b861de141d1587866cbdf86e729cb35302e6120b4dec1fe2"
+        },
+        {
+          "path": "docs/deployment/SERVICE_MAP.md",
+          "sha256": "bb3acb71d2f7714532c2874abd4ad05dd4843e75f83402179eec9b77e99707cb"
+        }
+      ]
+    },
+    {
+      "file": "10-backup.md",
+      "lesson_sha256": "cebb7964961bf99a7a840b6a1df53ea2cf27523a524ab46f0644aa54d9d61ccc",
+      "chapter_sha256": "e659dc5b78291a77746d9d9506cf36cba8236bc6c23b93eed579e94fed1b0267",
+      "sources": [
+        {
+          "path": "migration/README.md",
+          "sha256": "794de366d8e84a968ead520980e9517e6161153b36e894cd8b52eca32520840a"
+        },
+        {
+          "path": "migration/restic-backup.sh",
+          "sha256": "c181c056dda90985ddb89d4292e90432e9eb46357137b7ab23ddba4e0a659192"
+        },
+        {
+          "path": "technical/0_Common/scripts/dr_drill.sh",
+          "sha256": "e0e79b62982e8d91b32ca974fca2cf61672d31913f7bcd9ba0b0718f5e7bc74b"
+        }
+      ]
+    },
+    {
+      "file": "11-ansible.md",
+      "lesson_sha256": "51f1a905c1c0b44bed7a40bbc57da4d10a49c4fa27339c2833b743b44bfc831d",
+      "chapter_sha256": "792f9f9627e1e2de9028732500bf74e0ac5c7c9cfdb000d3f58360a150a55504",
+      "sources": [
+        {
+          "path": "docs/training/ansible/README.md",
+          "sha256": "cbfe6db6221e69f92757363ae567ad93f4118dfa7a4ba0c1a3465b2af0c6741f"
+        },
+        {
+          "path": "docs/training/ansible/03_PROJECT_CASES.md",
+          "sha256": "0d8ca1823df3119ad8d867c2956ee9d628b8dcb5c14621106bd79291a2a02726"
+        }
+      ]
+    },
+    {
+      "file": "12-wazuh.md",
+      "lesson_sha256": "2189a976a9c2a17202c061331ea5c244fb51186739470dbd8f3acd36052acab2",
+      "chapter_sha256": "00d28065bdc1600e0e1428e89a9551a5d5f932df10c808071238a4c2c6e38b3e",
+      "sources": [
+        {
+          "path": "docs/training/wazuh/README.md",
+          "sha256": "8a1590a6e69dd136ceebe2d049d0afa50d8774eda12544b99b1c7da01cc95fa8"
+        },
+        {
+          "path": "docs/training/wazuh/08_RF_BUSINESS_CASES.md",
+          "sha256": "2592a0548ef691960db0aa1fbe6cacc415f9a477344950e3afc488f4e46c5e2c"
+        },
+        {
+          "path": "deploy/wazuh-lab/business/dashboards.py",
+          "sha256": "4d8ff24a894157e07de73bda254831b38a288af8f42730f5d9738217e9ba6376"
+        }
+      ]
+    },
+    {
+      "file": "13-incident.md",
+      "lesson_sha256": "598b9e76c315d1ccaa4907e57247a6fa74bf78e0cf8d564176d36e750c5a2f80",
+      "chapter_sha256": "276c1171f715d0df97f402536890f485adeb63e2192fd42bf74d7d27af34d6cc",
+      "sources": [
+        {
+          "path": "docs/runbooks/README.md",
+          "sha256": "c4b1ce9c1b00076f3749f68f3d9fa04bc20dc0fdbd30bbf2c601322883876027"
+        },
+        {
+          "path": "docs/runbooks/R-01.md",
+          "sha256": "29ee03fa6260703baca15eeceec7f9ebfed87fe2f294a6c43e832487ecae6798"
+        },
+        {
+          "path": "docs/runbooks/R-03.md",
+          "sha256": "e3f04bd98d21cd8a3dedcb26b203c0b03e9403a9819934e7f4fc2d9c083be4a0"
+        }
+      ]
+    },
+    {
+      "file": "14-client.md",
+      "lesson_sha256": "f5673da4635d51a5cad718ced861fe6731cb4ba9a380e19652dc706695193421",
+      "chapter_sha256": "ff25d912ecdb3a62fa08c6891a1c44ee809dde58679e474ddd3fc8bbe377ff42",
+      "sources": [
+        {
+          "path": "docs/operations/CLIENT_LIFECYCLE.md",
+          "sha256": "35e679dad8693f546b93fe31e39247d2b27e82c17b4aa81a03c9043399588f84"
+        },
+        {
+          "path": "docs/onboarding/README.md",
+          "sha256": "58d1bda59f7597ea8c2f9dcde3b431773ea2775a54f0ef716ec7f4731dd3f4a7"
+        },
+        {
+          "path": "docs/checklists/README.md",
+          "sha256": "0ab97cf01454b6b71555e33bd096af9813fea92d45e5123c153e3c8df3464bb5"
+        }
+      ]
+    },
+    {
+      "file": "15-finance.md",
+      "lesson_sha256": "abd4d0e00a0116260c8c6419ebff87ebfcfc1ecfe53cb66bbf2eeb0f2aa4f2a7",
+      "chapter_sha256": "a97256c9023ee9f1487bf7ba3e525433f22d16929a66e2d51d62bc343bbd1004",
+      "sources": [
+        {
+          "path": "commercial/PRICING.md",
+          "sha256": "b43031144af7a38ad51eafeb3fe9f2ad29c0f78ec2f04d033c7227e46d742ca0"
+        },
+        {
+          "path": "commercial/BUSINESS_PLAN.md",
+          "sha256": "57f1f9cfe74c9c0ffd4eb04b51491cbefb8f2d7d09119e6e11a8c2792c13d41c"
+        }
+      ]
+    },
+    {
+      "file": "16-market.md",
+      "lesson_sha256": "104620010a8bdc0fe1d62cba396d98e1977cc46c8d50c741329b9dd1b3129bf9",
+      "chapter_sha256": "09b7622909942d7639a8f50449525886ce9fd1b1810c658fe01daad47965b837",
+      "sources": [
+        {
+          "path": "marketing/README.md",
+          "sha256": "b22a082576302c8089e603e8de2da3b37a0b839b08527c82514f3acff00a442f"
+        },
+        {
+          "path": "commercial/BUSINESS_PLAN.md",
+          "sha256": "57f1f9cfe74c9c0ffd4eb04b51491cbefb8f2d7d09119e6e11a8c2792c13d41c"
+        },
+        {
+          "path": "commercial/SALES_PLAYBOOK.md",
+          "sha256": "3e96ee51a52d904410ff25e76620b87b5c21b055f6367aa43ecd5e0231665cf4"
+        }
+      ]
+    },
+    {
+      "file": "17-content.md",
+      "lesson_sha256": "cd5264a0a0ce9155b1daa9c3d3a273ef15d6f1878f42d957c3c4c1287035ea0d",
+      "chapter_sha256": "9cf87d1b7dd60a747563072ad9978c1022606e5d6cf6331a53c7e7d8bf020b34",
+      "sources": [
+        {
+          "path": "commercial/ADS.md",
+          "sha256": "e14743fcc7f5cf6e27f4eb1b99b6ced7b3281755e14ec8b95e3841a96eb56d61"
+        },
+        {
+          "path": "frontend/src/content/landing.ru.json",
+          "sha256": "d414341c9a5be22876702c29d37b6eafd13926dcd656f0d4295fd57c8644e019"
+        }
+      ]
+    },
+    {
+      "file": "18-sales.md",
+      "lesson_sha256": "f4b5e179f1fd68c56e69d867593f04e5b84ef016f49c37cfac4e4761f4665398",
+      "chapter_sha256": "25f43e3851f3e4b5222666c7580f28cc356ccb0cfd1770f31d957840608cdc78",
+      "sources": [
+        {
+          "path": "commercial/SALES_FUNNEL.md",
+          "sha256": "34dc324967fa603f7c8ff3de5be35dc42445b4b5e82e8acf98d0fd4152f6b58a"
+        },
+        {
+          "path": "commercial/PROPOSAL.md",
+          "sha256": "a474790f71acf337a8ffa47732b65783c82f22160b624266e5a5dd572b4705b3"
+        },
+        {
+          "path": "docs/KAITEN_SETUP.md",
+          "sha256": "eae19d3a18ab177df46d439417df01ae3fd5f2d16888b3e6c4f8ee5d91e61b17"
+        }
+      ]
+    },
+    {
+      "file": "19-analytics.md",
+      "lesson_sha256": "06678a49e6105f35364c7bc7ec1a1337a412a52e60ca40e63f25c6263fbff815",
+      "chapter_sha256": "f4f98f7f62448a8a1466cdb37918152192a64800487ac1ae2f627803091638d1",
+      "sources": [
+        {
+          "path": "commercial/SALES_FUNNEL.md",
+          "sha256": "34dc324967fa603f7c8ff3de5be35dc42445b4b5e82e8acf98d0fd4152f6b58a"
+        },
+        {
+          "path": "frontend/src/utils/metrika.js",
+          "sha256": "95ec0dfa0cde5d055f82ba382cdc23733f07460ca0fdce9e0bb1f85bd64f367d"
+        }
+      ]
+    },
+    {
+      "file": "20-law.md",
+      "lesson_sha256": "eeaefaf0e2ecf17266a37b714c76d26c5564b6fb4732557ca497058561fac3ed",
+      "chapter_sha256": "01d0a1af25d49d31f45d302fe10f931d9782136c8b73cc2ea517764cb8686acc",
+      "sources": [
+        {
+          "path": "contracts/MSP_SERVICE_AGREEMENT.md",
+          "sha256": "ed0901c04497ac848b341c8bb782cbddf7bb20fa7e44030e8e66a35c0f3d9a74"
+        },
+        {
+          "path": "frontend/public/docs/privacy.html",
+          "sha256": "5b9229696f5ed67556eb456a4cd37e16e5b8ba302c1181e58d53e2c4fcc5544a"
+        },
+        {
+          "path": "frontend/public/docs/consent.html",
+          "sha256": "8a0b933a5f924389cf02bba5c7a0e0e8fbf80b6aa8f2e16ac5bda7c079809428"
+        }
+      ]
+    },
+    {
+      "file": "21-team-exam.md",
+      "lesson_sha256": "6a6201a25db3114839bd9d2ec999d1829627c00dec16a219a90fd6238ab2413c",
+      "chapter_sha256": "391106afaf6f9b02072b352251ee7dec383d0afebdc8cdcf87a126c4c30cb5a2",
+      "sources": [
+        {
+          "path": "docs/training/BRONZE_EXAM.md",
+          "sha256": "c219480a0e310a191c6f1b55657b73828a1ca68129881df4010877b1dfd64f1b"
+        },
+        {
+          "path": "docs/training/wazuh/04_EXAM.md",
+          "sha256": "e449ae6a354bc4ac49a9274b8b00946db18ecb7e468dbe60ea6dea0b543853f8"
+        },
+        {
+          "path": "docs/audit/JUNIOR_READABILITY_REVIEW.md",
+          "sha256": "364142e551835054741a35dbe9fd423dc99f65d572f7fdf5a8cd507f3c5bec46"
+        }
+      ]
+    }
+  ]
+}

@@ -19,6 +19,11 @@ import yaml
 
 
 def main():
+    """Создать новый стенд: входы → upstream → секреты → тома → конфигурация → manifest.
+
+    Ничего не запускает. При ошибке возможен частично созданный каталог: не удалять
+    его автоматически; наставник проверяет состояние перед повторной подготовкой.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--host-ip", required=True)
     parser.add_argument("--root", default="/home/service/wazuh-lab")
@@ -37,6 +42,8 @@ def main():
     project = upstream / "single-node"
     config = yaml.safe_load((project / "docker-compose.yml").read_text())
     passwords = {key: "LabA1!" + secrets.token_urlsafe(24) for key in ["admin", "kibanaserver", "api"]}
+    # Три разных назначения: вход оператора, связь dashboard→indexer, dashboard→API.
+    # bcrypt-хэш идёт в базу indexer, исходные значения нужны контейнерам для входа.
     # Только нужные пользователи indexer, без известных demo passwords.
     users = {"_meta": {"type": "internalusers", "config_version": 2}}
     for user in ["admin", "kibanaserver"]:
@@ -71,6 +78,8 @@ def main():
     # Ограничить FIM учебным каталогом; host paths/socket внутрь manager не передаются.
     manager_path = project / "config/wazuh_cluster/wazuh_manager.conf"
     tree = ET.fromstring("<root>" + manager_path.read_text() + "</root>")
+    # Upstream содержит несколько ossec_config: временный root нужен XML-парсеру,
+    # но в итоговый файл он не записывается, иначе Wazuh не примет структуру.
     main_config = tree.find("ossec_config")
     for auth in main_config.findall("auth"):
         auth.find("disabled").text = "yes"  # enrollment порт не открыт

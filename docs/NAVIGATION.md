@@ -85,6 +85,8 @@ Prometheus → Alertmanager → msp-max-alerter:9095/alert
 
 - [Программа Junior](training/README.md)
 - [Курс Wazuh: основы, практика, расширение и экзамен](training/wazuh/README.md)
+- [Курс Ansible: теория и безопасная практика](training/ansible/README.md)
+- [Как читать функции, переменные и конфигурации](development/CODE_READING.md)
 - [Практический Bronze exam](training/BRONZE_EXAM.md)
 - [Как работать с production](training/JUNIOR_OPERATIONS_GUIDE.md)
 - [Deployment/migration labs](training/DEPLOYMENT_MIGRATION_LABS.md)

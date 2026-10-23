@@ -1,4 +1,7 @@
 ---
+# Альтернативный host/systemd backup: путь /etc/restic/env отличается от production
+# migration/restic-backup.sh (/etc/restic/env.sh). Не смешивать эти установки.
+# Задачи ниже включают timer до init; до реального запуска нужен review порядка.
 - name: guard — restic secrets required
   ansible.builtin.assert:
     that:
@@ -89,6 +92,8 @@
     state: started
 
 - name: restic init (idempotent — init возвращает non-zero если уже init'ан)
+  # snapshots может отказать из-за сети/ключа. Ветка || init не доказывает,
+  # что репозиторий отсутствует; не использовать её как восстановление после сбоя.
   ansible.builtin.shell: |
     set -o allexport; source /etc/restic/env; set +o allexport
     restic snapshots >/dev/null 2>&1 || restic init

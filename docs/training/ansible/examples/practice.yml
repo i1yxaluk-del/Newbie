@@ -1,0 +1,58 @@
+---
+# Учебная песочница: только три принадлежащих пользователю файла под /tmp.
+# Режим absent убирает только эти файлы/пустой каталог, не выполняет рекурсивное rm.
+- name: Понять состояние файла и повторяемость задач
+  hosts: training
+  gather_facts: false
+  become: false
+  vars:
+    training_dir: /tmp/mspshield-ansible-junior
+    training_state: present
+    training_message: Учебная конфигурация, не production
+  tasks:
+    - name: Проверить допустимые входные данные до изменений
+      ansible.builtin.assert:
+        that:
+          - training_dir == '/tmp/mspshield-ansible-junior'
+          - training_state in ['present', 'absent']
+        fail_msg: Разрешён только выделенный учебный каталог и известный режим
+
+    - name: Создать отдельный каталог упражнения
+      ansible.builtin.file:
+        path: "{{ training_dir }}"
+        state: directory
+        mode: '0700'
+      when: training_state == 'present'
+
+    - name: Описать точное желаемое содержимое без секретов
+      ansible.builtin.copy:
+        dest: "{{ training_dir }}/settings.txt"
+        content: "{{ training_message }}\n"
+        mode: '0600'
+      when: training_state == 'present'
+
+    - name: Проверить метаданные созданного файла
+      ansible.builtin.stat:
+        path: "{{ training_dir }}/settings.txt"
+      register: training_file
+      when: training_state == 'present'
+
+    - name: Проверить результат реального применения
+      ansible.builtin.assert:
+        that:
+          - training_file.stat.exists
+          - training_file.stat.mode == '0600'
+      # В --check файл может ещё не существовать: не выдаём прогноз за применение.
+      when: training_state == 'present' and not ansible_check_mode
+
+    - name: Убрать только известный файл упражнения
+      ansible.builtin.file:
+        path: "{{ training_dir }}/settings.txt"
+        state: absent
+      when: training_state == 'absent'
+
+    - name: Удалить пустой каталог без рекурсивного удаления чужих файлов
+      ansible.builtin.command:
+        argv: [rmdir, "{{ training_dir }}"]
+        removes: "{{ training_dir }}"
+      when: training_state == 'absent'

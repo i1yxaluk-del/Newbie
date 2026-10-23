@@ -11,6 +11,7 @@
 | `kaiten_bootstrap.py` | начальная настройка Kaiten |
 | `max_setup_webhook.py` | настройка webhook, не авторизация userbot |
 | [`backup_calendar.py`](backup_calendar.py) | реальные наблюдения backup → textfile → календарь внутри существующего Backups |
+| [`audit_junior_readability.py`](audit_junior_readability.py) | реестр пояснений в исходниках; численные признаки для ручного разбора, не автоматический допуск |
 | [`deployment/publish_landing.py`](deployment/publish_landing.py) | публикация готовой сборки со старой версией для rollback |
 | [`deployment/integrate_backup_calendar.py`](deployment/integrate_backup_calendar.py) | точечная замена панели live Backups с backup JSON |
 | [`deployment/verify_calendar.py`](deployment/verify_calendar.py) | проверка Grafana provisioning и серий без вывода credentials |

@@ -52,6 +52,8 @@ sudo /home/service/wazuh-lab/tools/docker-compose -p msp-wazuh-lab start
 
 ## Учебная программа
 
+Прикладной комплект: [`business/`](business/README.md) — клиентские шаблоны, 8 сигналов, контрольные события, три панели и сквозная проверка штатных SSH/FIM. [Бизнес-задачи РФ](../../docs/training/wazuh/08_RF_BUSINESS_CASES.md).
+
 | Уровень | Модули/данные | Практика и критерий |
 |---|---|---|
 | Базовый | JSON decoder, custom rules 100100–100103, manager→Filebeat→indexer→dashboard | Найти `rule.groups:msp_lab`, разобрать baseline/backup_failed/access_review/policy_drift, показать raw event и правило, объяснить synthetic label |

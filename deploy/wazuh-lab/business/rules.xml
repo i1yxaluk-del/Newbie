@@ -1,0 +1,68 @@
+<!-- Учебные нормализованные события: не поставляемые правила 1С/Kaspersky.
+     msp.schema ограничивает формат, synthetic — явная метка теста.
+     Поля tenant/asset/approved задаются доверенным преобразователем, не пользователем.
+     ID 100200–100208 зарезервированы только для этого комплекта. -->
+<group name="msp_business,msp_business_lab,">
+  <rule id="100200" level="3">
+    <decoded_as>json</decoded_as>
+    <field name="msp.schema">^msp-client-v1$</field>
+    <field name="msp.synthetic">^true$</field>
+    <description>УЧЕБНОЕ событие клиента $(msp.tenant): $(msp.event)</description>
+  </rule>
+  <rule id="100201" level="10">
+    <if_sid>100200</if_sid>
+    <field name="msp.event">^backup_job$</field>
+    <field name="msp.status">^failed$</field>
+    <description>УЧЕБНОЕ: ошибка копирования $(msp.asset), клиент $(msp.tenant)</description>
+    <group>msp_backup,</group>
+  </rule>
+  <rule id="100202" level="12">
+    <if_sid>100200</if_sid>
+    <field name="msp.event">^restore_check$</field>
+    <field name="msp.status">^failed$</field>
+    <description>УЧЕБНОЕ: проверка восстановления $(msp.asset) не пройдена</description>
+    <group>msp_restore,</group>
+  </rule>
+  <rule id="100203" level="10">
+    <if_sid>100200</if_sid>
+    <field name="msp.event">^privilege_change$</field>
+    <field name="msp.approved">^false$</field>
+    <description>УЧЕБНОЕ: изменение привилегий без согласования на $(msp.asset)</description>
+    <group>msp_access,</group>
+  </rule>
+  <rule id="100204" level="8">
+    <if_sid>100200</if_sid>
+    <field name="msp.event">^config_change$</field>
+    <field name="msp.approved">^false$</field>
+    <description>УЧЕБНОЕ: несогласованное изменение конфигурации $(msp.asset)</description>
+    <group>msp_change,</group>
+  </rule>
+  <rule id="100205" level="10">
+    <if_sid>100200</if_sid>
+    <field name="msp.event">^endpoint_protection$</field>
+    <field name="msp.status">^disabled$</field>
+    <description>УЧЕБНОЕ: защита конечного узла $(msp.asset) выключена</description>
+    <group>msp_endpoint,</group>
+  </rule>
+  <rule id="100206" level="9">
+    <if_sid>100200</if_sid>
+    <field name="msp.event">^application_export$</field>
+    <field name="msp.approved">^false$</field>
+    <description>УЧЕБНОЕ: экспорт прикладных данных без согласования, $(msp.asset)</description>
+    <group>msp_application,</group>
+  </rule>
+  <rule id="100207" level="8">
+    <if_sid>100200</if_sid>
+    <field name="msp.event">^collection_health$</field>
+    <field name="msp.status">^stale$</field>
+    <description>УЧЕБНОЕ: независимая проверка обнаружила устаревание сбора $(msp.asset)</description>
+    <group>msp_coverage,</group>
+  </rule>
+  <rule id="100208" level="10">
+    <if_sid>100200</if_sid>
+    <field name="msp.event">^application_service$</field>
+    <field name="msp.status">^unavailable$</field>
+    <description>УЧЕБНОЕ: проверка доступности приложения $(msp.asset) не пройдена</description>
+    <group>msp_availability,</group>
+  </rule>
+</group>
